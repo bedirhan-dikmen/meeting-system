@@ -1,0 +1,19 @@
+# Python sanal ortamı
+venv/
+.venv/
+env/
+
+# Derleme ve önbellek dosyaları
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Hassas ayar dosyaları (Asla repoya gitmemeli!)
+.env
+
+# Editör ve sistem dosyaları
+.vscode/
+.idea/
+.DS_Store
