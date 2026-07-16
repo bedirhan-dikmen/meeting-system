@@ -1,36 +1,59 @@
-# seed.py
+import sys
+from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
+# KRİTİK DEĞİŞİKLİK: Modelleri tek tek alt dosyalardan değil, 
+# merkezi indeksleyicimiz (init) üzerinden tek seferde çekiyoruz ki ilişkiler RAM'de bağlansın!
+from app.models import User, Department 
 from app.core.security import get_password_hash
-from app.models.user import User
 
-def seed_db():
-    db = SessionLocal()
+def seed_database():
+    db: Session = SessionLocal()
     try:
-        # Veritabanında bu e-posta ile kayıtlı bir kullanıcı var mı kontrol et
-        existing_user = db.query(User).filter(User.email == "admin@yebsoft.net").first()
-        if not existing_user:
+        print("🌱 Veritabanı doldurma işlemi (seeding) başlatıldı...")
+        
+        # 1. Önce "Yönetim" departmanını kontrol et veya oluştur
+        dept = db.query(Department).filter(Department.name == "Yönetim").first()
+        if not dept:
+            dept = Department(
+                name="Yönetim",
+                description="Yebsoft Genel Yönetim ve Sistem Yönetici Kadrosu"
+            )
+            db.add(dept)
+            db.commit()
+            db.refresh(dept)
+            print(f"✅ 'Yönetim' departmanı başarıyla eklendi. (Yeni ID: {dept.id})")
+        else:
+            print(f"ℹ️ 'Yönetim' departmanı zaten mevcut. (ID: {dept.id})")
+        
+        # 2. İlk Admin kullanıcısını kontrol et veya oluştur
+        admin_email = "admin@yebsoft.net"
+        admin_user = db.query(User).filter(User.email == admin_email).first()
+        
+        if not admin_user:
+            hashed_pwd = get_password_hash("YEBsoft2026!")
+            
             admin_user = User(
-                email="admin@yebsoft.net",
-                password_hash=get_password_hash("Admin123!"),  # Şifreyi bcrypt ile hash'liyoruz
                 first_name="Yebsoft",
                 last_name="Yönetici",
+                email=admin_email,
+                user_code="YEB001",
+                password_hash=hashed_pwd, 
                 role="admin",
                 is_active=True,
-                user_code="YEB001"
+                department_id=dept.id  # Tamsayı bazlı departman kimliği bağlanıyor
             )
             db.add(admin_user)
             db.commit()
-            print("\n==================================================================")
-            print(" BAŞARILI: Başlangıç admin kullanıcısı veritabanına yazıldı!")
-            print(" E-posta: admin@yebsoft.net")
-            print(" Şifre  : Admin123!")
-            print("==================================================================\n")
+            print(f"🎉 İlk sistem yöneticisi başarıyla veritabanına eklendi: {admin_email} / YEBsoft2026!")
         else:
-            print("\n[!] Bilgi: Admin kullanıcısı veritabanında zaten mevcut.\n")
+            print("ℹ️ Sistem yöneticisi zaten mevcut, ekleme adımı atlandı.")
+            
     except Exception as e:
-        print(f"\n[X] Hata Oluştu: {e}\n")
+        db.rollback()
+        print(f"❌ Seed işlemi sırasında beklenmeyen bir hata alındı: {e}")
+        sys.exit(1)
     finally:
         db.close()
 
 if __name__ == "__main__":
-    seed_db()
+    seed_database()

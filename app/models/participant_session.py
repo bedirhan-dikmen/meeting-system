@@ -1,19 +1,20 @@
-# app/models/participant_session.py
-from sqlalchemy import Column, Integer, ForeignKey, DateTime, func
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, DateTime, ForeignKey, Integer
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 class ParticipantSession(Base):
     __tablename__ = "participant_sessions"
 
-    id = Column(Integer, primary_key=True, index=True)
-    meeting_id = Column(Integer, ForeignKey("meetings.id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    
-    joined_at = Column(DateTime, default=func.now(), nullable=False)  # Odaya giriş anı [cite: 708]
-    left_at = Column(DateTime, nullable=True)                         # Odadan çıkış anı [cite: 708]
-    duration_seconds = Column(Integer, default=0, nullable=False)     # Oturum süresi [cite: 708]
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    meeting_id = Column(UUID(as_uuid=True), ForeignKey("meetings.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    left_at = Column(DateTime, nullable=True)
+    duration_seconds = Column(Integer, default=0, nullable=False)
 
-    # İlişkiler (String tabanlı referans ile dairesel importların önüne geçiliyor)
+    # İlişkiler
     meeting = relationship("Meeting", back_populates="sessions")
     user = relationship("User", back_populates="sessions")
