@@ -2,7 +2,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta
-from typing import Any, Union
+from typing import Any, Optional, Union
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from app.core.config import settings
@@ -20,7 +20,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return bcrypt.checkpw(password_bytes, hashed_bytes)
     except Exception:
         return False
-    
+
 def get_password_hash(password: str) -> str:
     """Yeni şifreleri hash'leyerek DB'ye kaydetmeye hazır hale getirir."""
     password_bytes = password.encode('utf-8')
@@ -29,7 +29,7 @@ def get_password_hash(password: str) -> str:
     hashed_bytes = bcrypt.hashpw(password_bytes, salt)
     return hashed_bytes.decode('utf-8')
 
-def create_access_token(subject: Union[str, Any], role: str, expires_delta: timedelta = None) -> str:
+def create_access_token(subject: Union[str, Any], role: str, expires_delta: Optional[timedelta] = None) -> str:
     """
     Kullanıcıya özel JWT Access Token üretir.
     Token içerisine kullanıcının ID'sini (sub) ve rolünü (role) gömeriz.
@@ -61,15 +61,15 @@ def get_current_user_claims(token: str = Depends(oauth2_scheme)) -> dict:
     )
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id: str = payload.get("sub")
-        role: str = payload.get("role")
+        user_id:Optional[str] = payload.get("sub")
+        role: Optional[str] = payload.get("role")
         if user_id is None or role is None:
             raise credentials_exception
         return {"user_id": user_id, "role": role}
     except JWTError:
         raise credentials_exception
 
-def verify_admin_role(claims: dict = Depends(get_current_user_claims)):
+def get_current_admin_user(claims: dict = Depends(get_current_user_claims)):
     """Sadece yönetici (admin) rolündeki isteklerin geçmesine izin verir."""
     if claims.get("role") != "admin":
         raise HTTPException(

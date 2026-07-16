@@ -1,7 +1,7 @@
 # seed.py
 from app.core.database import SessionLocal
 from app.core.security import get_password_hash
-from app.models.all_models import User
+from app.models import User
 
 def seed_db():
     db = SessionLocal()

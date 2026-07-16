@@ -1,5 +1,5 @@
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Python'un çıktıları tamponlamadan doğrudan konsola yazdırmasını sağlıyoruz (Loglama için kritik)
 ENV PYTHONUNBUFFERED=1
