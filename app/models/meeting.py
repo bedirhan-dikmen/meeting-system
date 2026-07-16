@@ -17,10 +17,9 @@ class Meeting(Base):
     actual_end = Column(DateTime, nullable=True)
     meeting_code = Column(String, unique=True, index=True, nullable=False)  # WebRTC / Oda erişim kodu
     is_active = Column(Boolean, default=True, nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    # Yabancı Anahtar
+    # Yabancı Anahtar (Yalnızca bir kez tanımlandı)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     # İlişkiler
