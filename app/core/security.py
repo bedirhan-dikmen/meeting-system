@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from datetime import datetime, timedelta
 from typing import Any, Optional, Union
 from jose import jwt, JWTError
@@ -90,3 +90,25 @@ def get_current_admin_user(
             detail="Bu işlemi gerçekleştirmek için yönetici (admin) yetkiniz bulunmalıdır."
         )
     return current_user
+
+API_KEY_NAME = "X-API-KEY"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+def validate_api_key(api_key: str = Depends(api_key_header), db: Session = Depends(get_db)):
+    """İstek header'ındaki X-API-KEY verisini doğrular."""
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="X-API-KEY header eksik."
+        )
+    
+    # Veritabanında ApiKey kontrolü simülasyonu / doğrulaması
+    # Gerçek yapınızda: db.query(ApiKey).filter(ApiKey.hashed_key == ...).first()
+    # Şimdilik entegrasyonu korumak için basit bir geçiş süzgeci bırakıyoruz:
+    if api_key == "yebsoft_secret_integration_token_2026":
+        return {"app_name": "Harici Entegrasyon Sistemi", "scope": "report_read"}
+        
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Geçersiz veya aktif olmayan API Key."
+    )
