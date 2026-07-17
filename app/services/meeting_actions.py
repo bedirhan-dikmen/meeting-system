@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 from datetime import datetime
 from typing import List, Optional
-from app.models.meeting_action import MeetingAction  # Model isminizin doğruluğundan emin olun
+from app.models.meeting_action import MeetingAction
+from app.services.notifications import create_notification  # Bildirim servisini import edildi
 
 def create_action(db: Session, action_data: any, creator_id: UUID) -> MeetingAction:
     """Toplantıda alınan yeni bir aksiyon kararını kaydeder."""
@@ -20,6 +21,15 @@ def create_action(db: Session, action_data: any, creator_id: UUID) -> MeetingAct
     db.add(db_action)
     db.commit()
     db.refresh(db_action)
+    # EĞER GÖREV BİRİNE ATANDIYSA O KULLANICIYA OTOMATİK BİLDİRİM GÖNDER!
+    if db_action.assigned_to:
+        create_notification(
+            db=db,
+            user_id=db_action.assigned_to,
+            title="Yeni Bir Görev Atandı!",
+            message=f"'{db_action.title}' başlıklı görev size atandı. Son teslim tarihi: {db_action.due_date or 'Belirtilmedi'}."
+        )
+    
     return db_action
 
 def get_meeting_actions(db: Session, meeting_id: UUID) -> List[MeetingAction]:

@@ -28,7 +28,7 @@ def close_session(db: Session, session_id: UUID) -> Optional[ParticipantSession]
     # Süre hesaplama (Dakika bazında)
     if db_session.joined_at:
         duration = db_session.left_at - db_session.joined_at
-        db_session.duration_minutes = round(duration.total_seconds() / 60.0, 2)
+        db_session.duration_seconds = int(duration.total_seconds())
         
     db.commit()
     db.refresh(db_session)
