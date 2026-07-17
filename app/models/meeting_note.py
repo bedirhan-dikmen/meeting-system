@@ -17,3 +17,4 @@ class MeetingNote(Base):
 
     # İlişkiler
     meeting = relationship("Meeting", back_populates="notes")
+    author = relationship("User", foreign_keys=[author_id])
