@@ -1,0 +1,119 @@
+/* ===== TOPLANTI ODASI ===== */
+.room-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #0f0f1a;
+    color: #e0e0e0;
+    overflow: hidden;
+}
+
+/* ===== HEADER ===== */
+.room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px;
+    background: #1a1a2e;
+    border-bottom: 1px solid #2a2a3e;
+    flex-shrink: 0;
+}
+
+/* ===== VIDEO ALANI ===== */
+.room-video-area {
+    flex: 1;
+    padding: 20px;
+    overflow: auto;
+    background: radial-gradient(ellipse at center, #1a1a2e, #0f0f1a);
+}
+
+.video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    height: 100%;
+    align-content: center;
+}
+
+.video-placeholder {
+    background: #1a1a2e;
+    border-radius: 16px;
+    border: 2px dashed #2a2a3e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    padding: 40px;
+}
+
+.video-placeholder .display-1 {
+    font-size: 64px;
+}
+
+/* ===== KONTROLLER ===== */
+.room-controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px 24px;
+    background: #1a1a2e;
+    border-top: 1px solid #2a2a3e;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.control-btn {
+    padding: 10px 24px;
+    border-radius: 12px;
+    border: none;
+    background: #2a2a3e;
+    color: #e0e0e0;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.control-btn:hover {
+    background: #3a3a5e;
+    transform: translateY(-2px);
+}
+
+.control-btn.btn-danger {
+    background: #e74c3c;
+}
+
+.control-btn.btn-danger:hover {
+    background: #c0392b;
+}
+
+.control-btn.active {
+    background: #6c5ce7;
+    color: #fff;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+    .room-header {
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px 16px;
+    }
+    
+    .room-video-area {
+        padding: 12px;
+    }
+    
+    .video-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .room-controls {
+        gap: 8px;
+        padding: 12px 16px;
+    }
+    
+    .control-btn {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+}

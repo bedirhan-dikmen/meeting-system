@@ -1,3 +1,4 @@
+# schemas/meetings.py
 from pydantic import BaseModel, Field
 from datetime import datetime
 from uuid import UUID

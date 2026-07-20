@@ -1,0 +1,452 @@
+/* ===== GENEL ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #0f0f1a;
+    color: #e0e0e0;
+    overflow-x: hidden;
+}
+
+/* ===== SIDEBAR ===== */
+.teams-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 72px;
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 0 16px;
+    z-index: 1000;
+    box-shadow: 2px 0 20px rgba(0,0,0,0.4);
+    border-right: 1px solid #2a2a3e;
+}
+
+.sidebar-logo {
+    font-size: 28px;
+    font-weight: 700;
+    color: #6c5ce7;
+    margin-bottom: 32px;
+    text-decoration: none;
+}
+
+.sidebar-icon-btn {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 20px;
+    margin-bottom: 8px;
+    position: relative;
+    background: transparent;
+    border: none;
+}
+
+.sidebar-icon-btn:hover {
+    background: rgba(108, 92, 231, 0.1);
+    color: #fff;
+    transform: scale(1.05);
+}
+
+.sidebar-icon-btn.active {
+    background: #6c5ce7;
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+}
+
+.sidebar-icon-btn .badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #e74c3c;
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 50%;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-divider {
+    width: 32px;
+    height: 1px;
+    background: #2a2a3e;
+    margin: 12px 0;
+}
+
+/* ===== MAIN CONTENT ===== */
+.teams-main-content {
+    margin-left: 72px;
+    padding: 32px 40px;
+    min-height: 100vh;
+    background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 100%);
+}
+
+/* ===== HEADER ===== */
+.header-area {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #2a2a3e;
+}
+
+.header-area h4 {
+    font-weight: 600;
+    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+    font-size: 24px;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.user-info {
+    color: #888;
+    font-size: 14px;
+    padding: 6px 16px;
+    background: #1a1a2e;
+    border-radius: 20px;
+    border: 1px solid #2a2a3e;
+}
+
+/* ===== CARDS ===== */
+.teams-card {
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 16px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.teams-card:hover {
+    border-color: #3a3a5e;
+    box-shadow: 0 8px 40px rgba(108, 92, 231, 0.05);
+}
+
+.card-title {
+    color: #888;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    font-weight: 600;
+}
+
+/* ===== FORM ELEMANLARI ===== */
+.form-control, .form-select {
+    background: #0f0f1a !important;
+    border: 1px solid #2a2a3e !important;
+    color: #e0e0e0 !important;
+    border-radius: 10px !important;
+    padding: 10px 14px !important;
+    font-size: 14px !important;
+    transition: all 0.3s ease !important;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #6c5ce7 !important;
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15) !important;
+    outline: none !important;
+}
+
+.form-control::placeholder {
+    color: #555 !important;
+}
+
+.form-label {
+    color: #888;
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+/* ===== BUTONLAR ===== */
+.btn-purple {
+    background: linear-gradient(135deg, #6c5ce7, #5a4bd1);
+    color: #fff;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-purple:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(108, 92, 231, 0.35);
+    color: #fff;
+}
+
+.btn-purple:active {
+    transform: translateY(0);
+}
+
+.btn-purple:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.btn-outline-purple {
+    background: transparent;
+    color: #6c5ce7;
+    border: 1px solid #6c5ce7;
+    padding: 8px 20px;
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-purple:hover {
+    background: #6c5ce7;
+    color: #fff;
+}
+
+.btn-success-custom {
+    background: linear-gradient(135deg, #00b894, #00a381);
+    color: #fff;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-success-custom:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(0, 184, 148, 0.3);
+    color: #fff;
+}
+
+.btn-outline-light-custom {
+    background: transparent;
+    color: #888;
+    border: 1px solid #2a2a3e;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-light-custom:hover {
+    background: #2a2a3e;
+    color: #fff;
+}
+
+/* ===== TABLO ===== */
+.table-container {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.table-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: #0f0f1a;
+    border-radius: 10px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: #2a2a3e;
+    border-radius: 10px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: #3a3a5e;
+}
+
+.teams-table {
+    color: #e0e0e0 !important;
+    margin-bottom: 0;
+    font-size: 14px;
+}
+
+.teams-table thead th {
+    border-bottom: 2px solid #2a2a3e;
+    color: #888;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 12px 8px;
+    position: sticky;
+    top: 0;
+    background: #1a1a2e;
+    z-index: 10;
+}
+
+.teams-table tbody td {
+    border-bottom: 1px solid #1a1a2e;
+    padding: 12px 8px;
+    vertical-align: middle;
+}
+
+.teams-table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.teams-table tbody tr:hover {
+    background: rgba(108, 92, 231, 0.03);
+}
+
+/* ===== BADGE & CODE ===== */
+.code-badge {
+    background: #0f0f1a;
+    color: #a29bfe;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid #2a2a3e;
+    display: inline-block;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.status-badge.active {
+    background: rgba(0, 184, 148, 0.15);
+    color: #00b894;
+}
+
+.status-badge.passive {
+    background: rgba(255, 255, 255, 0.05);
+    color: #888;
+}
+
+/* ===== EMPTY STATE ===== */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.empty-state .icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.empty-state h6 {
+    color: #888;
+    margin-bottom: 8px;
+}
+
+.empty-state p {
+    color: #555;
+    font-size: 14px;
+}
+
+/* ===== TOAST ===== */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+}
+
+.custom-toast {
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    min-width: 320px;
+}
+
+.custom-toast .toast-header {
+    background: transparent;
+    border-bottom: 1px solid #2a2a3e;
+    color: #e0e0e0;
+}
+
+.custom-toast .toast-body {
+    color: #e0e0e0;
+    padding: 12px 16px;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 992px) {
+    .teams-main-content {
+        padding: 20px;
+    }
+    
+    .header-area h4 {
+        font-size: 20px;
+    }
+}
+
+@media (max-width: 768px) {
+    .teams-sidebar {
+        width: 56px;
+        padding: 16px 0;
+    }
+    
+    .teams-main-content {
+        margin-left: 56px;
+        padding: 16px;
+    }
+    
+    .sidebar-icon-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
+    }
+    
+    .header-area {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+
+@media (max-width: 576px) {
+    .teams-main-content {
+        padding: 12px;
+    }
+    
+    .teams-card {
+        padding: 16px !important;
+    }
+    
+    .table-container {
+        max-height: 300px;
+    }
+}

@@ -1,11 +1,12 @@
 # app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 
 
 from app.api.v1.router import api_router
-
+from app.routes.ui import router as ui_router
 # Eğer Alembic kullanmadan önce hızlıca tabloların oluşmasını test etmek istersen (Geliştirme için):
 # Base.metadata.create_all(bind=engine)
 
@@ -26,6 +27,8 @@ origins = [
     "http://127.0.0.1:8000",
     # Canlı ortamdaki frontend adresi buraya eklenecektir
 ]
+# 1. Statik Dosyalar ve Şablonların Bağlanması
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,11 +38,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 2. Rotaların Öncelik Sırasına Göre Eklenmesi (UI her zaman çakışmaları önlemek için temiz ayrılmalıdır)
+app.include_router(ui_router) # Arayüz render rotası
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # Temel Sağlık Kontrolü (Health Check) Endpoint'i
-@app.get("/", tags=["Health Check"])
-def read_root():
+@app.get("/api/v1/status")
+def get_system_status():
     return {
         "status": "active",
         "project": settings.PROJECT_NAME,

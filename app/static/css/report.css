@@ -1,0 +1,12 @@
+body {
+    background: #0f0f1a;
+    color: #e0e0e0;
+}
+.teams-card {
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 16px;
+}
+.text-purple {
+    color: #6c5ce7;
+}
