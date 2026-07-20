@@ -1,17 +1,18 @@
 // ============================================
-// ROOM.JS - TAM İŞLEVLİ WEBRTC & ODA YÖNETİMİ
+// ROOM.JS - TAM İŞLEVLİ CANLI ODA & DONANIM YÖNETİMİ
 // ============================================
 
 const API_BASE = 'http://localhost:8000/api/v1';
 const token = localStorage.getItem('token');
+
 let localStream = null;
 let meetingTimer = null;
 let activeSeconds = 0;
 let meetingCode = null;
+let currentMeetingId = null;
 let ws = null;
-let peerConnection = null;
-
-const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+let currentUserInfo = { id: '', name: 'Katılımcı', email: '' };
+let allUsersList = [];
 
 if (!token) window.location.href = '/';
 
@@ -30,12 +31,31 @@ const DOM = {
     chatMessages: document.getElementById('chatMessages'),
     chatInput: document.getElementById('chatInput'),
     taskTitle: document.getElementById('taskTitle'),
-    taskAssignee: document.getElementById('taskAssignee'),
-    tasksList: document.getElementById('tasksList')
+    taskDescription: document.getElementById('taskDescription'),
+    taskAssigneeSelect: document.getElementById('taskAssigneeSelect'),
+    tasksList: document.getElementById('tasksList'),
+    usersTableBody: document.getElementById('usersTableBody'),
+    micSelect: document.getElementById('micSelect'),
+    cameraSelect: document.getElementById('cameraSelect'),
+    speakerSelect: document.getElementById('speakerSelect')
 };
 
-// 1. ODA BİLGİSİ VE MEDYA BAŞLATMA
+// 1. USER BİLGİSİ
+function parseUserInfo() {
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        currentUserInfo.id = payload.sub || payload.user_id || '';
+        currentUserInfo.email = payload.email || '';
+        const fn = payload.first_name || '';
+        const ln = payload.last_name || '';
+        if (fn || ln) currentUserInfo.name = `${fn} ${ln}`.trim();
+        else if (currentUserInfo.email) currentUserInfo.name = currentUserInfo.email.split('@')[0];
+    } catch (e) { console.error('Token parse hatası', e); }
+}
+
+// 2. ODA BAŞLAT
 async function initRoom() {
+    parseUserInfo();
     const path = window.location.pathname;
     meetingCode = path.split('/').pop();
 
@@ -51,93 +71,142 @@ async function initRoom() {
 
         if (!res.ok) throw new Error('Oda bulunamadı');
         const data = await res.json();
-        
-        DOM.roomTitle.textContent = data.title;
-        DOM.roomCode.textContent = `Kod: ${data.meeting_code}`;
 
-        await logParticipantEvent('JOIN');
+        currentMeetingId = data.id;
+        if (DOM.roomTitle) DOM.roomTitle.textContent = data.title || 'Toplantı Odası';
+        if (DOM.roomCode) DOM.roomCode.textContent = `Kod: ${data.meeting_code}`;
+
         await startLocalMedia();
         startTimer();
-
-        const userId = parseJwt(token).sub || 'user_' + Math.floor(Math.random() * 1000);
-        setupSocketAndRTC(meetingCode, userId);
+        loadSystemUsers();
+        setupSocket(meetingCode);
 
     } catch (err) {
-        alert('Odaya bağlanırken hata oluştu: ' + err.message);
-        window.location.href = '/dashboard';
+        showToast('Oda yüklenirken hata: ' + err.message, 'warning');
     }
 }
 
-// 2. GERÇEK KAMERA VE MİKROFON ERİŞİMİ
-async function startLocalMedia() {
+// 3. MEDYA VE DONANIM AYGITLARINI TESPİT ETME / DEĞİŞTİRME
+async function startLocalMedia(audioDeviceId = null, videoDeviceId = null) {
     try {
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 1920 }, height: { ideal: 1080 } },
-            audio: true
-        });
-        if (DOM.localVideo) {
-            DOM.localVideo.style.objectFit = 'contain';
-            DOM.localVideo.srcObject = localStream;
+        const constraints = {
+            audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true,
+            video: videoDeviceId ? { deviceId: { exact: videoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } } : { width: { ideal: 1280 }, height: { ideal: 720 } }
+        };
+
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
         }
+
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        if (DOM.localVideo) {
+            DOM.localVideo.srcObject = localStream;
+            DOM.localVideo.style.objectFit = 'contain';
+        }
+        if (DOM.userLabel) DOM.userLabel.textContent = `${currentUserInfo.name} (Siz)`;
+
     } catch (err) {
-        console.error('Medya aygıtlarına erişilemedi:', err);
-        showToast('Kamera veya mikrofon erişimi engellendi.', 'warning');
+        console.error('Kamera/Mikrofon erişilemedi:', err);
+        showToast('⚠️ Kamera/Mikrofon erişimi engellendi.', 'warning');
     }
 }
 
-// 3. MİKROFON AÇ / KAPAT
+// AYGIT LİSTESİNİ ÇEK VE MODALDA GÖSTER
+async function openDeviceSettingsModal() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        
+        if (DOM.micSelect) DOM.micSelect.innerHTML = '';
+        if (DOM.cameraSelect) DOM.cameraSelect.innerHTML = '';
+        if (DOM.speakerSelect) DOM.speakerSelect.innerHTML = '';
+
+        let micCount = 1, camCount = 1, speakerCount = 1;
+
+        devices.forEach(device => {
+            const option = document.createElement('option');
+            option.value = device.deviceId;
+
+            if (device.kind === 'audioinput' && DOM.micSelect) {
+                option.text = device.label || `Mikrofon ${micCount++}`;
+                DOM.micSelect.appendChild(option);
+            } else if (device.kind === 'videoinput' && DOM.cameraSelect) {
+                option.text = device.label || `Kamera ${camCount++}`;
+                DOM.cameraSelect.appendChild(option);
+            } else if (device.kind === 'audiooutput' && DOM.speakerSelect) {
+                option.text = device.label || `Hoparlör ${speakerCount++}`;
+                DOM.speakerSelect.appendChild(option);
+            }
+        });
+
+        new bootstrap.Modal(document.getElementById('deviceSettingsModal')).show();
+    } catch (err) {
+        console.error('Aygıtlar tespit edilemedi:', err);
+    }
+}
+
+async function changeAudioSource(deviceId) {
+    await startLocalMedia(deviceId, DOM.cameraSelect ? DOM.cameraSelect.value : null);
+    showToast('🎤 Mikrofon değiştirildi.', 'info');
+}
+
+async function changeVideoSource(deviceId) {
+    await startLocalMedia(DOM.micSelect ? DOM.micSelect.value : null, deviceId);
+    showToast('📹 Kamera değiştirildi.', 'info');
+}
+
+async function changeAudioOutput(deviceId) {
+    if (DOM.localVideo && typeof DOM.localVideo.setSinkId === 'function') {
+        try {
+            await DOM.localVideo.setSinkId(deviceId);
+            showToast('🔊 Ses çıkış cihazı güncellendi.', 'info');
+        } catch (err) {
+            console.error('Ses çıkışı ayarlanamadı:', err);
+        }
+    }
+}
+
 function toggleAudio() {
     if (!localStream) return;
     const audioTrack = localStream.getAudioTracks()[0];
     if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
-        DOM.audioBtn.className = audioTrack.enabled ? 'btn btn-primary' : 'btn btn-danger';
-        DOM.audioBtn.innerHTML = audioTrack.enabled ? '🎤 Ses Açık' : '🔇 Sessiz';
+        if (DOM.audioBtn) {
+            DOM.audioBtn.className = audioTrack.enabled ? 'btn btn-primary px-3 fw-semibold' : 'btn btn-danger px-3 fw-semibold';
+            DOM.audioBtn.innerHTML = audioTrack.enabled ? '🎤 Ses Açık' : '🔇 Sessiz';
+        }
     }
 }
 
-// 4. KAMERA AÇ / KAPAT
 function toggleVideo() {
     if (!localStream) return;
     const videoTrack = localStream.getVideoTracks()[0];
     if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
-        DOM.videoBtn.className = videoTrack.enabled ? 'btn btn-primary' : 'btn btn-danger';
-        DOM.videoBtn.innerHTML = videoTrack.enabled ? '📹 Kamera Açık' : '📷 Kapalı';
+        if (DOM.videoBtn) {
+            DOM.videoBtn.className = videoTrack.enabled ? 'btn btn-primary px-3 fw-semibold' : 'btn btn-danger px-3 fw-semibold';
+            DOM.videoBtn.innerHTML = videoTrack.enabled ? '📹 Kamera Açık' : '📷 Kapalı';
+        }
     }
 }
 
-// 5. 16:9 FULL EKRAN PAYLAŞIMI (KIRPMASIZ FIX)
+// 4. EKRAN PAYLAŞIMI
 async function toggleScreen() {
     try {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-                cursor: "always",
-                displaySurface: "monitor",
-                width: { ideal: 1920, max: 3840 },
-                height: { ideal: 1080, max: 2160 },
-                frameRate: { max: 30 }
-            },
+            video: { cursor: "always", displaySurface: "monitor" },
             audio: true
         });
 
         const screenTrack = screenStream.getVideoTracks()[0];
-
         if (DOM.localVideo) {
-            DOM.localVideo.style.objectFit = 'contain'; // Kırpmayı sıfırlar
             DOM.localVideo.srcObject = screenStream;
-            DOM.userLabel.textContent = 'Siz (Ekran Paylaşımı)';
+            DOM.localVideo.style.objectFit = 'contain';
         }
-
-        if (peerConnection) {
-            const senders = peerConnection.getSenders();
-            const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-            if (videoSender) videoSender.replaceTrack(screenTrack);
-        }
+        if (DOM.userLabel) DOM.userLabel.textContent = `${currentUserInfo.name} (Ekran Paylaşımı)`;
 
         screenTrack.onended = () => stopScreenSharing();
         showToast('🖥️ Ekran paylaşımı başlatıldı.', 'success');
-
     } catch (err) {
         console.error('Ekran paylaşımı başlatılamadı:', err);
     }
@@ -145,123 +214,52 @@ async function toggleScreen() {
 
 function stopScreenSharing() {
     if (localStream) {
-        const videoTrack = localStream.getVideoTracks()[0];
-        if (DOM.localVideo) {
-            DOM.localVideo.srcObject = localStream;
-            DOM.userLabel.textContent = 'Siz';
-        }
-
-        if (peerConnection) {
-            const senders = peerConnection.getSenders();
-            const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-            if (videoSender) videoSender.replaceTrack(videoTrack);
-        }
+        if (DOM.localVideo) DOM.localVideo.srcObject = localStream;
+        if (DOM.userLabel) DOM.userLabel.textContent = `${currentUserInfo.name} (Siz)`;
     }
     showToast('🖥️ Ekran paylaşımı kapatıldı.', 'info');
 }
 
-// 6. WEBSOCKET VE WEBRTC YÖNETİMİ
-function setupSocketAndRTC(meetingCode, userId) {
-    ws = new WebSocket(`ws://localhost:8000/api/v1/ws/meeting/${meetingCode}/${userId}`);
-
-    ws.onmessage = async (event) => {
-        const data = JSON.parse(event.data);
-
-        switch (data.event) {
-            case 'USER_JOINED':
-                showToast(`👤 ${data.user_id || 'Bir katılımcı'} odaya girdi.`, 'info');
-                createOffer();
-                break;
-            case 'USER_LEFT':
-                showToast(`🚪 Katılımcı odadan ayrıldı.`, 'warning');
-                break;
-            case 'CHAT_MESSAGE':
-                renderChatMessage(data.sender, data.message);
-                break;
-            case 'NEW_TASK':
-                renderTaskItem(data.task);
-                showToast(`✅ Yeni Görev: ${data.task.title}`, 'success');
-                break;
-            default:
-                if (data.sdp) await handleSDP(data.sdp);
-                else if (data.candidate && peerConnection) {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-                }
-        }
-    };
-}
-
-// 7. CANLI SOHBET (CHAT)
-function sendChatMessage() {
-    const text = DOM.chatInput.value.trim();
-    if (!text || !ws) return;
-
-    ws.send(JSON.stringify({ event: 'CHAT_MESSAGE', message: text, sender: 'Siz' }));
-    renderChatMessage('Siz', text, true);
-    DOM.chatInput.value = '';
-}
-
-function renderChatMessage(sender, text, isMe = false) {
-    const msgDiv = document.createElement('div');
-    msgDiv.className = `chat-msg ${isMe ? 'chat-msg-me' : 'chat-msg-other'} text-white shadow-sm`;
-    msgDiv.innerHTML = `<small class="d-block fw-bold opacity-75">${sender}</small><span>${escapeHtml(text)}</span>`;
-    DOM.chatMessages.appendChild(msgDiv);
-    DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
-}
-
-// 8. CANLI NOT EKLEME
-async function addMeetingNote() {
-    const text = DOM.noteInput.value.trim();
-    if (!text) return;
-
-    try {
-        const res = await fetch(`${API_BASE}/reports/notes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ meeting_code: meetingCode, content: text })
-        });
-
-        if (res.ok) {
-            const li = document.createElement('li');
-            li.className = 'list-group-item bg-dark text-white border-secondary rounded mb-1';
-            li.textContent = text;
-            DOM.notesList.prepend(li);
-            DOM.noteInput.value = '';
-            showToast('📝 Not kaydedildi.', 'success');
-        }
-    } catch (err) {
-        console.error('Not kaydedilemedi:', err);
-    }
-}
-
-// 9. CANLI GÖREV/İŞ ATAMA (ACTION ITEMS)
+// 5. GÖREV ATAMA (SADELEŞTİRİLMİŞ - HATA SIFIRLANDI)
 async function assignTask() {
-    const title = DOM.taskTitle.value.trim();
-    const assignee = DOM.taskAssignee.value.trim();
+    const title = DOM.taskTitle ? DOM.taskTitle.value.trim() : '';
+    const description = DOM.taskDescription ? DOM.taskDescription.value.trim() : '';
+    const assignedTo = DOM.taskAssigneeSelect ? DOM.taskAssigneeSelect.value : '';
 
-    if (!title || !assignee) {
-        showToast('⚠️ Lütfen görev başlığı ve e-posta yazın.', 'warning');
+    if (!title) {
+        showToast('⚠️ Lütfen görev başlığı giriniz.', 'warning');
         return;
     }
 
-    const taskPayload = { meeting_code: meetingCode, title: title, assigned_to: assignee, status: 'PENDING' };
+    const payload = {
+        meeting_id: currentMeetingId,
+        title: title,
+        description: description || null,
+        assigned_to: assignedTo || null,
+        due_date: null // Hataları önlemek için null olarak sabitlendi
+    };
 
     try {
-        const res = await fetch(`${API_BASE}/tasks/`, {
+        const res = await fetch(`${API_BASE}/actions/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify(taskPayload)
+            body: JSON.stringify(payload)
         });
 
         if (res.ok) {
-            const createdTask = await res.json();
-            renderTaskItem(createdTask);
+            const createdAction = await res.json();
+            renderTaskItem(createdAction);
 
-            if (ws) ws.send(JSON.stringify({ event: 'NEW_TASK', task: createdTask }));
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ event: 'NEW_TASK', task: createdAction, sender: currentUserInfo.name }));
+            }
 
             DOM.taskTitle.value = '';
-            DOM.taskAssignee.value = '';
-            showToast('✅ Görev başarıyla atandı.', 'success');
+            DOM.taskDescription.value = '';
+            DOM.taskAssigneeSelect.value = '';
+            showToast('✅ Görev başarıyla oluşturuldu ve atandı.', 'success');
+        } else {
+            showToast('Görev oluşturulamadı.', 'warning');
         }
     } catch (err) {
         console.error('Görev atama hatası:', err);
@@ -269,54 +267,173 @@ async function assignTask() {
 }
 
 function renderTaskItem(task) {
+    if (!DOM.tasksList) return;
     const item = document.createElement('div');
-    item.className = 'p-2 bg-dark border border-warning rounded text-white small shadow-sm';
+    item.className = 'p-3 bg-light border rounded shadow-sm mb-2';
+    const createdAtText = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
     item.innerHTML = `
-        <div class="fw-bold text-warning">📌 ${escapeHtml(task.title)}</div>
-        <div class="text-muted">Atanan: ${escapeHtml(task.assigned_to)}</div>
-        <span class="badge bg-secondary mt-1">${task.status || 'PENDING'}</span>
+        <div class="fw-bold text-primary">📌 ${escapeHtml(task.title)}</div>
+        ${task.description ? `<div class="text-secondary small mt-1">${escapeHtml(task.description)}</div>` : ''}
+        <div class="mt-2 pt-2 border-top text-muted small">
+            <span>🕒 Saati: ${createdAtText}</span>
+        </div>
     `;
     DOM.tasksList.prepend(item);
 }
 
-// UI YARDIMCILARI
+// 6. TOPLANTIDA NOT ALMA
+async function addMeetingNote() {
+    const text = DOM.noteInput ? DOM.noteInput.value.trim() : '';
+    if (!text) {
+        showToast('Lütfen bir not yazın.', 'warning');
+        return;
+    }
+
+    const payload = { meeting_id: currentMeetingId, content: text };
+
+    try {
+        let res = await fetch(`${API_BASE}/notes/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            res = await fetch(`${API_BASE}/reports/notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+            });
+        }
+
+        if (res.ok) {
+            renderNoteItem(text, currentUserInfo.name);
+            DOM.noteInput.value = '';
+            showToast('📝 Not başarıyla eklendi.', 'success');
+        }
+    } catch (err) {
+        console.error('Not ekleme hatası:', err);
+    }
+}
+
+function renderNoteItem(content, author) {
+    if (!DOM.notesList) return;
+    const li = document.createElement('li');
+    li.className = 'list-group-item bg-light border-0 rounded mb-2 shadow-sm p-2';
+    li.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <strong class="text-primary small">${escapeHtml(author)}</strong>
+            <small class="text-muted">${new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</small>
+        </div>
+        <div class="text-dark small">${escapeHtml(content)}</div>
+    `;
+    DOM.notesList.prepend(li);
+}
+
+// 7. KATILIMCI YÖNETİMİ & WEBSOCKET
+async function loadSystemUsers() {
+    try {
+        const res = await fetch(`${API_BASE}/users/`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            allUsersList = await res.json();
+            if (DOM.taskAssigneeSelect) {
+                DOM.taskAssigneeSelect.innerHTML = '<option value="">-- Kullanıcı Seçin --</option>';
+                allUsersList.forEach(u => {
+                    const fn = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email;
+                    DOM.taskAssigneeSelect.innerHTML += `<option value="${u.id}">${fn} (${u.email})</option>`;
+                });
+            }
+            renderUsersTable(allUsersList);
+        }
+    } catch (err) { console.error(err); }
+}
+
+function openInviteModal() { new bootstrap.Modal(document.getElementById('inviteModal')).show(); }
+
+function renderUsersTable(users) {
+    if (!DOM.usersTableBody) return;
+    DOM.usersTableBody.innerHTML = users.map(u => `
+        <tr>
+            <td><strong>${escapeHtml(`${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Kullanıcı')}</strong></td>
+            <td><small class="text-muted">${escapeHtml(u.email)}</small></td>
+            <td><code>${escapeHtml(u.user_code || '-')}</code></td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-primary fw-semibold" onclick="inviteUserToMeeting('${u.id}', '${u.email}')">➕ Davet Et</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function filterUsersTable() {
+    const q = document.getElementById('userSearchInput').value.toLowerCase();
+    renderUsersTable(allUsersList.filter(u => 
+        (u.first_name && u.first_name.toLowerCase().includes(q)) ||
+        (u.last_name && u.last_name.toLowerCase().includes(q)) ||
+        u.email.toLowerCase().includes(q)
+    ));
+}
+
+async function inviteUserToMeeting(userId, email) {
+    try {
+        const res = await fetch(`${API_BASE}/participants/invite`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ meeting_id: currentMeetingId, user_id: userId, role: 'ATTENDEE' })
+        });
+        if (res.ok) showToast(`📩 ${email} adresine bildirim gönderildi!`, 'success');
+    } catch (err) { console.error(err); }
+}
+
+function setupSocket(meetingCode) {
+    ws = new WebSocket(`ws://localhost:8000/api/v1/ws/${meetingCode}?token=${token}`);
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.event === 'CHAT_MESSAGE') renderChatMessage(data.sender || 'Katılımcı', data.message, data.sender === currentUserInfo.name);
+            else if (data.event === 'NEW_TASK') renderTaskItem(data.task);
+        } catch (e) {}
+    };
+}
+
+function sendChatMessage() {
+    const text = DOM.chatInput ? DOM.chatInput.value.trim() : '';
+    if (!text) return;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ event: 'CHAT_MESSAGE', message: text, sender: currentUserInfo.name }));
+        renderChatMessage(currentUserInfo.name, text, true);
+        DOM.chatInput.value = '';
+    }
+}
+
+function renderChatMessage(sender, text, isMe = false) {
+    if (!DOM.chatMessages) return;
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `p-2 rounded mb-2 shadow-sm ${isMe ? 'chat-bubble-me align-self-end text-end' : 'chat-bubble-other align-self-start'}`;
+    msgDiv.style.maxWidth = '85%';
+    msgDiv.innerHTML = `<small class="d-block fw-bold opacity-75">${escapeHtml(sender)}</small><span>${escapeHtml(text)}</span>`;
+    DOM.chatMessages.appendChild(msgDiv);
+    DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+}
+
+// UI UTILS
 function toggleSidePanel(tabName = 'chat') {
+    if (!DOM.sidePanel) return;
     if (DOM.sidePanel.classList.contains('d-none')) {
         DOM.sidePanel.classList.remove('d-none');
         DOM.sidePanel.classList.add('d-flex');
-    } else if (tabName === getCurrentTab()) {
-        DOM.sidePanel.classList.add('d-none');
-        DOM.sidePanel.classList.remove('d-flex');
     }
     if (tabName) switchTab(tabName);
 }
 
 function switchTab(tab) {
-    document.getElementById('tabChat').classList.add('d-none');
-    document.getElementById('tabNotes').classList.add('d-none');
-    document.getElementById('tabTasks').classList.add('d-none');
+    ['tabChat', 'tabNotes', 'tabTasks'].forEach(t => document.getElementById(t)?.classList.add('d-none'));
+    ['tabBtnChat', 'tabBtnNotes', 'tabBtnTasks'].forEach(b => document.getElementById(b)?.classList.remove('active'));
 
-    document.getElementById('tabBtnChat').classList.remove('active');
-    document.getElementById('tabBtnNotes').classList.remove('active');
-    document.getElementById('tabBtnTasks').classList.remove('active');
-
-    if (tab === 'chat') {
-        document.getElementById('tabChat').classList.remove('d-none');
-        document.getElementById('tabBtnChat').classList.add('active');
-    } else if (tab === 'notes') {
-        document.getElementById('tabNotes').classList.remove('d-none');
-        document.getElementById('tabBtnNotes').classList.add('active');
-    } else if (tab === 'tasks') {
-        document.getElementById('tabTasks').classList.remove('d-none');
-        document.getElementById('tabBtnTasks').classList.add('active');
-    }
-}
-
-function getCurrentTab() {
-    if (!document.getElementById('tabChat').classList.contains('d-none')) return 'chat';
-    if (!document.getElementById('tabNotes').classList.contains('d-none')) return 'notes';
-    if (!document.getElementById('tabTasks').classList.contains('d-none')) return 'tasks';
-    return null;
+    document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`)?.classList.remove('d-none');
+    document.getElementById(`tabBtn${tab.charAt(0).toUpperCase() + tab.slice(1)}`)?.classList.add('active');
 }
 
 function startTimer() {
@@ -328,11 +445,8 @@ function startTimer() {
     }, 1000);
 }
 
-function parseJwt(token) {
-    try { return JSON.parse(atob(token.split('.')[1])); } catch (e) { return {}; }
-}
-
 function escapeHtml(text) {
+    if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
@@ -340,31 +454,19 @@ function escapeHtml(text) {
 
 function showToast(msg, type = 'info') {
     const toastEl = document.getElementById('liveToast');
-    const colors = { success: 'bg-success', warning: 'bg-warning text-dark', info: 'bg-primary' };
-    toastEl.className = `toast text-white border-0 ${colors[type] || 'bg-primary'}`;
+    if (!toastEl) return;
+    const colors = { success: 'bg-success text-white', warning: 'bg-warning text-dark', info: 'bg-primary text-white' };
+    toastEl.className = `toast border-0 shadow ${colors[type] || 'bg-primary text-white'}`;
     document.getElementById('toastMessage').textContent = msg;
-    const toast = new bootstrap.Toast(toastEl);
-    toast.show();
-}
-
-async function logParticipantEvent(eventType) {
-    try {
-        await fetch(`${API_BASE}/meetings/log-event`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ meeting_code: meetingCode, event_type: eventType, timestamp: new Date().toISOString() })
-        });
-    } catch (e) { console.error('Log kaydı hatası', e); }
+    new bootstrap.Toast(toastEl).show();
 }
 
 async function leaveRoom() {
     if (confirm('Toplantıdan ayrılmak istiyor musunuz?')) {
         clearInterval(meetingTimer);
-        await logParticipantEvent('LEAVE');
         if (localStream) localStream.getTracks().forEach(track => track.stop());
         window.location.href = '/dashboard';
     }
 }
 
 document.addEventListener('DOMContentLoaded', initRoom);
-window.onbeforeunload = () => { logParticipantEvent('LEAVE'); };

@@ -7,71 +7,80 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', path='css/room.css') }}">
 </head>
-<body class="bg-dark text-white">
+<body class="bg-light text-dark">
     <div class="room-container d-flex flex-column vh-100 overflow-hidden">
         
-        <div class="room-header d-flex justify-content-between align-items-center p-3 bg-secondary bg-opacity-10 border-bottom border-secondary">
+        <div class="room-header d-flex justify-content-between align-items-center px-4 py-2 bg-white border-bottom shadow-sm">
             <div class="d-flex align-items-center gap-3">
-                <button onclick="leaveRoom()" class="btn btn-outline-light btn-sm">← Ayrıl</button>
-                <h5 class="mb-0" id="roomTitle">Toplantı Odası</h5>
+                <button onclick="leaveRoom()" class="btn btn-outline-secondary btn-sm fw-semibold">← Panel</button>
+                <div>
+                    <h6 class="mb-0 fw-bold text-dark" id="roomTitle">Toplantı Odası</h6>
+                    <small class="text-muted" id="roomCode">Kod: ----</small>
+                </div>
             </div>
-            <div class="d-flex align-items-center gap-3">
-                <span class="badge bg-danger fs-6" id="meetingTimer">00:00</span>
-                <span class="badge bg-success" id="roomStatus">🔴 Canlı</span>
-                <span class="text-muted small" id="roomCode">Kod: ----</span>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-primary fw-semibold" onclick="openDeviceSettingsModal()">⚙️ Aygıt Ayarları</button>
+                <button class="btn btn-sm btn-primary fw-semibold" onclick="openInviteModal()">👥 Katılımcı Ekle</button>
+                <span class="badge bg-danger fs-6 px-3 py-2 ms-2" id="meetingTimer">00:00</span>
+                <span class="badge bg-success-subtle text-success border border-success px-2 py-1" id="roomStatus">🔴 Canlı</span>
             </div>
         </div>
 
         <div class="d-flex flex-grow-1 overflow-hidden">
-            
             <div class="room-video-area flex-grow-1 p-0 d-flex justify-content-center align-items-center bg-black overflow-hidden position-relative" id="videoGrid">
                 <div class="video-card-container w-100 h-100 d-flex justify-content-center align-items-center">
                     <div class="video-card position-relative w-100 h-100 d-flex justify-content-center align-items-center">
                         <video id="localVideo" autoplay playsinline muted class="rounded-0"></video>
-                        <span class="position-absolute bottom-0 start-0 m-3 badge bg-dark opacity-75 fs-6" id="userLabel">Siz</span>
+                        <span class="position-absolute bottom-0 start-0 m-3 badge bg-dark bg-opacity-75 text-white fs-6" id="userLabel">Siz</span>
                     </div>
                 </div>
             </div>
 
-            <div class="side-panel bg-dark border-start border-secondary d-none flex-column" id="sidePanel" style="width: 380px; min-width: 380px;">
-                <div class="panel-header d-flex justify-content-between align-items-center p-3 border-bottom border-secondary">
-                    <ul class="nav nav-pills card-header-pills" id="panelTabs">
+            <div class="side-panel bg-white border-start d-none flex-column shadow-sm" id="sidePanel" style="width: 380px; min-width: 380px;">
+                <div class="panel-header d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
+                    <ul class="nav nav-pills card-header-pills gap-1" id="panelTabs">
                         <li class="nav-item">
-                            <button class="nav-link active btn-sm text-white" id="tabBtnChat" onclick="switchTab('chat')">💬 Sohbet</button>
+                            <button class="nav-link active btn-sm fw-semibold" id="tabBtnChat" onclick="switchTab('chat')">💬 Chat</button>
                         </li>
                         <li class="nav-item">
-                            <button class="nav-link btn-sm text-white" id="tabBtnNotes" onclick="switchTab('notes')">📝 Notlar</button>
+                            <button class="nav-link btn-sm fw-semibold" id="tabBtnNotes" onclick="switchTab('notes')">📝 Notlar</button>
                         </li>
                         <li class="nav-item">
-                            <button class="nav-link btn-sm text-white" id="tabBtnTasks" onclick="switchTab('tasks')">✅ Görevler</button>
+                            <button class="nav-link btn-sm fw-semibold" id="tabBtnTasks" onclick="switchTab('tasks')">✅ Görevler</button>
                         </li>
                     </ul>
-                    <button class="btn-close btn-close-white" onclick="toggleSidePanel()"></button>
+                    <button class="btn-close" onclick="toggleSidePanel()"></button>
                 </div>
 
-                <div class="panel-body p-3 flex-grow-1 overflow-auto">
+                <div class="panel-body p-3 flex-grow-1 overflow-auto bg-white">
                     <div id="tabChat" class="tab-content h-100 d-flex flex-column">
-                        <div id="chatMessages" class="d-flex flex-column gap-2 mb-3 flex-grow-1 overflow-auto" style="max-height: 70vh;"></div>
-                        <div class="input-group mt-auto">
-                            <input type="text" id="chatInput" class="form-control bg-dark text-white border-secondary" placeholder="Mesaj yazın..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+                        <div id="chatMessages" class="d-flex flex-column gap-2 mb-3 flex-grow-1 overflow-auto" style="max-height: 68vh;"></div>
+                        <div class="input-group mt-auto pt-2 border-top">
+                            <input type="text" id="chatInput" class="form-control border-secondary-subtle" placeholder="Mesaj yazın..." onkeypress="if(event.key==='Enter') sendChatMessage()">
                             <button class="btn btn-primary" onclick="sendChatMessage()">Gönder</button>
                         </div>
                     </div>
 
                     <div id="tabNotes" class="tab-content d-none">
-                        <div class="mb-3">
-                            <textarea id="noteInput" class="form-control bg-dark text-white border-secondary" rows="3" placeholder="Toplantı notu ekleyin..."></textarea>
-                            <button class="btn btn-success btn-sm mt-2 w-100" onclick="addMeetingNote()">📌 Notu Kaydet</button>
+                        <div class="mb-3 p-2 bg-light rounded border">
+                            <textarea id="noteInput" class="form-control border-secondary-subtle mb-2" rows="3" placeholder="Toplantı notu ekleyin..."></textarea>
+                            <button class="btn btn-success btn-sm w-100 fw-bold" onclick="addMeetingNote()">📌 Notu Kaydet</button>
                         </div>
-                        <ul class="list-group list-group-flush" id="notesList"></ul>
+                        <ul class="list-group list-group-flush border-top" id="notesList"></ul>
                     </div>
 
                     <div id="tabTasks" class="tab-content d-none">
-                        <div class="mb-3 border p-3 rounded border-secondary bg-secondary bg-opacity-10">
-                            <h6 class="text-warning">⚡ Yeni Görev Atama</h6>
-                            <input type="text" id="taskTitle" class="form-control form-control-sm bg-dark text-white border-secondary mb-2" placeholder="Görev Başlığı">
-                            <input type="email" id="taskAssignee" class="form-control form-control-sm bg-dark text-white border-secondary mb-2" placeholder="Atanan E-posta">
-                            <button class="btn btn-warning btn-sm w-100 font-weight-bold" onclick="assignTask()">Görev Oluştur</button>
+                        <div class="mb-3 border p-3 rounded bg-light">
+                            <h6 class="text-primary fw-bold mb-3">⚡ Yeni Görev Atama</h6>
+                            <input type="text" id="taskTitle" class="form-control form-control-sm border-secondary-subtle mb-2" placeholder="Görev Başlığı *" required>
+                            <textarea id="taskDescription" class="form-control form-control-sm border-secondary-subtle mb-2" rows="2" placeholder="Görev Açıklaması / Detaylar"></textarea>
+                            
+                            <label class="form-label text-muted small mb-1 fw-semibold">Atanacak Personel:</label>
+                            <select id="taskAssigneeSelect" class="form-select form-select-sm border-secondary-subtle mb-3">
+                                <option value="">-- Kullanıcı Seçin --</option>
+                            </select>
+
+                            <button class="btn btn-warning text-dark btn-sm w-100 fw-bold" onclick="assignTask()">Görev Oluştur</button>
                         </div>
                         <div id="tasksList" class="d-flex flex-column gap-2"></div>
                     </div>
@@ -79,21 +88,78 @@
             </div>
         </div>
 
-        <div class="room-controls d-flex justify-content-center align-items-center gap-3 p-3 bg-secondary bg-opacity-10 border-top border-secondary">
-            <button onclick="toggleAudio()" class="btn btn-primary" id="audioBtn">🎤 Ses Açık</button>
-            <button onclick="toggleVideo()" class="btn btn-primary" id="videoBtn">📹 Kamera Açık</button>
-            <button onclick="toggleScreen()" class="btn btn-outline-light" id="screenBtn">🖥️ Ekran Paylaş</button>
-            <button onclick="toggleSidePanel('chat')" class="btn btn-outline-light">💬 Sohbet</button>
-            <button onclick="toggleSidePanel('tasks')" class="btn btn-outline-light">✅ Görevler</button>
-            <button onclick="leaveRoom()" class="btn btn-danger">📞 Çıkış</button>
+        <div class="room-controls d-flex justify-content-center align-items-center gap-3 p-3 bg-white border-top shadow-sm">
+            <button onclick="toggleAudio()" class="btn btn-primary px-3 fw-semibold" id="audioBtn">🎤 Ses Açık</button>
+            <button onclick="toggleVideo()" class="btn btn-primary px-3 fw-semibold" id="videoBtn">📹 Kamera Açık</button>
+            <button onclick="toggleScreen()" class="btn btn-outline-dark px-3 fw-semibold" id="screenBtn">🖥️ Ekran Paylaş</button>
+            <button onclick="toggleSidePanel('chat')" class="btn btn-outline-secondary px-3 fw-semibold">💬 Sohbet</button>
+            <button onclick="toggleSidePanel('tasks')" class="btn btn-outline-secondary px-3 fw-semibold">✅ Görevler</button>
+            <button onclick="leaveRoom()" class="btn btn-danger px-4 fw-semibold">📞 Çıkış</button>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deviceSettingsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold">⚙️ Kamera ve Ses Cihazları</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">🎤 Mikrofon (Giriş):</label>
+                        <select id="micSelect" class="form-select border-secondary-subtle" onchange="changeAudioSource(this.value)"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">📹 Kamera (Giriş):</label>
+                        <select id="cameraSelect" class="form-select border-secondary-subtle" onchange="changeVideoSource(this.value)"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">🔊 Hoparlör / Kulaklık (Çıkış):</label>
+                        <select id="speakerSelect" class="form-select border-secondary-subtle" onchange="changeAudioOutput(this.value)"></select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-primary fw-semibold" data-bs-dismiss="modal">Tamam</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="inviteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold">👥 Katılımcı Davet Et</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <input type="text" id="userSearchInput" class="form-control mb-3 border-secondary-subtle" placeholder="İsim veya E-posta ile Ara..." onkeyup="filterUsersTable()">
+                    <div class="table-responsive" style="max-height: 350px;">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Ad Soyad</th>
+                                    <th>E-posta</th>
+                                    <th>Kod</th>
+                                    <th class="text-end">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <tr><td colspan="4" class="text-center text-muted">Kullanıcılar yükleniyor...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
-        <div id="liveToast" class="toast text-white bg-primary border-0" role="alert">
+        <div id="liveToast" class="toast border-0 shadow" role="alert">
             <div class="d-flex">
                 <div class="toast-body" id="toastMessage"></div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
             </div>
         </div>
     </div>
