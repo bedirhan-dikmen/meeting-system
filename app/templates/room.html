@@ -40,13 +40,10 @@
                 <div class="panel-header d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
                     <ul class="nav nav-pills card-header-pills gap-1" id="panelTabs">
                         <li class="nav-item">
-                            <button class="nav-link active btn-sm fw-semibold" id="tabBtnChat" onclick="switchTab('chat')">💬 Chat</button>
+                            <button class="nav-link active btn-sm fw-semibold" id="tabBtnChat" onclick="switchTab('chat')">💬 Sohbet</button>
                         </li>
                         <li class="nav-item">
-                            <button class="nav-link btn-sm fw-semibold" id="tabBtnNotes" onclick="switchTab('notes')">📝 Notlar</button>
-                        </li>
-                        <li class="nav-item">
-                            <button class="nav-link btn-sm fw-semibold" id="tabBtnTasks" onclick="switchTab('tasks')">✅ Görevler</button>
+                            <button class="nav-link btn-sm fw-semibold" id="tabBtnNotes" onclick="switchTab('notes')">📝 Toplantı Notları</button>
                         </li>
                     </ul>
                     <button class="btn-close" onclick="toggleSidePanel()"></button>
@@ -63,38 +60,26 @@
 
                     <div id="tabNotes" class="tab-content d-none">
                         <div class="mb-3 p-2 bg-light rounded border">
-                            <textarea id="noteInput" class="form-control border-secondary-subtle mb-2" rows="3" placeholder="Toplantı notu ekleyin..."></textarea>
+                            <textarea id="noteInput" class="form-control border-secondary-subtle mb-2" rows="3" placeholder="Alınacak kararları / notları yazın..."></textarea>
                             <button class="btn btn-success btn-sm w-100 fw-bold" onclick="addMeetingNote()">📌 Notu Kaydet</button>
                         </div>
                         <ul class="list-group list-group-flush border-top" id="notesList"></ul>
-                    </div>
-
-                    <div id="tabTasks" class="tab-content d-none">
-                        <div class="mb-3 border p-3 rounded bg-light">
-                            <h6 class="text-primary fw-bold mb-3">⚡ Yeni Görev Atama</h6>
-                            <input type="text" id="taskTitle" class="form-control form-control-sm border-secondary-subtle mb-2" placeholder="Görev Başlığı *" required>
-                            <textarea id="taskDescription" class="form-control form-control-sm border-secondary-subtle mb-2" rows="2" placeholder="Görev Açıklaması / Detaylar"></textarea>
-                            
-                            <label class="form-label text-muted small mb-1 fw-semibold">Atanacak Personel:</label>
-                            <select id="taskAssigneeSelect" class="form-select form-select-sm border-secondary-subtle mb-3">
-                                <option value="">-- Kullanıcı Seçin --</option>
-                            </select>
-
-                            <button class="btn btn-warning text-dark btn-sm w-100 fw-bold" onclick="assignTask()">Görev Oluştur</button>
-                        </div>
-                        <div id="tasksList" class="d-flex flex-column gap-2"></div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="room-controls d-flex justify-content-center align-items-center gap-3 p-3 bg-white border-top shadow-sm">
+        <div class="room-controls d-flex justify-content-center align-items-center gap-2 p-3 bg-white border-top shadow-sm">
             <button onclick="toggleAudio()" class="btn btn-primary px-3 fw-semibold" id="audioBtn">🎤 Ses Açık</button>
             <button onclick="toggleVideo()" class="btn btn-primary px-3 fw-semibold" id="videoBtn">📹 Kamera Açık</button>
             <button onclick="toggleScreen()" class="btn btn-outline-dark px-3 fw-semibold" id="screenBtn">🖥️ Ekran Paylaş</button>
             <button onclick="toggleSidePanel('chat')" class="btn btn-outline-secondary px-3 fw-semibold">💬 Sohbet</button>
-            <button onclick="toggleSidePanel('tasks')" class="btn btn-outline-secondary px-3 fw-semibold">✅ Görevler</button>
-            <button onclick="leaveRoom()" class="btn btn-danger px-4 fw-semibold">📞 Çıkış</button>
+            <button onclick="toggleSidePanel('notes')" class="btn btn-outline-secondary px-3 fw-semibold">📝 Notlar</button>
+            <button onclick="leaveRoom()" class="btn btn-outline-danger px-3 fw-semibold">🚪 Odadan Ayrıl</button>
+            
+            <button onclick="endMeetingAndGetReport()" class="btn btn-danger px-3 fw-bold shadow-sm ms-2">
+                🛑 Toplantıyı Sonlandır & Rapor Al
+            </button>
         </div>
     </div>
 

@@ -3,132 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yebsoft - Panel</title>
+    <title>Yebsoft - Kurumsal Toplantı Yönetim Paneli</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', path='css/dashboard.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
-    <!-- Sidebar -->
+<body class="bg-light">
+    
     <nav class="teams-sidebar">
         <a href="/dashboard" class="sidebar-logo">💼</a>
-        <button class="sidebar-icon-btn active" title="Toplantılar">
-            📅
-            <span class="badge" id="meetingCount">0</span>
-        </button>
-        <button class="sidebar-icon-btn" onclick="location.href='/profile'" title="Profil">
-            👤
-        </button>
-        <div class="sidebar-divider"></div>
-        <button class="sidebar-icon-btn mt-auto" onclick="logout()" title="Çıkış">
-            🚪
-        </button>
+        <button class="sidebar-icon-btn active" title="Toplantılar">📅</button>
+        <button class="sidebar-icon-btn" onclick="logout()" title="Çıkış">🚪</button>
     </nav>
 
-    <!-- Ana İçerik -->
-    <div class="teams-main-content">
-        <!-- Header -->
-        <div class="header-area">
-            <h4>📅 Kurumsal Toplantı Odaları</h4>
-            <div class="header-right">
-                <span class="user-info" id="userInfo">👤 Kullanıcı</span>
-                <button onclick="loadMeetings()" class="btn btn-outline-purple btn-sm">
-                    🔄 Yenile
+    <div class="teams-main-content p-4">
+        
+        <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded shadow-sm">
+            <div>
+                <h4 class="fw-bold mb-0 text-dark">📅 Kurumsal Toplantı Yönetim Paneli</h4>
+                <small class="text-muted">Yebsoft İletişim ve Operasyon Merkezi</small>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="fw-semibold text-secondary" id="userInfo">Giriş Yapılıyor...</span>
+                <button class="btn btn-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#createMeetingModal">
+                    ➕ Yeni Toplantı Planla
                 </button>
             </div>
         </div>
 
-        <!-- Content -->
-        <div class="row g-4">
-            <!-- Sol Kart: Toplantı Oluştur -->
-            <div class="col-md-4">
-                <div class="teams-card p-4">
-                    <div class="card-title">🚀 Hızlı Toplantı Başlat</div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Toplantı Konusu</label>
-                        <input type="text" 
-                               id="meetingTitle" 
-                               class="form-control" 
-                               placeholder="Örn: Haftalık Değerlendirme"
-                               maxlength="100">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">⏱️ Toplantı Süresi</label>
-                        <select id="meetingDuration" class="form-select">
-                            <option value="15">15 Dakika</option>
-                            <option value="30">30 Dakika</option>
-                            <option value="45">45 Dakika</option>
-                            <option value="60" selected>1 Saat</option>
-                            <option value="90">1.5 Saat</option>
-                            <option value="120">2 Saat</option>
-                            <option value="180">3 Saat</option>
-                            <option value="240">4 Saat</option>
-                        </select>
-                    </div>
-                    
-                    <button onclick="createNewMeeting()" 
-                            class="btn btn-purple w-100" 
-                            id="createBtn">
-                        <span id="createBtnText">🎯 Oda Oluştur</span>
-                        <span id="createBtnSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
-                    </button>
-                    
-                    <div id="createStatus" class="mt-2 small"></div>
-                    
-                    <div class="mt-3 text-muted small">
-                        <kbd>Ctrl + N</kbd> Yeni Toplantı
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3 bg-white">
+                    <small class="text-muted fw-semibold">Bugünkü Toplantı</small>
+                    <h3 class="fw-bold text-primary mb-0 mt-1" id="statToday">0</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3 bg-white">
+                    <small class="text-muted fw-semibold">Yaklaşan Toplantı</small>
+                    <h3 class="fw-bold text-info mb-0 mt-1" id="statUpcoming">0</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3 bg-white">
+                    <small class="text-muted fw-semibold">Bu Ay Toplam</small>
+                    <h3 class="fw-bold text-success mb-0 mt-1" id="statMonthly">0</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3 bg-white">
+                    <small class="text-muted fw-semibold">Ortalama Süre</small>
+                    <h3 class="fw-bold text-warning mb-0 mt-1" id="statAvgDuration">0 dk</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm p-3 bg-white h-100">
+                    <h6 class="fw-bold text-dark mb-3">📈 Aylara Göre Toplantı Dağılımı</h6>
+                    <div style="height: 250px;">
+                        <canvas id="monthlyTrendChart"></canvas>
                     </div>
                 </div>
             </div>
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm p-3 bg-white h-100">
+                    <h6 class="fw-bold text-dark mb-3">📊 Toplantı Türleri</h6>
+                    <div style="height: 250px;" class="d-flex justify-content-center">
+                        <canvas id="meetingTypesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-            <!-- Sağ Kart: Toplantı Listesi -->
-            <div class="col-md-8">
-                <div class="teams-card p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div class="card-title mb-0">📋 Aktif Toplantılar</div>
-                        <span class="text-muted small" id="meetingTotal"></span>
-                    </div>
-                    
-                    <div id="loadingIndicator" class="text-center py-4 d-none">
-                        <div class="spinner-border text-purple" role="status"></div>
-                        <div class="text-muted mt-2">Toplantılar yükleniyor...</div>
-                    </div>
-                    
-                    <div class="table-container">
-                        <table class="teams-table">
-                            <thead>
-                                <tr>
-                                    <th>Konu</th>
-                                    <th>Oda Kodu</th>
-                                    <th>Başlangıç</th>
-                                    <th>Durum</th>
-                                    <th>İşlem</th>
-                                </tr>
-                            </thead>
-                            <tbody id="meetingList">
-                                <!-- JS ile doldurulacak -->
-                            </tbody>
-                        </table>
-                    </div>
+        <div class="card border-0 shadow-sm p-3 mb-4 bg-white">
+            <h6 class="fw-bold text-dark mb-3">🔍 Filtreleme ve Arama</h6>
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <input type="text" id="filterSearch" class="form-control form-control-sm" placeholder="Toplantı başlığı veya kod..." onkeyup="filterMeetings()">
+                </div>
+                <div class="col-md-2">
+                    <select id="filterType" class="form-select form-select-sm" onchange="filterMeetings()">
+                        <option value="">Tüm Türler</option>
+                        <option value="DAILY">Günlük</option>
+                        <option value="WEEKLY">Haftalık</option>
+                        <option value="PROJECT">Proje</option>
+                        <option value="DEPARTMENT">Departman</option>
+                        <option value="TRAINING">Eğitim</option>
+                        <option value="CUSTOMER">Müşteri</option>
+                        <option value="GENERAL">Genel</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select id="filterStatus" class="form-select form-select-sm" onchange="filterMeetings()">
+                        <option value="">Tüm Durumlar</option>
+                        <option value="SCHEDULED">Planlandı</option>
+                        <option value="IN_PROGRESS">Başladı</option>
+                        <option value="COMPLETED">Tamamlandı</option>
+                        <option value="CANCELLED">İptal Edildi</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="date" id="filterDate" class="form-control form-control-sm" onchange="filterMeetings()">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-secondary btn-sm w-100" onclick="resetFilters()">Filtreyi Temizle</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm bg-white">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light small">
+                            <tr>
+                                <th>Toplantı Başlığı</th>
+                                <th>Tür</th>
+                                <th>Oda Kodu</th>
+                                <th>Planlanan Zaman</th>
+                                <th>Durum</th>
+                                <th class="text-end">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody id="meetingList">
+                            <tr><td colspan="6" class="text-center text-muted py-4">Toplantılar yükleniyor...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Toast Container -->
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
-        <div id="liveToast" class="toast custom-toast" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="d-flex">
-                <div class="toast-body" id="toastMessage">
-                    Bildirim
+    <div class="modal fade" id="createMeetingModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold">📅 Yeni Kurumsal Toplantı Planla</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                <form id="createMeetingForm">
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Toplantı Başlığı *</label>
+                            <input type="text" id="meetingTitle" class="form-control" placeholder="Örn: Sprint Planlama Toplantısı" required>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Toplantı Türü *</label>
+                                <select id="meetingType" class="form-select" required>
+                                    <option value="PROJECT">Proje Toplantısı</option>
+                                    <option value="DEPARTMENT">Departman Toplantısı</option>
+                                    <option value="DAILY">Günlük Toplantı</option>
+                                    <option value="WEEKLY">Haftalık Toplantı</option>
+                                    <option value="TRAINING">Eğitim</option>
+                                    <option value="CUSTOMER">Müşteri Toplantısı</option>
+                                    <option value="GENERAL">Genel Toplantı</option>
+                                    <option value="OTHER">Diğer</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Toplantı Tarihi *</label>
+                                <input type="date" id="meetingDate" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Başlangıç Saati *</label>
+                                <input type="datetime-local" id="scheduledStart" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Planlanan Bitiş Saati *</label>
+                                <input type="datetime-local" id="scheduledEnd" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Toplantı Gündemi</label>
+                            <textarea id="meetingAgenda" class="form-control" rows="2" placeholder="Gündem maddelerini yazın..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Toplantı Açıklaması</label>
+                            <textarea id="meetingDescription" class="form-control" rows="2" placeholder="Ek detaylar..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                        <button type="submit" id="createBtn" class="btn btn-primary fw-bold">Toplantıyı Kaydet & Planla</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+        <div id="liveToast" class="toast border-0 shadow" role="alert">
+            <div class="d-flex">
+                <div class="toast-body" id="toastMessage"></div>
+                <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', path='js/dashboard.js') }}?v=2"></script>
+    <script src="{{ url_for('static', path='js/dashboard.js') }}"></script>
 </body>
 </html>

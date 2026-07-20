@@ -1,8 +1,8 @@
-"""initial_10_tables_layered
+"""Add meeting types, status and report structures
 
-Revision ID: 8e4ba53890f5
+Revision ID: 31f6f5dbecd3
 Revises: 
-Create Date: 2026-07-16 13:55:35.724954
+Create Date: 2026-07-20 17:12:03.019166
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '8e4ba53890f5'
+revision: str = '31f6f5dbecd3'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -59,7 +59,8 @@ def upgrade() -> None:
     sa.Column('email', sa.String(), nullable=False),
     sa.Column('user_code', sa.String(), nullable=False),
     sa.Column('password_hash', sa.String(), nullable=False),
-    sa.Column('role', sa.String(length=20), nullable=True),
+    sa.Column('role', sa.String(length=20), nullable=False),
+    sa.Column('avatar_url', sa.String(), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('department_id', sa.Integer(), nullable=True),
@@ -73,14 +74,18 @@ def upgrade() -> None:
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('title', sa.String(), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('agenda', sa.Text(), nullable=True),
+    sa.Column('meeting_date', sa.Date(), nullable=True),
     sa.Column('scheduled_start', sa.DateTime(), nullable=False),
     sa.Column('scheduled_end', sa.DateTime(), nullable=False),
     sa.Column('actual_start', sa.DateTime(), nullable=True),
     sa.Column('actual_end', sa.DateTime(), nullable=True),
+    sa.Column('meeting_type', sa.Enum('DAILY', 'WEEKLY', 'PROJECT', 'DEPARTMENT', 'TRAINING', 'CUSTOMER', 'GENERAL', 'OTHER', name='meetingtype'), nullable=False),
+    sa.Column('status', sa.Enum('DRAFT', 'SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', name='meetingstatus'), nullable=False),
     sa.Column('meeting_code', sa.String(), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
-    sa.Column('created_by', sa.UUID(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('created_by', sa.UUID(), nullable=False),
     sa.ForeignKeyConstraint(['created_by'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -102,19 +107,24 @@ def upgrade() -> None:
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('meeting_id', sa.UUID(), nullable=False),
     sa.Column('assigned_to', sa.UUID(), nullable=True),
-    sa.Column('action_item', sa.Text(), nullable=False),
     sa.Column('due_date', sa.DateTime(), nullable=True),
     sa.Column('is_completed', sa.Boolean(), nullable=False),
+    sa.Column('created_by', sa.UUID(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('title', sa.String(), nullable=False),
+    sa.Column('description', sa.Text(), nullable=True),
     sa.ForeignKeyConstraint(['assigned_to'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['created_by'], ['users.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['meeting_id'], ['meetings.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_meeting_actions_id'), 'meeting_actions', ['id'], unique=False)
+    op.create_index(op.f('ix_meeting_actions_title'), 'meeting_actions', ['title'], unique=False)
     op.create_table('meeting_notes',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('meeting_id', sa.UUID(), nullable=False),
     sa.Column('author_id', sa.UUID(), nullable=True),
+    sa.Column('note_type', sa.Enum('GENERAL', 'DECISION', name='notetype'), nullable=False),
     sa.Column('content', sa.Text(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
@@ -128,9 +138,12 @@ def upgrade() -> None:
     sa.Column('meeting_id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
     sa.Column('role', sa.String(), nullable=False),
-    sa.Column('status', sa.String(), nullable=False),
-    sa.Column('joined_at', sa.DateTime(), nullable=True),
+    sa.Column('invitation_status', sa.Enum('PENDING', 'ACCEPTED', 'DECLINED', name='invitationstatus'), nullable=False),
+    sa.Column('attendance_status', sa.Enum('ATTENDED', 'NOT_ATTENDED', name='attendancestatus'), nullable=False),
     sa.Column('invited_at', sa.DateTime(), nullable=False),
+    sa.Column('joined_at', sa.DateTime(), nullable=True),
+    sa.Column('join_count', sa.Integer(), nullable=False),
+    sa.Column('total_duration_seconds', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['meeting_id'], ['meetings.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
@@ -140,9 +153,10 @@ def upgrade() -> None:
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('meeting_id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
-    sa.Column('joined_at', sa.DateTime(), nullable=False),
-    sa.Column('left_at', sa.DateTime(), nullable=True),
+    sa.Column('join_time', sa.DateTime(), nullable=False),
+    sa.Column('leave_time', sa.DateTime(), nullable=True),
     sa.Column('duration_seconds', sa.Integer(), nullable=False),
+    sa.Column('is_invited', sa.Boolean(), nullable=False),
     sa.ForeignKeyConstraint(['meeting_id'], ['meetings.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
@@ -160,6 +174,7 @@ def downgrade() -> None:
     op.drop_table('meeting_participants')
     op.drop_index(op.f('ix_meeting_notes_id'), table_name='meeting_notes')
     op.drop_table('meeting_notes')
+    op.drop_index(op.f('ix_meeting_actions_title'), table_name='meeting_actions')
     op.drop_index(op.f('ix_meeting_actions_id'), table_name='meeting_actions')
     op.drop_table('meeting_actions')
     op.drop_index(op.f('ix_notifications_id'), table_name='notifications')
