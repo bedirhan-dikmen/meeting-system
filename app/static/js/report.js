@@ -1,58 +1,82 @@
-console.log('📊 Report.js yüklendi');
+// ============================================
+// REPORT.JS - DETAYLI ZAMAN VE KATILIM RAPORU
+// ============================================
 
-const token = localStorage.getItem('token');
-if (!token) {
-    window.location.href = '/';
-}
-
-const API_BASE = 'http://localhost:8000/api/v1';
-
-async function loadReport() {
-    const path = window.location.pathname;
-    const meetingId = path.split('/').pop();
-    
-    if (!meetingId || meetingId === 'report') {
-        document.getElementById('reportContent').innerHTML = '<div class="alert alert-danger">Geçersiz toplantı ID</div>';
-        return;
-    }
+async function renderFullReport(meetingId) {
+    const container = document.getElementById('reportContent');
     
     try {
         const res = await fetch(`${API_BASE}/reports/meeting/${meetingId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        
-        if (res.ok) {
-            const data = await res.json();
-            renderReport(data);
-        } else {
-            document.getElementById('reportContent').innerHTML = '<div class="alert alert-danger">Rapor alınamadı.</div>';
-        }
+
+        if (!res.ok) throw new Error('Rapor çekilemedi');
+        const data = await res.json();
+
+        container.innerHTML = `
+            <div class="card bg-dark text-white border-secondary mb-4">
+                <div class="card-body">
+                    <h3 class="card-title text-primary">${escapeHtml(data.meeting_title)}</h3>
+                    <p class="text-muted">Kod: <code>${data.meeting_code}</code></p>
+                    <div class="row text-center my-3">
+                        <div class="col-md-4">
+                            <h5>Başlangıç / Bitiş</h5>
+                            <small>${new Date(data.scheduled_start).toLocaleString('tr-TR')} - ${new Date(data.scheduled_end).toLocaleString('tr-TR')}</small>
+                        </div>
+                        <div class="col-md-4">
+                            <h5>Toplam Gerçekleşen Süre</h5>
+                            <span class="badge bg-info fs-6">${data.actual_duration_minutes} Dakika</span>
+                        </div>
+                        <div class="col-md-4">
+                            <h5>Toplam Katılımcı</h5>
+                            <span class="badge bg-success fs-6">${data.total_participants_count} Kişi</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-7">
+                    <div class="card bg-dark text-white border-secondary">
+                        <div class="card-header border-secondary fw-bold">👥 Katılımcı Giriş/Çıkış Detayları</div>
+                        <div class="card-body p-0">
+                            <table class="table table-dark table-striped mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Katılımcı</th>
+                                        <th>Katılım Süresi</th>
+                                        <th>Giriş / Çıkış</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.participants_summary.map(p => `
+                                        <tr>
+                                            <td>${escapeHtml(p.first_name + ' ' + p.last_name)}</td>
+                                            <td><span class="badge bg-secondary">${p.total_active_minutes} dk</span></td>
+                                            <td><small class="text-muted">${p.join_time ? new Date(p.join_time).toLocaleTimeString('tr-TR') : '-'} / ${p.leave_time ? new Date(p.leave_time).toLocaleTimeString('tr-TR') : '-'}</small></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-5">
+                    <div class="card bg-dark text-white border-secondary">
+                        <div class="card-header border-secondary fw-bold">📝 Alınan Notlar (${data.total_notes_count})</div>
+                        <ul class="list-group list-group-flush">
+                            ${data.notes.map(n => `
+                                <li class="list-group-item bg-dark text-white border-secondary">
+                                    <small class="text-info">${escapeHtml(n.author_name)}</small>: ${escapeHtml(n.content)}
+                                </li>
+                            `).join('') || '<li class="list-group-item bg-dark text-muted">Not alınmadı.</li>'}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
     } catch (err) {
-        console.error(err);
-        document.getElementById('reportContent').innerHTML = '<div class="alert alert-danger">Bağlantı hatası!</div>';
+        container.innerHTML = `<div class="alert alert-danger">Rapor Yüklenemedi: ${err.message}</div>`;
     }
 }
-
-function renderReport(data) {
-    const container = document.getElementById('reportContent');
-    container.innerHTML = `
-        <h4>${data.meeting_title}</h4>
-        <p><strong>Kod:</strong> ${data.meeting_code}</p>
-        <p><strong>Başlangıç:</strong> ${new Date(data.scheduled_start).toLocaleString('tr-TR')}</p>
-        <p><strong>Süre (dk):</strong> ${data.actual_duration_minutes}</p>
-        <p><strong>Katılımcı Sayısı:</strong> ${data.total_participants_count}</p>
-        <hr>
-        <h5>Katılımcılar</h5>
-        <ul>
-            ${data.participants_summary.map(p => `<li>${p.first_name} ${p.last_name} - ${p.total_active_minutes} dakika</li>`).join('')}
-        </ul>
-        <hr>
-        <h5>Notlar (${data.total_notes_count})</h5>
-        ${data.notes.length ? data.notes.map(n => `<div><strong>${n.author_name}</strong>: ${n.content} <small class="text-muted">(${new Date(n.created_at).toLocaleString('tr-TR')})</small></div>`).join('') : '<p>Not yok</p>'}
-        <hr>
-        <h5>Aksiyonlar (${data.total_actions_count})</h5>
-        ${data.actions.length ? data.actions.map(a => `<div>${a.title} - ${a.is_completed ? '✅ Tamamlandı' : '⏳ Bekliyor'}</div>`).join('') : '<p>Aksiyon yok</p>'}
-    `;
-}
-
-document.addEventListener('DOMContentLoaded', loadReport);

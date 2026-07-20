@@ -7,57 +7,94 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', path='css/room.css') }}">
 </head>
-<body>
-    <div class="room-container">
-        <!-- Üst Bar -->
-        <div class="room-header">
+<body class="bg-dark text-white">
+    <div class="room-container d-flex flex-column vh-100 overflow-hidden">
+        
+        <div class="room-header d-flex justify-content-between align-items-center p-3 bg-secondary bg-opacity-10 border-bottom border-secondary">
             <div class="d-flex align-items-center gap-3">
-                <button onclick="window.location.href='/dashboard'" class="btn btn-outline-light btn-sm">
-                    ← Geri
-                </button>
+                <button onclick="leaveRoom()" class="btn btn-outline-light btn-sm">← Ayrıl</button>
                 <h5 class="mb-0" id="roomTitle">Toplantı Odası</h5>
             </div>
             <div class="d-flex align-items-center gap-3">
+                <span class="badge bg-danger fs-6" id="meetingTimer">00:00</span>
                 <span class="badge bg-success" id="roomStatus">🔴 Canlı</span>
                 <span class="text-muted small" id="roomCode">Kod: ----</span>
-                <button onclick="leaveRoom()" class="btn btn-danger btn-sm">Çıkış</button>
             </div>
         </div>
 
-        <!-- Video Alanı -->
-        <div class="room-video-area">
-            <div class="video-grid" id="videoGrid">
-                <!-- Katılımcı videoları buraya gelecek -->
-                <div class="video-placeholder">
-                    <div class="text-center">
-                        <div class="display-1 mb-3">🎥</div>
-                        <h5>Toplantıya Katıldınız</h5>
-                        <p class="text-muted">Diğer katılımcılar burada görünecek</p>
+        <div class="d-flex flex-grow-1 overflow-hidden">
+            
+            <div class="room-video-area flex-grow-1 p-0 d-flex justify-content-center align-items-center bg-black overflow-hidden position-relative" id="videoGrid">
+                <div class="video-card-container w-100 h-100 d-flex justify-content-center align-items-center">
+                    <div class="video-card position-relative w-100 h-100 d-flex justify-content-center align-items-center">
+                        <video id="localVideo" autoplay playsinline muted class="rounded-0"></video>
+                        <span class="position-absolute bottom-0 start-0 m-3 badge bg-dark opacity-75 fs-6" id="userLabel">Siz</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="side-panel bg-dark border-start border-secondary d-none flex-column" id="sidePanel" style="width: 380px; min-width: 380px;">
+                <div class="panel-header d-flex justify-content-between align-items-center p-3 border-bottom border-secondary">
+                    <ul class="nav nav-pills card-header-pills" id="panelTabs">
+                        <li class="nav-item">
+                            <button class="nav-link active btn-sm text-white" id="tabBtnChat" onclick="switchTab('chat')">💬 Sohbet</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link btn-sm text-white" id="tabBtnNotes" onclick="switchTab('notes')">📝 Notlar</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link btn-sm text-white" id="tabBtnTasks" onclick="switchTab('tasks')">✅ Görevler</button>
+                        </li>
+                    </ul>
+                    <button class="btn-close btn-close-white" onclick="toggleSidePanel()"></button>
+                </div>
+
+                <div class="panel-body p-3 flex-grow-1 overflow-auto">
+                    <div id="tabChat" class="tab-content h-100 d-flex flex-column">
+                        <div id="chatMessages" class="d-flex flex-column gap-2 mb-3 flex-grow-1 overflow-auto" style="max-height: 70vh;"></div>
+                        <div class="input-group mt-auto">
+                            <input type="text" id="chatInput" class="form-control bg-dark text-white border-secondary" placeholder="Mesaj yazın..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+                            <button class="btn btn-primary" onclick="sendChatMessage()">Gönder</button>
+                        </div>
+                    </div>
+
+                    <div id="tabNotes" class="tab-content d-none">
+                        <div class="mb-3">
+                            <textarea id="noteInput" class="form-control bg-dark text-white border-secondary" rows="3" placeholder="Toplantı notu ekleyin..."></textarea>
+                            <button class="btn btn-success btn-sm mt-2 w-100" onclick="addMeetingNote()">📌 Notu Kaydet</button>
+                        </div>
+                        <ul class="list-group list-group-flush" id="notesList"></ul>
+                    </div>
+
+                    <div id="tabTasks" class="tab-content d-none">
+                        <div class="mb-3 border p-3 rounded border-secondary bg-secondary bg-opacity-10">
+                            <h6 class="text-warning">⚡ Yeni Görev Atama</h6>
+                            <input type="text" id="taskTitle" class="form-control form-control-sm bg-dark text-white border-secondary mb-2" placeholder="Görev Başlığı">
+                            <input type="email" id="taskAssignee" class="form-control form-control-sm bg-dark text-white border-secondary mb-2" placeholder="Atanan E-posta">
+                            <button class="btn btn-warning btn-sm w-100 font-weight-bold" onclick="assignTask()">Görev Oluştur</button>
+                        </div>
+                        <div id="tasksList" class="d-flex flex-column gap-2"></div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Alt Kontroller -->
-        <div class="room-controls">
-            <button onclick="toggleAudio()" class="control-btn" id="audioBtn">
-                🎤 Ses
-            </button>
-            <button onclick="toggleVideo()" class="control-btn" id="videoBtn">
-                📹 Kamera
-            </button>
-            <button onclick="toggleScreen()" class="control-btn" id="screenBtn">
-                🖥️ Paylaş
-            </button>
-            <button onclick="showParticipants()" class="control-btn">
-                👥 Katılımcılar
-            </button>
-            <button onclick="showChat()" class="control-btn">
-                💬 Sohbet
-            </button>
-            <button onclick="leaveRoom()" class="control-btn btn-danger">
-                📞 Çık
-            </button>
+        <div class="room-controls d-flex justify-content-center align-items-center gap-3 p-3 bg-secondary bg-opacity-10 border-top border-secondary">
+            <button onclick="toggleAudio()" class="btn btn-primary" id="audioBtn">🎤 Ses Açık</button>
+            <button onclick="toggleVideo()" class="btn btn-primary" id="videoBtn">📹 Kamera Açık</button>
+            <button onclick="toggleScreen()" class="btn btn-outline-light" id="screenBtn">🖥️ Ekran Paylaş</button>
+            <button onclick="toggleSidePanel('chat')" class="btn btn-outline-light">💬 Sohbet</button>
+            <button onclick="toggleSidePanel('tasks')" class="btn btn-outline-light">✅ Görevler</button>
+            <button onclick="leaveRoom()" class="btn btn-danger">📞 Çıkış</button>
+        </div>
+    </div>
+
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+        <div id="liveToast" class="toast text-white bg-primary border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body" id="toastMessage"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
         </div>
     </div>
 

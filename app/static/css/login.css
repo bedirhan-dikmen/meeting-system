@@ -1,36 +1,30 @@
-/* ===== LOGIN SAYFASI ===== */
+/* ===== YEBSOFT LOGIN - LIGHT THEME ===== */
 .login-page {
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
-    padding: 20px;
+    background: radial-gradient(circle at top left, #f3f0ff, #f8fafc);
+    padding: 24px;
 }
 
 .login-container {
     width: 100%;
-    max-width: 440px;
-    animation: fadeInUp 0.6s ease;
+    max-width: 420px;
+    animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .login-card {
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
-    border-radius: 20px;
-    padding: 48px 40px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 24px;
+    padding: 40px 36px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.04);
 }
 
 .login-logo {
@@ -40,18 +34,15 @@
 
 .login-logo h2 {
     font-size: 28px;
-    font-weight: 700;
-    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 4px;
+    font-weight: 800;
+    color: #6c5ce7;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
 }
 
 .login-logo p {
-    color: #888;
+    color: #64748b;
     font-size: 14px;
-    margin: 0;
 }
 
 .login-form .form-group {
@@ -59,98 +50,44 @@
 }
 
 .login-form label {
-    color: #888;
+    color: #334155;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     margin-bottom: 6px;
     display: block;
-}
-
-.login-form .form-control {
-    background: #0f0f1a !important;
-    border: 1px solid #2a2a3e !important;
-    color: #e0e0e0 !important;
-    border-radius: 12px !important;
-    padding: 12px 16px !important;
-    font-size: 14px !important;
-    transition: all 0.3s ease !important;
-}
-
-.login-form .form-control:focus {
-    border-color: #6c5ce7 !important;
-    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15) !important;
 }
 
 .login-btn {
     width: 100%;
     padding: 12px;
-    background: linear-gradient(135deg, #6c5ce7, #5a4bd1);
-    color: #fff;
+    background: #6c5ce7;
+    color: #ffffff;
     border: none;
     border-radius: 12px;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
-    margin-top: 8px;
+    transition: all 0.25s ease;
+    margin-top: 10px;
 }
 
 .login-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(108, 92, 231, 0.35);
-}
-
-.login-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none !important;
+    background: #5b4cc4;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.25);
 }
 
 .login-error {
-    background: rgba(231, 76, 60, 0.1);
-    border: 1px solid rgba(231, 76, 60, 0.2);
-    color: #e74c3c;
-    padding: 10px 14px;
-    border-radius: 10px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    padding: 12px 16px;
+    border-radius: 12px;
     font-size: 13px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
     display: none;
 }
 
 .login-error.show {
     display: block;
-    animation: shake 0.5s ease;
-}
-
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-8px); }
-    75% { transform: translateX(8px); }
-}
-
-.login-footer {
-    text-align: center;
-    margin-top: 20px;
-    color: #555;
-    font-size: 12px;
-}
-
-.login-footer a {
-    color: #6c5ce7;
-    text-decoration: none;
-}
-
-.login-footer a:hover {
-    text-decoration: underline;
-}
-
-/* ===== RESPONSIVE ===== */
-@media (max-width: 576px) {
-    .login-card {
-        padding: 32px 20px;
-    }
-    
-    .login-logo h2 {
-        font-size: 24px;
-    }
 }

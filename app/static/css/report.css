@@ -1,12 +1,23 @@
+/* ===== YEBSOFT REPORT - LIGHT THEME ===== */
 body {
-    background: #0f0f1a;
-    color: #e0e0e0;
+    background: #f8fafc;
+    color: #0f172a;
 }
+
 .teams-card {
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
 }
+
 .text-purple {
-    color: #6c5ce7;
+    color: #6c5ce7 !important;
+}
+
+.report-stat-number {
+    font-size: 32px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -1px;
 }

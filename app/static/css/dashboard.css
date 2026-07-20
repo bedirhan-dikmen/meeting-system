@@ -1,14 +1,29 @@
-/* ===== GENEL ===== */
+/* ===== YEBSOFT DASHBOARD - LIGHT THEME ===== */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
+:root {
+    --bg-main: #f8fafc;
+    --bg-card: #ffffff;
+    --bg-sidebar: #ffffff;
+    --border-color: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --primary-purple: #6c5ce7;
+    --primary-hover: #5b4cc4;
+    --primary-light: #f3f0ff;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.05);
+    --shadow-lg: 0 10px 30px rgba(108, 92, 231, 0.08);
+}
+
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #0f0f1a;
-    color: #e0e0e0;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg-main);
+    color: var(--text-primary);
     overflow-x: hidden;
 }
 
@@ -19,22 +34,23 @@ body {
     top: 0;
     bottom: 0;
     width: 72px;
-    background: #1a1a2e;
+    background: var(--bg-sidebar);
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 24px 0 16px;
     z-index: 1000;
-    box-shadow: 2px 0 20px rgba(0,0,0,0.4);
-    border-right: 1px solid #2a2a3e;
+    border-right: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
 }
 
 .sidebar-logo {
-    font-size: 28px;
-    font-weight: 700;
-    color: #6c5ce7;
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--primary-purple);
     margin-bottom: 32px;
     text-decoration: none;
+    letter-spacing: -0.5px;
 }
 
 .sidebar-icon-btn {
@@ -44,9 +60,9 @@ body {
     align-items: center;
     justify-content: center;
     border-radius: 12px;
-    color: #888;
+    color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.25s ease;
     font-size: 20px;
     margin-bottom: 8px;
     position: relative;
@@ -55,46 +71,48 @@ body {
 }
 
 .sidebar-icon-btn:hover {
-    background: rgba(108, 92, 231, 0.1);
-    color: #fff;
-    transform: scale(1.05);
+    background: var(--primary-light);
+    color: var(--primary-purple);
+    transform: translateY(-1px);
 }
 
 .sidebar-icon-btn.active {
-    background: #6c5ce7;
-    color: #fff;
-    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+    background: var(--primary-purple);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
 }
 
 .sidebar-icon-btn .badge {
     position: absolute;
-    top: -4px;
-    right: -4px;
-    background: #e74c3c;
-    color: #fff;
+    top: -2px;
+    right: -2px;
+    background: #ef4444;
+    color: #ffffff;
     font-size: 10px;
-    padding: 2px 6px;
+    font-weight: 700;
+    padding: 2px 5px;
     border-radius: 50%;
     min-width: 18px;
     height: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
+    border: 2px solid #ffffff;
 }
 
 .sidebar-divider {
     width: 32px;
     height: 1px;
-    background: #2a2a3e;
+    background: var(--border-color);
     margin: 12px 0;
 }
 
 /* ===== MAIN CONTENT ===== */
 .teams-main-content {
     margin-left: 72px;
-    padding: 32px 40px;
+    padding: 32px 48px;
     min-height: 100vh;
-    background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 100%);
+    background: var(--bg-main);
 }
 
 /* ===== HEADER ===== */
@@ -103,18 +121,16 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 32px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #2a2a3e;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .header-area h4 {
-    font-weight: 600;
-    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    font-weight: 700;
+    color: var(--text-primary);
     margin: 0;
     font-size: 24px;
+    letter-spacing: -0.5px;
 }
 
 .header-right {
@@ -124,329 +140,214 @@ body {
 }
 
 .user-info {
-    color: #888;
+    color: var(--text-secondary);
     font-size: 14px;
-    padding: 6px 16px;
-    background: #1a1a2e;
-    border-radius: 20px;
-    border: 1px solid #2a2a3e;
+    font-weight: 500;
+    padding: 8px 18px;
+    background: var(--bg-card);
+    border-radius: 30px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
 }
 
 /* ===== CARDS ===== */
 .teams-card {
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 16px;
-    box-shadow: 0 4px 30px rgba(0,0,0,0.2);
+    padding: 24px;
+    box-shadow: var(--shadow-md);
     transition: all 0.3s ease;
     height: 100%;
 }
 
 .teams-card:hover {
-    border-color: #3a3a5e;
-    box-shadow: 0 8px 40px rgba(108, 92, 231, 0.05);
+    border-color: #cbd5e1;
+    box-shadow: var(--shadow-lg);
 }
 
 .card-title {
-    color: #888;
-    font-size: 13px;
+    color: var(--text-secondary);
+    font-size: 12px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 16px;
-    font-weight: 600;
+    letter-spacing: 0.8px;
+    margin-bottom: 18px;
+    font-weight: 700;
 }
 
 /* ===== FORM ELEMANLARI ===== */
 .form-control, .form-select {
-    background: #0f0f1a !important;
-    border: 1px solid #2a2a3e !important;
-    color: #e0e0e0 !important;
+    background: #ffffff !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
     border-radius: 10px !important;
-    padding: 10px 14px !important;
+    padding: 10px 16px !important;
     font-size: 14px !important;
-    transition: all 0.3s ease !important;
+    transition: all 0.2s ease !important;
 }
 
 .form-control:focus, .form-select:focus {
-    border-color: #6c5ce7 !important;
-    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15) !important;
+    border-color: var(--primary-purple) !important;
+    box-shadow: 0 0 0 4px rgba(108, 92, 231, 0.1) !important;
     outline: none !important;
 }
 
 .form-control::placeholder {
-    color: #555 !important;
+    color: #94a3b8 !important;
 }
 
 .form-label {
-    color: #888;
-    font-size: 12px;
-    font-weight: 500;
-    margin-bottom: 4px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
 }
 
 /* ===== BUTONLAR ===== */
 .btn-purple {
-    background: linear-gradient(135deg, #6c5ce7, #5a4bd1);
-    color: #fff;
+    background: var(--primary-purple);
+    color: #ffffff;
     border: none;
     padding: 10px 24px;
     border-radius: 10px;
     font-weight: 600;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
+    font-size: 14px;
+    transition: all 0.25s ease;
 }
 
 .btn-purple:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(108, 92, 231, 0.35);
-    color: #fff;
-}
-
-.btn-purple:active {
-    transform: translateY(0);
-}
-
-.btn-purple:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none !important;
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(108, 92, 231, 0.25);
+    color: #ffffff;
 }
 
 .btn-outline-purple {
     background: transparent;
-    color: #6c5ce7;
-    border: 1px solid #6c5ce7;
+    color: var(--primary-purple);
+    border: 1px solid var(--primary-purple);
     padding: 8px 20px;
     border-radius: 10px;
-    font-weight: 500;
-    transition: all 0.3s ease;
+    font-weight: 600;
+    transition: all 0.2s ease;
 }
 
 .btn-outline-purple:hover {
-    background: #6c5ce7;
-    color: #fff;
+    background: var(--primary-purple);
+    color: #ffffff;
 }
 
 .btn-success-custom {
-    background: linear-gradient(135deg, #00b894, #00a381);
-    color: #fff;
+    background: #10b981;
+    color: #ffffff;
     border: none;
-    padding: 6px 16px;
+    padding: 8px 18px;
     border-radius: 8px;
     font-size: 13px;
-    font-weight: 500;
-    transition: all 0.3s ease;
+    font-weight: 600;
+    transition: all 0.2s ease;
 }
 
 .btn-success-custom:hover {
+    background: #059669;
     transform: translateY(-1px);
-    box-shadow: 0 4px 15px rgba(0, 184, 148, 0.3);
-    color: #fff;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    color: #ffffff;
 }
 
 .btn-outline-light-custom {
-    background: transparent;
-    color: #888;
-    border: 1px solid #2a2a3e;
-    padding: 6px 16px;
+    background: #ffffff;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: 8px 18px;
     border-radius: 8px;
     font-size: 13px;
-    font-weight: 500;
-    transition: all 0.3s ease;
+    font-weight: 600;
+    transition: all 0.2s ease;
 }
 
 .btn-outline-light-custom:hover {
-    background: #2a2a3e;
-    color: #fff;
+    background: #f1f5f9;
+    color: var(--text-primary);
 }
 
 /* ===== TABLO ===== */
 .table-container {
-    max-height: 500px;
+    max-height: 520px;
     overflow-y: auto;
-}
-
-.table-container::-webkit-scrollbar {
-    width: 6px;
-}
-
-.table-container::-webkit-scrollbar-track {
-    background: #0f0f1a;
-    border-radius: 10px;
-}
-
-.table-container::-webkit-scrollbar-thumb {
-    background: #2a2a3e;
-    border-radius: 10px;
-}
-
-.table-container::-webkit-scrollbar-thumb:hover {
-    background: #3a3a5e;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
 }
 
 .teams-table {
-    color: #e0e0e0 !important;
+    color: var(--text-primary) !important;
     margin-bottom: 0;
     font-size: 14px;
+    width: 100%;
+    border-collapse: collapse;
 }
 
 .teams-table thead th {
-    border-bottom: 2px solid #2a2a3e;
-    color: #888;
-    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-weight: 700;
     font-size: 12px;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
-    padding: 12px 8px;
+    letter-spacing: 0.5px;
+    padding: 14px 16px;
     position: sticky;
     top: 0;
-    background: #1a1a2e;
+    background: #f8fafc;
     z-index: 10;
 }
 
 .teams-table tbody td {
-    border-bottom: 1px solid #1a1a2e;
-    padding: 12px 8px;
+    border-bottom: 1px solid var(--border-color);
+    padding: 14px 16px;
     vertical-align: middle;
 }
 
-.teams-table tbody tr {
-    transition: all 0.2s ease;
-}
-
 .teams-table tbody tr:hover {
-    background: rgba(108, 92, 231, 0.03);
+    background: var(--primary-light);
 }
 
 /* ===== BADGE & CODE ===== */
 .code-badge {
-    background: #0f0f1a;
-    color: #a29bfe;
-    font-family: 'Courier New', monospace;
+    background: #f1f5f9;
+    color: var(--primary-purple);
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
     font-size: 13px;
-    padding: 4px 12px;
+    font-weight: 600;
+    padding: 4px 10px;
     border-radius: 6px;
-    border: 1px solid #2a2a3e;
+    border: 1px solid #e2e8f0;
     display: inline-block;
 }
 
 .status-badge {
     padding: 4px 12px;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    letter-spacing: 0.3px;
 }
 
 .status-badge.active {
-    background: rgba(0, 184, 148, 0.15);
-    color: #00b894;
+    background: #d1fae5;
+    color: #047857;
 }
 
 .status-badge.passive {
-    background: rgba(255, 255, 255, 0.05);
-    color: #888;
-}
-
-/* ===== EMPTY STATE ===== */
-.empty-state {
-    text-align: center;
-    padding: 40px 20px;
-}
-
-.empty-state .icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-}
-
-.empty-state h6 {
-    color: #888;
-    margin-bottom: 8px;
-}
-
-.empty-state p {
-    color: #555;
-    font-size: 14px;
-}
-
-/* ===== TOAST ===== */
-.toast-container {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    z-index: 9999;
-}
-
-.custom-toast {
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
-    border-radius: 12px;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
-    min-width: 320px;
-}
-
-.custom-toast .toast-header {
-    background: transparent;
-    border-bottom: 1px solid #2a2a3e;
-    color: #e0e0e0;
-}
-
-.custom-toast .toast-body {
-    color: #e0e0e0;
-    padding: 12px 16px;
+    background: #f1f5f9;
+    color: #64748b;
 }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 992px) {
-    .teams-main-content {
-        padding: 20px;
-    }
-    
-    .header-area h4 {
-        font-size: 20px;
-    }
+    .teams-main-content { padding: 24px; }
 }
 
 @media (max-width: 768px) {
-    .teams-sidebar {
-        width: 56px;
-        padding: 16px 0;
-    }
-    
-    .teams-main-content {
-        margin-left: 56px;
-        padding: 16px;
-    }
-    
-    .sidebar-icon-btn {
-        width: 36px;
-        height: 36px;
-        font-size: 16px;
-    }
-    
-    .header-area {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-    }
-    
-    .header-right {
-        width: 100%;
-        justify-content: space-between;
-    }
-}
-
-@media (max-width: 576px) {
-    .teams-main-content {
-        padding: 12px;
-    }
-    
-    .teams-card {
-        padding: 16px !important;
-    }
-    
-    .table-container {
-        max-height: 300px;
-    }
+    .teams-sidebar { width: 60px; }
+    .teams-main-content { margin-left: 60px; padding: 20px; }
+    .header-area { flex-direction: column; align-items: flex-start; gap: 12px; }
 }
