@@ -1,26 +1,19 @@
-from pydantic import BaseModel, ConfigDict
+# app/schemas/meeting_reports.py
+from pydantic import BaseModel
 from uuid import UUID
-from datetime import datetime, date
+from datetime import datetime
 from typing import List, Optional
 
-class ParticipantTimeSummary(BaseModel):
-    user_id: UUID
-    first_name: str
-    last_name: str
+class ParticipantReportRow(BaseModel):
+    full_name: str
+    email: str
     user_code: str
-    total_active_minutes: float
-    total_sessions: int
+    join_time: Optional[datetime] = None
+    leave_time: Optional[datetime] = None
+    duration_minutes: float
 
-class ReportActionOut(BaseModel):
-    id: UUID
-    title: str
-    description: Optional[str] = None
-    assigned_to_name: Optional[str] = None
-    due_date: Optional[date] = None
-    is_completed: bool
-
-class ReportNoteOut(BaseModel):
-    id: UUID
+class NoteReportRow(BaseModel):
+    note_type: str
     author_name: str
     content: str
     created_at: datetime
@@ -29,14 +22,11 @@ class MeetingReportOut(BaseModel):
     meeting_id: UUID
     meeting_title: str
     meeting_code: str
+    description: Optional[str] = None
+    meeting_type: str
+    manager_name: str
     scheduled_start: datetime
-    actual_duration_minutes: float  # Toplantının toplam veya ilk oturumdan son oturuma geçen süresi
-    total_participants_count: int
-    total_notes_count: int
-    total_actions_count: int
-    
-    participants_summary: List[ParticipantTimeSummary]
-    notes: List[ReportNoteOut]
-    actions: List[ReportActionOut]
-
-    model_config = ConfigDict(from_attributes=True)
+    scheduled_end: datetime
+    actual_duration_minutes: float
+    participants: List[ParticipantReportRow]
+    notes: List[NoteReportRow]

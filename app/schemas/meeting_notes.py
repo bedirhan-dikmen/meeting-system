@@ -1,22 +1,22 @@
-from pydantic import BaseModel, ConfigDict
+# app/schemas/meeting_notes.py
+from pydantic import BaseModel, Field
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
 
 class MeetingNoteBase(BaseModel):
-    content: str
+    meeting_id: UUID
+    content: str = Field(..., example="Gelecek sprint için görev dağılımları netleştirildi.")
+    note_type: str = Field(default="GENERAL", example="GENERAL veya DECISION")
 
 class MeetingNoteCreate(MeetingNoteBase):
-    meeting_id: UUID
-
-class MeetingNoteUpdate(BaseModel):
-    content: str
+    pass
 
 class MeetingNoteOut(MeetingNoteBase):
     id: UUID
-    meeting_id: UUID
     author_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        from_attributes = True

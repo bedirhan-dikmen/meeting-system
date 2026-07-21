@@ -1,36 +1,39 @@
-from datetime import datetime
-
+# app/services/meeting_reports.py
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from uuid import UUID
-from typing import Optional, List
-from app.models import meeting
+from datetime import datetime
+from typing import Optional
+
 from app.models.meeting import Meeting
+from app.models.user import User
 from app.models.participant_session import ParticipantSession
 from app.models.meeting_note import MeetingNote
-from app.models.meeting_action import MeetingAction
-from app.models.user import User
 
 def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict]:
-    """Toplantıya ait tüm analitik verileri toplayıp rapor sözlüğü üretir."""
-    # 1. Toplantıyı getir
+    """Toplantıya ait tüm analitik katılım cetvellerini, notları ve host künyesini rapora derler."""
     meeting = db.get(Meeting, meeting_id)
     if not meeting:
         return None
 
-    # 2. Katılımcı Oturum Sürelerini Hesapla (duration_seconds kolonu üzerinden)
+    # Toplantı Yöneticisi (Host) Bilgisi
+    host = db.get(User, meeting.created_by)
+    manager_name = f"{host.first_name or ''} {host.last_name or ''}".strip() if host else "Sistem Yöneticisi"
+
+    # 1. KATILIMCI OTURUM KÜMÜLATİF SÜRE VE ZAMAN CETVELİ SORGU KATMANI
     stmt_sessions = (
         select(
-            User.id,
             User.first_name,
             User.last_name,
+            User.email,
             User.user_code,
-            func.sum(func.coalesce(ParticipantSession.duration_seconds, 0)).label("total_seconds"),
-            func.count(ParticipantSession.id).label("session_count")
+            func.min(ParticipantSession.joined_at).label("first_join"),
+            func.max(ParticipantSession.left_at).label("last_leave"),
+            func.sum(func.coalesce(ParticipantSession.duration_seconds, 0)).label("total_seconds")
         )
         .join(ParticipantSession, ParticipantSession.user_id == User.id)
         .where(ParticipantSession.meeting_id == meeting_id)
-        .group_by(User.id)
+        .group_by(User.id, User.first_name, User.last_name, User.email, User.user_code)
     )
     session_rows = db.execute(stmt_sessions).all()
     
@@ -38,86 +41,48 @@ def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict
     total_meeting_seconds = 0
     
     for row in session_rows:
-        seconds = int(row[4])
-        # Saniyeyi dakika formatına (float) dönüştürüyoruz
-        active_minutes = round(seconds / 60.0, 2)
+        secs = row.total_seconds or 0
+        total_meeting_seconds += secs
+        full_name = f"{row.first_name or ''} {row.last_name or ''}".strip() or row.email
         
         participants_summary.append({
-            "user_id": row[0],
-            "first_name": row[1],
-            "last_name": row[2],
-            "user_code": row[3],
-            "total_active_minutes": active_minutes,
-            "total_sessions": int(row[5])
+            "full_name": full_name,
+            "email": row.email,
+            "user_code": row.user_code or "-",
+            "join_time": row.first_join,
+            "leave_time": row.last_leave,
+            "duration_minutes": round(secs / 60.0, 1)
         })
-        total_meeting_seconds += seconds
 
-    # 3. Toplantı Notlarını Getir (content kolonunuza göre senkronize)
+    # 2. TOPLANTI İÇİ NOTLAR VE ALINAN KARARLAR SORGU KATMANI
     stmt_notes = (
-        select(MeetingNote)
+        select(MeetingNote, User.first_name, User.last_name, User.email)
+        .outerjoin(User, MeetingNote.author_id == User.id)
         .where(MeetingNote.meeting_id == meeting_id)
         .order_by(MeetingNote.created_at.asc())
     )
-    notes_list = db.scalars(stmt_notes).all()
+    note_rows = db.execute(stmt_notes).all()
+    
     notes_summary = []
-    for note in notes_list:
-        author_name = "Bilinmeyen Katılımcı"
-        if note.author_id:
-            author = db.get(User, note.author_id)
-            if author:
-                author_name = f"{author.first_name} {author.last_name}"
+    for note, fn, ln, email in note_rows:
+        author_name = f"{fn or ''} {ln or ''}".strip() or email or "Katılımcı"
         notes_summary.append({
-            "id": note.id,
+            "note_type": note.note_type if hasattr(note, 'note_type') else "GENERAL",
             "author_name": author_name,
-            "content": note.content,  # Sizin modelinizdeki "content" kolonu
+            "content": note.content,
             "created_at": note.created_at
         })
 
-    # 4. Toplantı Aksiyon Kararlarını Getir
-    stmt_actions = (
-        select(MeetingAction)
-        .where(MeetingAction.meeting_id == meeting_id)
-        .order_by(MeetingAction.created_at.asc())
-    )
-    actions_list = db.scalars(stmt_actions).all()
-    actions_summary = []
-    for action in actions_list:
-        assignee_name = None
-        if action.assigned_to:
-            assignee = db.get(User, action.assigned_to)
-            if assignee:
-                assignee_name = f"{assignee.first_name} {assignee.last_name}"
-        actions_summary.append({
-            "id": action.id,
-            "title": action.title,
-            "description": action.description,
-            "assigned_to_name": assignee_name,
-            "due_date": action.due_date,
-            "is_completed": action.is_completed
-        })
-
-    # 5. Rapor Sözlüğünü Birleştir
-    # Modelinizde start_time yoksa hasattr ile güvenli kontrol yapıyoruz, 
-    # start_time yoksa sırasıyla scheduled_start, start_date veya created_at alanını arayacaktır.
-    scheduled_start_val = getattr(meeting, 'start_time', None)
-    if scheduled_start_val is None:
-        scheduled_start_val = getattr(meeting, 'scheduled_start', None)
-    if scheduled_start_val is None:
-        scheduled_start_val = getattr(meeting, 'start_date', None)
-    if scheduled_start_val is None:
-        scheduled_start_val = getattr(meeting, 'created_at', datetime.utcnow())
-
-    report_data = {
+    return {
         "meeting_id": meeting.id,
         "meeting_title": meeting.title,
         "meeting_code": meeting.meeting_code,
-        "scheduled_start": scheduled_start_val,  # Güvenli dinamik eşleme tamam!
-        "actual_duration_minutes": round(total_meeting_seconds / 60.0, 2),
-        "total_participants_count": len(participants_summary),
-        "total_notes_count": len(notes_summary),
-        "total_actions_count": len(actions_summary),
-        "participants_summary": participants_summary,
-        "notes": notes_summary,
-        "actions": actions_summary
+        "description": meeting.description,
+        "meeting_type": meeting.meeting_type if hasattr(meeting, 'meeting_type') else "GENERAL",
+        "manager_name": manager_name,
+        "scheduled_start": meeting.scheduled_start,
+        "scheduled_end": meeting.scheduled_end,
+        "actual_duration_minutes": round(total_meeting_seconds / 60.0, 1),
+        "participants": participants_summary,
+        "notes": notes_summary
     }
-    return report_data
