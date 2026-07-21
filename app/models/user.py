@@ -14,16 +14,17 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     user_code = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
-    role = Column(String(20), default="user", nullable=False) # Çift alan teke düşürüldü
+    role = Column(String(20), default="user", nullable=False) # admin, user
+    avatar_url = Column(String, nullable=True) # Profil Fotoğrafı URL
+    
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    # Yabancı Anahtar
     department_id = Column(Integer, ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
 
-    # İLİŞKİLER (back_populates simetrisi düzeltildi)
+    # İlişkiler
     department = relationship("Department", back_populates="users")
+    meetings_created = relationship("Meeting", back_populates="creator")
     participations = relationship("MeetingParticipant", back_populates="user")
     sessions = relationship("ParticipantSession", back_populates="user")
-    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
-    meetings_created = relationship("Meeting", back_populates="creator")
+    notifications = relationship("Notification", back_populates="user")

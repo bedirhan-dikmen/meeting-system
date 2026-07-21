@@ -1,0 +1,353 @@
+/* ===== YEBSOFT DASHBOARD - LIGHT THEME ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-main: #f8fafc;
+    --bg-card: #ffffff;
+    --bg-sidebar: #ffffff;
+    --border-color: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --primary-purple: #6c5ce7;
+    --primary-hover: #5b4cc4;
+    --primary-light: #f3f0ff;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.05);
+    --shadow-lg: 0 10px 30px rgba(108, 92, 231, 0.08);
+}
+
+body {
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    overflow-x: hidden;
+}
+
+/* ===== SIDEBAR ===== */
+.teams-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 72px;
+    background: var(--bg-sidebar);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 0 16px;
+    z-index: 1000;
+    border-right: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.sidebar-logo {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--primary-purple);
+    margin-bottom: 32px;
+    text-decoration: none;
+    letter-spacing: -0.5px;
+}
+
+.sidebar-icon-btn {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-size: 20px;
+    margin-bottom: 8px;
+    position: relative;
+    background: transparent;
+    border: none;
+}
+
+.sidebar-icon-btn:hover {
+    background: var(--primary-light);
+    color: var(--primary-purple);
+    transform: translateY(-1px);
+}
+
+.sidebar-icon-btn.active {
+    background: var(--primary-purple);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
+}
+
+.sidebar-icon-btn .badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 50%;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #ffffff;
+}
+
+.sidebar-divider {
+    width: 32px;
+    height: 1px;
+    background: var(--border-color);
+    margin: 12px 0;
+}
+
+/* ===== MAIN CONTENT ===== */
+.teams-main-content {
+    margin-left: 72px;
+    padding: 32px 48px;
+    min-height: 100vh;
+    background: var(--bg-main);
+}
+
+/* ===== HEADER ===== */
+.header-area {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.header-area h4 {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    font-size: 24px;
+    letter-spacing: -0.5px;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.user-info {
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 18px;
+    background: var(--bg-card);
+    border-radius: 30px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+/* ===== CARDS ===== */
+.teams-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: var(--shadow-md);
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.teams-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: var(--shadow-lg);
+}
+
+.card-title {
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 18px;
+    font-weight: 700;
+}
+
+/* ===== FORM ELEMANLARI ===== */
+.form-control, .form-select {
+    background: #ffffff !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+    border-radius: 10px !important;
+    padding: 10px 16px !important;
+    font-size: 14px !important;
+    transition: all 0.2s ease !important;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary-purple) !important;
+    box-shadow: 0 0 0 4px rgba(108, 92, 231, 0.1) !important;
+    outline: none !important;
+}
+
+.form-control::placeholder {
+    color: #94a3b8 !important;
+}
+
+.form-label {
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+/* ===== BUTONLAR ===== */
+.btn-purple {
+    background: var(--primary-purple);
+    color: #ffffff;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.25s ease;
+}
+
+.btn-purple:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(108, 92, 231, 0.25);
+    color: #ffffff;
+}
+
+.btn-outline-purple {
+    background: transparent;
+    color: var(--primary-purple);
+    border: 1px solid var(--primary-purple);
+    padding: 8px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.btn-outline-purple:hover {
+    background: var(--primary-purple);
+    color: #ffffff;
+}
+
+.btn-success-custom {
+    background: #10b981;
+    color: #ffffff;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.btn-success-custom:hover {
+    background: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    color: #ffffff;
+}
+
+.btn-outline-light-custom {
+    background: #ffffff;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.btn-outline-light-custom:hover {
+    background: #f1f5f9;
+    color: var(--text-primary);
+}
+
+/* ===== TABLO ===== */
+.table-container {
+    max-height: 520px;
+    overflow-y: auto;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.teams-table {
+    color: var(--text-primary) !important;
+    margin-bottom: 0;
+    font-size: 14px;
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.teams-table thead th {
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 14px 16px;
+    position: sticky;
+    top: 0;
+    background: #f8fafc;
+    z-index: 10;
+}
+
+.teams-table tbody td {
+    border-bottom: 1px solid var(--border-color);
+    padding: 14px 16px;
+    vertical-align: middle;
+}
+
+.teams-table tbody tr:hover {
+    background: var(--primary-light);
+}
+
+/* ===== BADGE & CODE ===== */
+.code-badge {
+    background: #f1f5f9;
+    color: var(--primary-purple);
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    display: inline-block;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-badge.active {
+    background: #d1fae5;
+    color: #047857;
+}
+
+.status-badge.passive {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 992px) {
+    .teams-main-content { padding: 24px; }
+}
+
+@media (max-width: 768px) {
+    .teams-sidebar { width: 60px; }
+    .teams-main-content { margin-left: 60px; padding: 20px; }
+    .header-area { flex-direction: column; align-items: flex-start; gap: 12px; }
+}

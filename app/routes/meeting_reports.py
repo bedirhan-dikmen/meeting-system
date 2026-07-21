@@ -1,12 +1,14 @@
-from typing import Optional
+# app/routes/meeting_reports.py
+from typing import Optional, List
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from uuid import UUID
+
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.schemas.meeting_reports import MeetingReportOut
 from app.services import meeting_reports as report_service
-from app.services.webhooks import trigger_webhook_event  # Webhook servisini bağladık!
+from app.services.webhooks import trigger_webhook_event
 
 router = APIRouter(prefix="/reports", tags=["Toplantı Analitik ve Raporlama"])
 
@@ -14,11 +16,14 @@ router = APIRouter(prefix="/reports", tags=["Toplantı Analitik ve Raporlama"])
 def get_meeting_report(
     meeting_id: UUID,
     background_tasks: BackgroundTasks,
-    export: Optional[str] = Query(None, description="İleride çıktı formatı için: 'pdf' veya 'excel'"),
+    export: Optional[str] = Query(None, description="Çıktı formatı için: 'pdf' veya 'excel'"),
     db: Session = Depends(get_db),
     current_user: any = Depends(get_current_user)
 ):
-    """Toplantıya ait katılım sürelerini, notları ve aksiyon kararlarını içeren özet raporu getirir."""
+    """
+    İlgili toplantıya ait katılım sürelerini, parça parça oturum loglarını, 
+    notları ve alınan kararları içeren resmi özet raporu hazırlar.
+    """
     report_data = report_service.generate_meeting_report_data(db, meeting_id=meeting_id)
     if not report_data:
         raise HTTPException(
@@ -26,15 +31,11 @@ def get_meeting_report(
             detail="Toplantı bulunamadı veya rapor üretilecek veri yok."
         )
     
-    # İleride PDF/Excel modülümüzü tam bu noktada araya sokup dosyayı döndürebiliriz:
-    # if export == "pdf":
-    #     return pdf_service.generate_pdf_response(report_data)
-    # RAPOR ÜRETİLDİĞİ ANDA DIŞ SİSTEMLERE BİLDİR!
-    trigger_webhook_event(
-        db=db,
-        event_name="meeting.report_generated",
-        payload={"meeting_id": str(meeting_id), "generated_by": str(current_user.id)},
-        background_tasks=background_tasks
+    # Webhook tetikleyici entegrasyonu (background_tasks ile asenkron çalışır)
+    background_tasks.add_task(
+        trigger_webhook_event,
+        event_type="meeting.report_generated",
+        payload={"meeting_id": str(meeting_id), "title": report_data.get("meeting_title")}
     )
-
+    
     return report_data

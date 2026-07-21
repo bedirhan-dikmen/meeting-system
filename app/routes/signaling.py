@@ -1,9 +1,9 @@
+# app/routes/signaling.py
 import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends, status
 from sqlalchemy.orm import Session
 from uuid import UUID
 from app.core.database import SessionLocal
-# Sizin security dosyanızda kesinlikle var olan get_current_user fonksiyonunu çağırıyoruz
 from app.core.security import get_current_user
 from app.models.meeting import Meeting
 from app.services.signaling import signaling_manager
@@ -11,6 +11,7 @@ from app.services.signaling import signaling_manager
 router = APIRouter()
 
 def get_db():
+    """Her WebSocket yaşam döngüsü için izole veritabanı oturumu sağlar."""
     db = SessionLocal()
     try:
         yield db
@@ -23,10 +24,15 @@ async def websocket_endpoint(
     meeting_code: str,
     token: str = Query(..., description="Doğrulama için JWT access_token")
 ):
-    # 1. Güvenlik Kontrolü: get_current_user fonksiyonunu veritabanı oturumu ve token ile tetikliyoruz
+    """
+    Canlı oda içerisindeki WebRTC el sıkışmalarını, anlık sohbet (Chat) mesajlarını
+    ve sistem içi olay yayınlarını asenkron yöneten ana WebSocket uç noktası.
+    """
     db = SessionLocal()
+    current_user = None
+    
+    # 1. GÜVENLİK VE TOKEN DOĞRULAMA KATMANI
     try:
-        # Mevcut security mimarinize doğrudan token string'ini geçiriyoruz
         current_user = get_current_user(db=db, token=token)
         if not current_user:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -37,66 +43,89 @@ async def websocket_endpoint(
     finally:
         db.close()
 
+    # Kullanıcı benzersiz kimliğini string formatına getir
     user_id_str = str(current_user.id)
+    user_full_name = f"{current_user.first_name or ''} {current_user.last_name or ''}".strip() or current_user.email
 
-    # 2. Toplantı Odası Kontrolü
-    db = SessionLocal()
-    meeting = db.query(Meeting).filter(Meeting.meeting_code == meeting_code).first()
-    db.close()
-
-    if not meeting:
-        await websocket.close(code=status.WS_1011_UNEXPECTED_CONDITION)
-        return
-
-    # 3. Bağlantıyı Kabul Et ve Odaya Kaydet
-    await signaling_manager.connect(meeting_code=meeting_code, user_id=user_id_str, websocket=websocket)
-
+    # 2. BAĞLANTIYI KABUL ET VE ODA ODASINA KAYDET
+    await signaling_manager.connect(websocket=websocket, meeting_code=meeting_code, user_id=user_id_str)
+    
     try:
         while True:
-            data_text = await websocket.receive_text()
-            data = json.loads(data_text)
+            # İstemciden (Frontend / room.js) gelen ham metni (JSON) dinle
+            data = await websocket.receive_text()
+            
+            try:
+                packet = json.loads(data)
+            except json.JSONDecodeError:
+                continue  # Geçersiz JSON formatlarını baypas et
 
-            target_id = data.get("target_id")
-            data["sender_id"] = user_id_str
+            # 3. OLAY VE SİNYAL YÖNLENDİRME MOTORU
+            event_type = packet.get("type") or packet.get("event")
+            target_id = packet.get("target_id")
 
-            if target_id:
-                await signaling_manager.send_targeted_message(
-                    meeting_code=meeting_code,
-                    recipient_id=target_id,
-                    message=data
-                )
-            else:
+            # Eğer gelen paket bir canlı sohbet mesajı ise paketi zenginleştir ve odaya dağıt
+            if event_type == "CHAT_MESSAGE":
+                chat_packet = {
+                    "event": "CHAT_MESSAGE",
+                    "sender": user_full_name,
+                    "message": packet.get("message", ""),
+                    "user_id": user_id_str
+                }
+                # Kendisi hariç odadaki tüm kullanıcılara mesajı fırlat
                 await signaling_manager.broadcast_to_room(
                     meeting_code=meeting_code,
-                    message=data,
+                    message=json.dumps(chat_packet),
                     exclude_user=user_id_str
                 )
+            
+            # WebRTC Sinyalleşme Paketleri (video-offer, video-answer, new-ice-candidate)
+            else:
+                if target_id:
+                    # Nokta atışı hedef kullanıcıya (Peer-to-Peer) sinyali gönder
+                    await signaling_manager.send_targeted_message(
+                        meeting_code=meeting_code,
+                        recipient_id=str(target_id),
+                        message=data
+                    )
+                else:
+                    # Genel oda yayını yap (Herkesi senkronize et)
+                    await signaling_manager.broadcast_to_room(
+                        meeting_code=meeting_code,
+                        message=data,
+                        exclude_user=user_id_str
+                    )
 
     except WebSocketDisconnect:
+        # 4. KOPMA / ODADAN AYRILMA DURUMU YÖNETİMİ
         await signaling_manager.disconnect(meeting_code=meeting_code, user_id=user_id_str)
+        
+        # Odadaki diğer kişilere kullanıcının ayrıldığını anlık bildir
+        leave_packet = {
+            "event": "PARTICIPANT_LEFT",
+            "user_id": user_id_str,
+            "name": user_full_name
+        }
+        await signaling_manager.broadcast_to_room(
+            meeting_code=meeting_code,
+            message=json.dumps(leave_packet),
+            exclude_user=user_id_str
+        )
 
-@router.get("/ws-info", tags=["Canlı Sinyalleşme"])
+@router.get("/ws-info", tags=["Canlı Sinyalleşme Bilgi Hattı"])
 def websocket_info():
     """
     ### 🔌 Canlı WebRTC Sinyalleşme WebSocket Bağlantı Rehberi
     
-    Bu modül, canlı toplantı odalarındaki WebRTC el sıkışmalarını (SDP Offer, Answer ve ICE Candidate) gerçek zamanlı yönetir.
+    Bu modül, canlı toplantı odalarındaki WebRTC el skullanımlarını, anlık not takaslarını
+    ve canlı sohbet (Chat) paketlerini gerçek zamanlı asenkron yönetir.
     
-    * **WebSocket Adresi:** `ws://127.0.0.1:8000/api/v1/ws/{meeting_code}?token={jwt_token}`
-    * **meeting_code:** Toplantıya ait benzersiz kod (Örn: `yeb-xxxx-xxxx`)
-    * **token:** Sisteme giriş yaptıktan sonra aldığınız JWT Access Token string'i.
-    
-    #### Sinyal Paketi Taslak Formatı (JSON):
-    ```json
-    {
-        "type": "video-offer",
-        "target_id": "hedef_kullanici_uuid_degeri",
-        "sdp": "..."
-    }
-    ```
+    * **WebSocket Tam Adresi:** `ws://127.0.0.1:8000/api/v1/ws/{meeting_code}?token={jwt_token}`
+    * **meeting_code:** Toplantıya ait benzersiz oda erişim kodu (Örn: `yeb-xxxx-xxxx`)
+    * **token:** Giriş sonrası localStorage üzerinde saklanan JWT Access Token string'i.
     """
     return {
-        "websocket_url": "ws://127.0.0.1:8000/api/v1/ws/{meeting_code}",
-        "protocol": "WebSocket",
-        "requires_auth": True
+        "gateway": "Yebsoft WebSocket Signaling Gateway Active",
+        "protocol": "WebSockets (RFC 6455)",
+        "supported_events": ["video-offer", "video-answer", "new-ice-candidate", "CHAT_MESSAGE"]
     }
