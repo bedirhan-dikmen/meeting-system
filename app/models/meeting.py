@@ -16,6 +16,9 @@ class Meeting(Base):
     actual_start = Column(DateTime, nullable=True)
     actual_end = Column(DateTime, nullable=True)
     meeting_code = Column(String, unique=True, index=True, nullable=False)  # WebRTC / Oda erişim kodu
+    meeting_type = Column(String, default="Genel Toplantı", nullable=False) # günlük, haftalık, proje, vb.
+    agenda = Column(Text, nullable=True) # toplantı gündemi
+    status = Column(String, default="planlandı", nullable=False) # taslak, planlandı, başladı, tamamlandı, iptal edildi
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

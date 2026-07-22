@@ -1,13 +1,15 @@
 # app/main.py
-from fastapi import FastAPI
+import os
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from app.core.config import settings
-
-
+from app.core.database import engine, Base
 from app.api.v1.router import api_router
 
-# Eğer Alembic kullanmadan önce hızlıca tabloların oluşmasını test etmek istersen (Geliştirme için):
-# Base.metadata.create_all(bind=engine)
+# Tabloların oluşmasını geliştirme aşamasında otomatik tetikle
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -19,12 +21,27 @@ app = FastAPI(
     swagger_ui_parameters={"persistAuthorization": True} # Token'ın tarayıcı yenilense bile hafızada kalmasını sağlar
 )
 
-# Microsoft Teams benzeri web arayüzümüzün (Bootstrap/Frontend) API'mize sorunsuz bağlanabilmesi için CORS Ayarları
+# Static & Templates dizin yolları
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+
+# Dizinler yoksa otomatik oluştur
+os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(os.path.join(STATIC_DIR, "css"), exist_ok=True)
+os.makedirs(os.path.join(STATIC_DIR, "js"), exist_ok=True)
+os.makedirs(TEMPLATES_DIR, exist_ok=True)
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+# CORS Ayarları
 origins = [
     "http://localhost", 
     "http://localhost:8000",
     "http://127.0.0.1:8000",
-    # Canlı ortamdaki frontend adresi buraya eklenecektir
+    "http://localhost:3000",
+    "*"
 ]
 
 app.add_middleware(
@@ -37,8 +54,28 @@ app.add_middleware(
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-# Temel Sağlık Kontrolü (Health Check) Endpoint'i
-@app.get("/", tags=["Health Check"])
+# --- FRONTEND HTML SAYFA ROTALARI ---
+@app.get("/login", tags=["Frontend Sayfaları"])
+def page_login(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.get("/", tags=["Frontend Sayfaları"])
+def page_dashboard(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/meetings", tags=["Frontend Sayfaları"])
+def page_meetings(request: Request):
+    return templates.TemplateResponse("meetings.html", {"request": request})
+
+@app.get("/room/{meeting_code}", tags=["Frontend Sayfaları"])
+def page_room(request: Request, meeting_code: str):
+    return templates.TemplateResponse("room.html", {"request": request, "meeting_code": meeting_code})
+
+@app.get("/reports/{meeting_id}", tags=["Frontend Sayfaları"])
+def page_report(request: Request, meeting_id: str):
+    return templates.TemplateResponse("report.html", {"request": request, "meeting_id": meeting_id})
+
+@app.get("/api-status", tags=["Health Check"])
 def read_root():
     return {
         "status": "active",

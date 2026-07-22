@@ -13,6 +13,7 @@ from app.routes.meeting_actions import router as action_router
 from app.routes.meeting_reports import router as report_router  # Özet Raporlama API'ı
 from app.routes.notifications import router as notification_router  # Bildirim API'ı
 from app.routes.webhooks import router as webhook_router
+from app.routes.dashboard import router as dashboard_router  # Dashboard Analitik API'ı
 
 # Ana API Router nesnesini oluşturuyoruz
 api_router = APIRouter()
@@ -29,3 +30,4 @@ api_router.include_router(action_router)
 api_router.include_router(report_router)      # Tablosuz Özet Raporlama aktif!
 api_router.include_router(notification_router)  # Canlı Bildirim ucu aktif!
 api_router.include_router(webhook_router)  # Webhook ucu aktif!
+api_router.include_router(dashboard_router)  # Dashboard Analitik API'ı aktif!

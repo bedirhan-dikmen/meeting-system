@@ -4,6 +4,8 @@ from typing import Optional, List
 import secrets
 
 from app.models.meeting import Meeting
+from app.models.meeting_participant import MeetingParticipant
+from app.models.notification import Notification
 from app.schemas.meetings import MeetingCreate, MeetingUpdate
 
 def generate_unique_meeting_code() -> str:
@@ -13,7 +15,7 @@ def generate_unique_meeting_code() -> str:
     return f"yeb-{part1}-{part2}"
 
 def create_new_meeting(db: Session, meeting_data: MeetingCreate, host_id: UUID) -> Meeting:
-    """Model parametrelerine tam uyumlu toplantı kaydı oluşturur."""
+    """Model parametrelerine tam uyumlu toplantı kaydı oluşturur ve davetlileri kaydeder."""
     while True:
         code = generate_unique_meeting_code()
         existing = db.query(Meeting).filter(Meeting.meeting_code == code).first()
@@ -26,17 +28,53 @@ def create_new_meeting(db: Session, meeting_data: MeetingCreate, host_id: UUID) 
         scheduled_start=meeting_data.scheduled_start,
         scheduled_end=meeting_data.scheduled_end,
         meeting_code=code,
+        meeting_type=meeting_data.meeting_type or "Genel Toplantı",
+        agenda=meeting_data.agenda,
+        status=meeting_data.status or "planlandı",
         created_by=host_id,
         is_active=True
     )
     db.add(db_meeting)
     db.commit()
     db.refresh(db_meeting)
+
+    # Toplantı Yöneticisini Moderator olarak ekle
+    host_participant = MeetingParticipant(
+        meeting_id=db_meeting.id,
+        user_id=host_id,
+        role="moderator",
+        status="accepted"
+    )
+    db.add(host_participant)
+
+    # Davet edilen kullanıcıları ekle ve bildirim gönder
+    if meeting_data.invited_user_ids:
+        for user_id in meeting_data.invited_user_ids:
+            if user_id != host_id:
+                participant = MeetingParticipant(
+                    meeting_id=db_meeting.id,
+                    user_id=user_id,
+                    role="participant",
+                    status="pending"
+                )
+                db.add(participant)
+
+                # Bildirim oluştur
+                notif = Notification(
+                    user_id=user_id,
+                    title="Yeni Toplantı Daveti",
+                    message=f"'{db_meeting.title}' toplantısına davet edildiniz. Tarih: {db_meeting.scheduled_start.strftime('%d.%m.%Y %H:%M')}",
+                    type="invite"
+                )
+                db.add(notif)
+
+    db.commit()
+    db.refresh(db_meeting)
     return db_meeting
 
 def get_meetings_list(db: Session, skip: int = 0, limit: int = 100) -> List[Meeting]:
     """Sistemdeki aktif toplantıları listeler."""
-    return db.query(Meeting).filter(Meeting.is_active == True).offset(skip).limit(limit).all()
+    return db.query(Meeting).filter(Meeting.is_active == True).order_by(Meeting.created_at.desc()).offset(skip).limit(limit).all()
 
 def get_meeting_by_id(db: Session, meeting_id: UUID) -> Optional[Meeting]:
     """UUID ile spesifik bir toplantıyı çeker."""

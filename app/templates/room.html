@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canlı Toplantı Odası - YebMeeting</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body style="overflow: hidden; background: #090d16;">
+  <div class="room-container">
+
+    <!-- PHASE 1: PRE-JOIN PREVIEW SCREEN -->
+    <div id="prejoinScreen" class="prejoin-screen">
+      <div class="prejoin-card">
+        <div>
+          <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 0.5rem;">Cihaz Ön İzleme ve Ayarlar</h2>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.5rem;">Toplantıya katılmadan önce kamera ve mikrofonunuzu kontrol edin</p>
+
+          <div class="video-preview-box">
+            <video id="prejoinVideo" autoplay playsinline muted></video>
+            <div id="prejoinAvatar" class="avatar-placeholder" style="display: none;">Öİ</div>
+          </div>
+
+          <div class="mic-meter-bar">
+            <div id="micMeterFill" class="mic-meter-fill"></div>
+          </div>
+
+          <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1.25rem;">
+            <button id="btnToggleMicPrejoin" type="button" class="control-btn" title="Mikrofon Aç/Kapat">
+              <i class="fas fa-microphone"></i>
+            </button>
+            <button id="btnToggleCamPrejoin" type="button" class="control-btn" title="Kamera Aç/Kapat">
+              <i class="fas fa-video"></i>
+            </button>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; justify-content: center; gap: 1.25rem;">
+          <div class="form-group">
+            <label><i class="fas fa-camera"></i> Kamera Seçin</label>
+            <select id="cameraSelect" class="form-select">
+              <option value="">Varsayılan Kamera</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label><i class="fas fa-microphone"></i> Mikrofon Seçin</label>
+            <select id="micSelect" class="form-select">
+              <option value="">Varsayılan Mikrofon</option>
+            </select>
+          </div>
+
+          <div style="margin-top: 1.5rem;">
+            <button id="btnJoinMeetingNow" type="button" class="btn btn-primary" style="width: 100%; padding: 0.9rem; font-size: 1.05rem;">
+              <i class="fas fa-door-open"></i> Şimdi Toplantıya Katıl
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 2: LIVE MEETING ROOM SCREEN -->
+    <div id="liveRoomScreen" style="display: none; flex-direction: column; height: 100vh;">
+      <!-- ROOM TOP BAR -->
+      <header class="top-header" style="background: rgba(15, 23, 42, 0.9); position: relative; z-index: 100;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <h2 id="roomTitle" style="font-size: 1.15rem; font-weight: 700;">Toplantı Odası</h2>
+          <span style="font-family: monospace; background: rgba(255,255,255,0.08); padding: 0.25rem 0.6rem; border-radius: 4px; color: var(--accent-cyan); font-size: 0.85rem;">{{ meeting_code }}</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 1.5rem;">
+          <!-- TIMER -->
+          <div style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-secondary); padding: 0.4rem 0.85rem; border-radius: var(--radius-full); border: 1px solid var(--border-color); font-weight: 700; font-family: monospace;">
+            <i class="fas fa-stopwatch" style="color: var(--accent-amber);"></i>
+            <span id="roomTimer">00:00:00</span>
+          </div>
+
+          <!-- CONNECTION STATUS BADGE -->
+          <div style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-secondary); padding: 0.4rem 0.85rem; border-radius: var(--radius-full); border: 1px solid var(--border-color); font-size: 0.85rem;">
+            <span id="connectionDot" style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent-emerald);"></span>
+            <span id="connectionText">Bağlı</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- ROOM MAIN CONTENT -->
+      <div class="room-main">
+        <!-- VIDEO TILES GRID -->
+        <div id="videoGrid" class="video-grid">
+          <!-- Local and remote tiles rendered by webrtc.js -->
+        </div>
+
+        <!-- HOST CONTROLS SIDEBAR (Shown when Host) -->
+        <div id="hostControlsPanel" class="room-sidebar" style="display: none;">
+          <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem;"><i class="fas fa-user-shield" style="color: var(--accent-primary);"></i> Yönetici Kontrolleri</h3>
+          
+          <button id="btnEndMeetingHost" class="btn btn-danger" style="margin-bottom: 1rem;">
+            <i class="fas fa-power-off"></i> Toplantıyı Sonlandır
+          </button>
+
+          <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">Toplantı Notu / Karar Ekle</label>
+            <textarea id="hostNoteContent" class="form-control" rows="3" placeholder="Not veya karar metni..." style="margin-top: 0.5rem;"></textarea>
+            <button onclick="addHostNote()" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem; font-size: 0.85rem;">
+              <i class="fas fa-save"></i> Notu Kaydet
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROOM CONTROL BAR -->
+      <footer class="room-control-bar">
+        <div style="display: flex; gap: 1rem; align-items: center;">
+          <button id="btnRoomMic" class="control-btn" title="Mikrofon">
+            <i class="fas fa-microphone"></i>
+          </button>
+          <button id="btnRoomCam" class="control-btn" title="Kamera">
+            <i class="fas fa-video"></i>
+          </button>
+          <button id="btnScreenShare" class="control-btn" title="Ekran Paylaş">
+            <i class="fas fa-desktop"></i>
+          </button>
+        </div>
+
+        <div>
+          <button id="btnLeaveRoom" class="btn btn-danger" style="padding: 0.75rem 1.5rem; font-size: 0.95rem;">
+            <i class="fas fa-phone-slash"></i> Ayrıl
+          </button>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="/static/js/auth.js"></script>
+  <script src="/static/js/notifications.js"></script>
+  <script src="/static/js/prejoin.js"></script>
+  <script src="/static/js/webrtc.js"></script>
+  <script>
+    const MEETING_CODE = "{{ meeting_code }}";
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await Prejoin.init();
+
+      document.getElementById('btnJoinMeetingNow').addEventListener('click', async () => {
+        document.getElementById('prejoinScreen').style.display = 'none';
+        document.getElementById('liveRoomScreen').style.display = 'flex';
+
+        await WebRTC.joinRoom(
+          MEETING_CODE,
+          Prejoin.localStream,
+          Prejoin.isMicMuted,
+          Prejoin.isCameraOff
+        );
+      });
+    });
+
+    async function addHostNote() {
+      const content = document.getElementById('hostNoteContent').value.trim();
+      if (!content) return;
+
+      try {
+        const meetingId = WebRTC.meetingInfo?.id;
+        if (!meetingId) return;
+
+        const res = await fetch(`/api/v1/notes/${meetingId}`, {
+          method: 'POST',
+          headers: Auth.getAuthHeaders(),
+          body: JSON.stringify({ content })
+        });
+
+        if (res.ok) {
+          Notifications.show('Toplantı notu başarıyla eklendi.', 'success', 'Not Eklendi');
+          document.getElementById('hostNoteContent').value = '';
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  </script>
+</body>
+</html>

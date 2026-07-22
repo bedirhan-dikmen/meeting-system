@@ -1,34 +1,30 @@
-# seed.py
-from app.core.database import SessionLocal
+# user_seed.py
+from app.core.database import SessionLocal, engine, Base
 from app.core.security import get_password_hash
 from app.models import User
 
 def seed_db():
+    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
-        # Veritabanında bu e-posta ile kayıtlı bir kullanıcı var mı kontrol et
         existing_user = db.query(User).filter(User.email == "user@yebsoft.net").first()
         if not existing_user:
             user = User(
                 email="user@yebsoft.net",
-                password_hash=get_password_hash("User123!"),  # Şifreyi bcrypt ile hash'liyoruz
+                password_hash=get_password_hash("User123!"),
                 first_name="Yebsoft",
-                last_name="Çalışan",
+                last_name="Calisan",
                 role="user",
                 is_active=True,
                 user_code="YEB002"
             )
             db.add(user)
             db.commit()
-            print("\n==================================================================")
-            print(" BAŞARILI: Başlangıç User kullanıcısı veritabanına yazıldı!")
-            print(" E-posta: user@yebsoft.net")
-            print(" Şifre  : user123!")
-            print("==================================================================\n")
+            print("[+] Baslangic User kullanicisi veritabanina yazildi: user@yebsoft.net / User123!")
         else:
-            print("\n[!] Bilgi: User kullanıcısı veritabanında zaten mevcut.\n")
+            print("[*] User kullanicisi veritabaninda zaten mevcut.")
     except Exception as e:
-        print(f"\n[X] Hata Oluştu: {e}\n")
+        print(f"[X] Hata Olustu: {e}")
     finally:
         db.close()
 

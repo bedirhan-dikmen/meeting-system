@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Toplantı Yönetimi - Kurumsal Toplantı Sistemi{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>Toplantı Yönetimi</h1>
+    <p>Tüm toplantılarınızı arayın, filtreleyin ve yenilerini planlayın</p>
+  </div>
+  <button onclick="Meetings.openCreateModal()" class="btn btn-primary">
+    <i class="fas fa-calendar-plus"></i> Yeni Toplantı Planla
+  </button>
+</div>
+
+<!-- 7-FIELD FILTER BAR -->
+<div class="filter-card">
+  <!-- 1. Toplantı Başlığı / Metin Araması -->
+  <div class="form-group">
+    <label><i class="fas fa-search"></i> Toplantı Ara</label>
+    <input type="text" id="filterSearch" class="form-control" placeholder="Başlık veya açıklama...">
+  </div>
+
+  <!-- 2. Toplantı Yöneticisi -->
+  <div class="form-group">
+    <label><i class="fas fa-user-tie"></i> Yönetici</label>
+    <select id="filterHost" class="form-select">
+      <option value="">Tüm Yöneticiler</option>
+    </select>
+  </div>
+
+  <!-- 3. Toplantı Türü -->
+  <div class="form-group">
+    <label><i class="fas fa-tag"></i> Toplantı Türü</label>
+    <select id="filterType" class="form-select">
+      <option value="">Tüm Türler</option>
+      <option value="Günlük Toplantı">Günlük Toplantı</option>
+      <option value="Haftalık Toplantı">Haftalık Toplantı</option>
+      <option value="Proje Toplantısı">Proje Toplantısı</option>
+      <option value="Departman Toplantısı">Departman Toplantısı</option>
+      <option value="Eğitim">Eğitim</option>
+      <option value="Müşteri Toplantısı">Müşteri Toplantısı</option>
+      <option value="Genel Toplantı">Genel Toplantı</option>
+      <option value="Diğer">Diğer</option>
+    </select>
+  </div>
+
+  <!-- 4. Toplantı Durumu -->
+  <div class="form-group">
+    <label><i class="fas fa-info-circle"></i> Durum</label>
+    <select id="filterStatus" class="form-select">
+      <option value="">Tüm Durumlar</option>
+      <option value="taslak">Taslak</option>
+      <option value="planlandı">Planlandı</option>
+      <option value="başladı">Başladı</option>
+      <option value="tamamlandı">Tamamlandı</option>
+      <option value="iptal edildi">İptal Edildi</option>
+    </select>
+  </div>
+
+  <!-- 5. Tarih Aralığı (Başlangıç) -->
+  <div class="form-group">
+    <label><i class="fas fa-calendar"></i> Başlangıç Tarihi</label>
+    <input type="date" id="filterDateFrom" class="form-control">
+  </div>
+
+  <!-- Tarih Aralığı (Bitiş) -->
+  <div class="form-group">
+    <label><i class="fas fa-calendar-check"></i> Bitiş Tarihi</label>
+    <input type="date" id="filterDateTo" class="form-control">
+  </div>
+
+  <!-- 7. Katılımcı Filtresi -->
+  <div class="form-group">
+    <label><i class="fas fa-users"></i> Katılımcı</label>
+    <select id="filterParticipant" class="form-select">
+      <option value="">Tüm Katılımcılar</option>
+    </select>
+  </div>
+</div>
+
+<!-- MEETINGS GRID CONTAINER -->
+<div id="meetingsContainer" class="meetings-grid">
+  <!-- Populated by meetings.js -->
+</div>
+
+<!-- CREATE MEETING MODAL -->
+<div id="createMeetingModal" class="modal-backdrop">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3><i class="fas fa-calendar-plus" style="color: var(--accent-primary); margin-right: 0.5rem;"></i> Yeni Toplantı Oluştur</h3>
+      <button type="button" onclick="Meetings.closeCreateModal()" class="icon-btn" style="width: 32px; height: 32px;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <form id="formCreateMeeting">
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label>Toplantı Başlığı *</label>
+        <input type="text" id="createTitle" class="form-control" placeholder="Örn: Hafta Sonu Proje Değerlendirmesi" required>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label>Toplantı Açıklaması</label>
+        <textarea id="createDescription" class="form-control" rows="2" placeholder="Toplantı hakkında detaylar..."></textarea>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div class="form-group">
+          <label>Başlangıç Tarih ve Saati *</label>
+          <input type="datetime-local" id="createStart" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label>Planlanan Bitiş Tarih ve Saati *</label>
+          <input type="datetime-local" id="createEnd" class="form-control" required>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div class="form-group">
+          <label>Toplantı Türü *</label>
+          <select id="createType" class="form-select">
+            <option value="Genel Toplantı">Genel Toplantı</option>
+            <option value="Günlük Toplantı">Günlük Toplantı</option>
+            <option value="Haftalık Toplantı">Haftalık Toplantı</option>
+            <option value="Proje Toplantısı">Proje Toplantısı</option>
+            <option value="Departman Toplantısı">Departman Toplantısı</option>
+            <option value="Eğitim">Eğitim</option>
+            <option value="Müşteri Toplantısı">Müşteri Toplantısı</option>
+            <option value="Diğer">Diğer</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Toplantı Durumu *</label>
+          <select id="createStatus" class="form-select">
+            <option value="planlandı">Planlandı</option>
+            <option value="taslak">Taslak</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label>Toplantı Gündemi</label>
+        <textarea id="createAgenda" class="form-control" rows="2" placeholder="1. Giriş ve sunum&#10;2. Soru ve cevaplar..."></textarea>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label>Davet Edilen Kullanıcılar</label>
+        <div id="modalInvitedUsersList" style="max-height: 140px; overflow-y: auto; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.5rem 0.85rem;">
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Kullanıcılar yükleniyor...</p>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+        <button type="button" onclick="Meetings.closeCreateModal()" class="btn btn-secondary">İptal</button>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Oluştur ve Davet Et</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/meetings.js"></script>
+{% endblock %}

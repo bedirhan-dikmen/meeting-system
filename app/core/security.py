@@ -28,6 +28,9 @@ def get_password_hash(password: str) -> str:
     hashed_bytes = bcrypt.hashpw(password_bytes, salt)
     return hashed_bytes.decode('utf-8')
 
+# Legacy Alias
+hash_password = get_password_hash
+
 def create_access_token(subject: Union[str, Any], role: str, expires_delta: Optional[timedelta] = None) -> str:
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -62,9 +65,18 @@ def get_current_user_claims(token: str = Depends(oauth2_scheme)) -> dict:
         raise credentials_exception
     
 def get_current_user(
-    claims: dict = Depends(get_current_user_claims), 
-    db: Session = Depends(get_db)
+    claims: Optional[dict] = Depends(get_current_user_claims), 
+    db: Session = Depends(get_db),
+    token: Optional[str] = None
 ) -> User:
+    if token:
+        claims = get_current_user_claims(token=token)
+    elif not claims:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Geçersiz veya süresi dolmuş kimlik doğrulama token'ı."
+        )
+
     user_id = claims.get("user_id")
     try:
         # UUID formatını güvenli bir şekilde doğrulayıp sorguluyoruz

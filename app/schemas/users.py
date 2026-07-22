@@ -4,15 +4,15 @@ from typing import Optional
 from uuid import UUID
 
 class UserBase(BaseModel):
-    first_name: str = Field(..., min_length=2, max_length=50, example="Yebsoft")
-    last_name: str = Field(..., min_length=2, max_length=50, example="Destek")
-    email: EmailStr = Field(..., example="user@yebsoft.net")
-    user_code: str = Field(..., min_length=3, max_length=20, example="YEB002")
-    role: str = Field("user", example="admin") # "admin" veya "user"
-    department_id: Optional[int] = Field(None, example=1)
+    first_name: str = Field(..., min_length=2, max_length=50)
+    last_name: str = Field(..., min_length=2, max_length=50)
+    email: EmailStr = Field(...)
+    user_code: str = Field(..., min_length=3, max_length=20)
+    role: str = Field("user") # "admin" veya "user"
+    department_id: Optional[int] = Field(None)
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=6, example="GuvenliSifre123!")
+    password: str = Field(..., min_length=6)
 
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None

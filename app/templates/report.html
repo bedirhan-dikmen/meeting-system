@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Toplantı Raporu - YebMeeting{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>Toplantı Sonuç & Katılım Raporu</h1>
+    <p>Toplantıya ait katılım süreleri, oturum kayıtları ve alınan kararlar</p>
+  </div>
+  <button onclick="Report.printReport()" class="btn btn-secondary">
+    <i class="fas fa-print"></i> Raporu Yazdır / PDF
+  </button>
+</div>
+
+<!-- REPORT HEADER CARD -->
+<div class="chart-card" style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+    <div>
+      <span id="repCode" style="font-family: monospace; background: var(--bg-primary); padding: 0.25rem 0.6rem; border-radius: 4px; color: var(--accent-cyan); font-size: 0.85rem;">-</span>
+      <h2 id="repTitle" style="font-size: 1.6rem; font-weight: 800; margin-top: 0.5rem;">Toplantı Yükleniyor...</h2>
+    </div>
+    <div style="text-align: right;">
+      <span style="font-size: 0.85rem; color: var(--text-secondary);">Planlanan Başlangıç</span>
+      <strong id="repStart" style="display: block; font-size: 1rem;">-</strong>
+    </div>
+  </div>
+
+  <!-- SUMMARY METRICS -->
+  <div class="stats-grid" style="margin-top: 1.5rem; margin-bottom: 0;">
+    <div class="stat-card">
+      <div class="stat-icon cyan"><i class="fas fa-stopwatch"></i></div>
+      <div class="stat-info">
+        <h3 id="repDuration">0 dk</h3>
+        <p>Toplam Süre</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon indigo"><i class="fas fa-users"></i></div>
+      <div class="stat-info">
+        <h3 id="repParticipantsCount">0</h3>
+        <p>Katılımcı Sayısı</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon emerald"><i class="fas fa-sticky-note"></i></div>
+      <div class="stat-info">
+        <h3 id="repNotesCount">0</h3>
+        <p>Alınan Notlar</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon amber"><i class="fas fa-tasks"></i></div>
+      <div class="stat-info">
+        <h3 id="repActionsCount">0</h3>
+        <p>Aksiyon Maddeleri</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ATTENDANCE TABLE -->
+<div class="chart-card" style="margin-bottom: 2rem;">
+  <div class="chart-header">
+    <h3><i class="fas fa-user-clock" style="color: var(--accent-primary); margin-right: 0.5rem;"></i> Katılımcı Oturum Süreleri</h3>
+  </div>
+  <div style="overflow-x: auto;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+      <thead>
+        <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">
+          <th style="padding: 0.85rem 1rem;">Ad Soyad</th>
+          <th style="padding: 0.85rem 1rem;">Personel Kodu</th>
+          <th style="padding: 0.85rem 1rem;">Toplam Katılım Süresi</th>
+          <th style="padding: 0.85rem 1rem;">Oturum Detayı</th>
+        </tr>
+      </thead>
+      <tbody id="repParticipantsTable">
+        <!-- Populated by report.js -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- NOTES & ACTIONS GRID -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+  <!-- NOTES -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <h3><i class="fas fa-notes-medical" style="color: var(--accent-emerald); margin-right: 0.5rem;"></i> Toplantı Notları</h3>
+    </div>
+    <div id="repNotesList">
+      <!-- Populated by report.js -->
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <h3><i class="fas fa-check-double" style="color: var(--accent-amber); margin-right: 0.5rem;"></i> Aksiyon Maddeleri & Kararlar</h3>
+    </div>
+    <div id="repActionsList">
+      <!-- Populated by report.js -->
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/report.js"></script>
+<script>
+  const MEETING_ID = "{{ meeting_id }}";
+  document.addEventListener('DOMContentLoaded', () => {
+    Report.init(MEETING_ID);
+  });
+</script>
+{% endblock %}

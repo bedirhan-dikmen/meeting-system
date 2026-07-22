@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Toplantı Yönetim Sistemi{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>Genel Bakış & Analizler</h1>
+    <p>Sistem genelindeki toplantı istatistikleri ve performans metrikleri</p>
+  </div>
+  <a href="/meetings" class="btn btn-primary">
+    <i class="fas fa-plus"></i> Yeni Toplantı Oluştur
+  </a>
+</div>
+
+<!-- 8 STAT CARDS GRID -->
+<div class="stats-grid">
+  <!-- Card 1 -->
+  <div class="stat-card">
+    <div class="stat-icon indigo">
+      <i class="fas fa-users"></i>
+    </div>
+    <div class="stat-info">
+      <h3 id="statTotalUsers">0</h3>
+      <p>Toplam Kullanıcı</p>
+    </div>
+  </div>
+
+  <!-- Card 2 -->
+  <div class="stat-card">
+    <div class="stat-icon cyan">
+      <i class="fas fa-calendar-day"></i>
+    </div>
+    <div class="stat-info">
+      <h3 id="statTodayMeetings">0</h3>
+      <p>Bugünkü Toplantı</p>
+    </div>
+  </div>
+
+  <!-- Card 3 -->
+  <div class="stat-card">
+    <div class="stat-icon amber">
+      <i class="fas fa-clock"></i>
+    </div>
+    <div class="stat-info">
+      <h3 id="statUpcomingMeetings">0</h3>
+      <p>Yaklaşan Toplantı</p>
+    </div>
+  </div>
+
+  <!-- Card 4 -->
+  <div class="stat-card">
+    <div class="stat-icon emerald">
+      <i class="fas fa-check-circle"></i>
+    </div>
+    <div class="stat-info">
+      <h3 id="statCompletedMeetings">0</h3>
+      <p>Tamamlanan Toplantı</p>
+    </div>
+  </div>
+
+  <!-- Card 5 -->
+  <div class="stat-card">
+    <div class="stat-icon rose">
+      <i class="fas fa-ban"></i>
+    </div>
+    <div class="stat-info">
+      <h3 id="statCancelledMeetings">0</h3>
+      <p>İptal Edilen</p>
+    </div>
+  </div>
+
+  <!-- Card 6 -->
+  <div class="stat-card">
+    <div class="stat-icon indigo">
+      <i class="fas fa-calendar-alt"></i>
+    </div>
+    <div class="stat-info">
+      <h3 id="statThisMonthMeetings">0</h3>
+      <p>Bu Ay Yapılan</p>
+    </div>
+  </div>
+
+  <!-- Card 7 -->
+  <div class="stat-card">
+    <div class="stat-icon cyan">
+      <i class="fas fa-stopwatch"></i>
+    </div>
+    <div class="stat-info">
+      <h3 id="statAvgDuration">0 dk</h3>
+      <p>Ortalama Süre</p>
+    </div>
+  </div>
+</div>
+
+<!-- CHARTS GRID & TOP PARTICIPANTS -->
+<div class="charts-grid">
+  <!-- Chart 1: Aylara Göre Toplantı Sayısı -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <h3><i class="fas fa-chart-bar" style="color: var(--accent-primary); margin-right: 0.5rem;"></i> Aylara Göre Toplantı Sayısı</h3>
+    </div>
+    <div class="chart-container">
+      <canvas id="chartMonthly"></canvas>
+    </div>
+  </div>
+
+  <!-- Chart 2: Toplantı Türlerine Göre Dağılım -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <h3><i class="fas fa-chart-pie" style="color: var(--accent-cyan); margin-right: 0.5rem;"></i> Tür Dağılımı</h3>
+    </div>
+    <div class="chart-container">
+      <canvas id="chartTypes"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- TOP PARTICIPANTS LEADERBOARD CARD -->
+<div class="chart-card" style="margin-bottom: 2rem;">
+  <div class="chart-header">
+    <h3><i class="fas fa-award" style="color: var(--accent-amber); margin-right: 0.5rem;"></i> En Fazla Katılan Kullanıcılar</h3>
+  </div>
+  <div id="topParticipantsList">
+    <!-- Populated by JS -->
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/dashboard.js"></script>
+{% endblock %}
