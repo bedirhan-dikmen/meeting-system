@@ -506,7 +506,7 @@ const WebRTC = {
   },
 
   renderLocalTile() {
-    const activeContainer = this.isScreenSharing || document.getElementById('screenShareArea')?.style.display === 'flex'
+    const activeContainer = (this.isScreenSharing || document.getElementById('screenShareArea')?.style.display === 'flex')
       ? document.getElementById('topCarouselBar')
       : document.getElementById('videoGrid');
 
@@ -532,9 +532,12 @@ const WebRTC = {
         ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials.toUpperCase()}
       </div>
       <div class="tile-overlay">
-        <span><strong>${name}</strong> (Siz)</span>
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
-          <i id="localMicStatusIcon" class="fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${this.isMicMuted ? 'var(--accent-rose)' : 'var(--accent-emerald)'}"></i>
+        <span title="${name} (Siz)">
+          <strong style="color: #fff; font-weight: 700;">${name}</strong>
+          <span style="font-size: 0.72rem; color: var(--accent-cyan); opacity: 0.9;">(Siz)</span>
+        </span>
+        <div style="display: flex; gap: 0.5rem; align-items: center; margin-left: auto;">
+          <i id="localMicStatusIcon" class="fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${this.isMicMuted ? 'var(--accent-rose)' : 'var(--accent-emerald)'}; font-size: 0.9rem;"></i>
         </div>
       </div>
     `;
@@ -547,7 +550,7 @@ const WebRTC = {
   },
 
   renderRemoteTile(remoteUserId, stream = null) {
-    const activeContainer = document.getElementById('screenShareArea')?.style.display === 'flex'
+    const activeContainer = (document.getElementById('screenShareArea')?.style.display === 'flex')
       ? document.getElementById('topCarouselBar')
       : document.getElementById('videoGrid');
 
@@ -577,14 +580,14 @@ const WebRTC = {
         ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials}
       </div>
       <div class="tile-overlay">
-        <span>
-          <strong>${name}</strong>
-          <span class="role-badge ${isHostUser ? 'role-badge-admin' : 'role-badge-user'}" style="margin-left: 0.35rem;">${isHostUser ? 'Yönetici' : 'Katılımcı'}</span>
+        <span title="${name}">
+          <strong style="color: #fff; font-weight: 700; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</strong>
+          <span class="role-badge ${isHostUser ? 'role-badge-admin' : 'role-badge-user'}" style="font-size: 0.6rem; padding: 0.1rem 0.35rem;">${isHostUser ? 'Yönetici' : 'Katılımcı'}</span>
         </span>
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
-          <i class="fas ${isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${isMicMuted ? 'var(--accent-rose)' : 'var(--accent-emerald)'}"></i>
+        <div style="display: flex; gap: 0.5rem; align-items: center; margin-left: auto;">
+          <i class="fas ${isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${isMicMuted ? 'var(--accent-rose)' : 'var(--accent-emerald)'}; font-size: 0.9rem;"></i>
           ${this.isHost ? `
-            <button onclick="WebRTC.kickParticipant('${remoteUserId}')" class="btn btn-danger" style="padding: 0.15rem 0.4rem; font-size: 0.7rem;" title="Çıkar">
+            <button onclick="WebRTC.kickParticipant('${remoteUserId}')" class="btn btn-danger" style="padding: 0.15rem 0.35rem; font-size: 0.65rem;" title="Çıkar">
               <i class="fas fa-user-minus"></i>
             </button>
           ` : ''}
@@ -656,15 +659,16 @@ const WebRTC = {
 
     if (!topBar || !shareArea || !grid) return;
 
-    const tiles = document.querySelectorAll('.participant-tile');
-    tiles.forEach(tile => grid.appendChild(tile));
+    topBar.style.display = 'none';
+    shareArea.style.display = 'none';
+    grid.style.display = 'grid';
 
     const shareVid = document.getElementById('screenShareVideo');
     if (shareVid) shareVid.srcObject = null;
 
-    topBar.style.display = 'none';
-    shareArea.style.display = 'none';
-    grid.style.display = 'grid';
+    // Tüm yerel ve uzaktaki katılımcı kartlarını ana video ızgarasında yeniden çiz
+    this.renderLocalTile();
+    this.renderAllParticipantTiles();
   },
 
   sendChatMessage(text) {

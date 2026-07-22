@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Kurumsal Toplantı Yönetim Sistemi{% endblock %}</title>
   
-  <!-- FontAwesome 6 Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- FontAwesome 6 Icons (Dual CDN) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" crossorigin="anonymous">
   <!-- Main CSS -->
   <link rel="stylesheet" href="/static/css/style.css">
   <!-- Chart.js CDN -->
@@ -24,16 +25,22 @@
       </div>
 
       <ul class="nav-menu">
-        <li>
+        <li id="navItemDashboard" style="display: none;">
           <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">
             <i class="fas fa-chart-pie"></i>
-            <span>Dashboard</span>
+            <span>Dashboard / Panel</span>
           </a>
         </li>
-        <li>
+        <li id="navItemMeetings">
           <a href="/meetings" class="nav-link {% if request.url.path == '/meetings' %}active{% endif %}">
             <i class="fas fa-calendar-alt"></i>
-            <span>Toplantılarım</span>
+            <span>Toplantılar</span>
+          </a>
+        </li>
+        <li id="navItemProfile">
+          <a href="/profile" class="nav-link {% if request.url.path == '/profile' %}active{% endif %}">
+            <i class="fas fa-user-circle"></i>
+            <span>Profilim</span>
           </a>
         </li>
       </ul>
@@ -56,13 +63,6 @@
         </div>
 
         <div class="header-actions">
-          <!-- Live Active Meeting Indicator Badge -->
-          <div id="liveMeetingBadge" style="display: none; align-items: center; gap: 0.5rem; background: rgba(225, 29, 72, 0.15); border: 1px solid rgba(225, 29, 72, 0.4); padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; color: #f43f5e; cursor: pointer;" onclick="Auth.joinLiveMeeting()">
-            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f43f5e; animation: pulse 1.5s infinite;"></span>
-            <span id="liveMeetingText">Devam Eden Canlı Toplantı</span>
-            <i class="fas fa-video" style="font-size: 0.75rem;"></i>
-          </div>
-
           <!-- Dark/Light Theme Toggle -->
           <button onclick="Auth.toggleTheme()" class="icon-btn" title="Tema Değiştir">
             <i class="fas fa-moon"></i>
@@ -77,12 +77,14 @@
           </div>
 
           <!-- User Profile Badge -->
-          <div class="user-profile-badge" onclick="Auth.openProfileModal()" style="cursor: pointer;" title="Profili Düzenle">
-            <img id="userAvatarImg" src="" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; display: none;">
+          <a href="/profile" class="user-profile-badge" style="cursor: pointer; text-decoration: none; color: inherit;" title="Profilime Git">
+            <img id="userAvatarImg" src="" alt="Avatar" style="width: 34px; height: 34px; border-radius: 50%; object-fit: cover; display: none;">
             <div id="userInitials" class="avatar">U</div>
-            <span id="userName" style="font-size: 0.85rem; font-weight: 600;">Kullanıcı</span>
-            <i class="fas fa-user-edit" style="font-size: 0.75rem; color: var(--text-muted); margin-left: 4px;"></i>
-          </div>
+            <div style="display: flex; flex-direction: column; gap: 0.1rem; align-items: flex-start;">
+              <span id="userName" style="font-size: 0.85rem; font-weight: 600;">Kullanıcı</span>
+              <span id="userRoleBadge" class="role-badge role-badge-user" style="font-size: 0.65rem;">Katılımcı</span>
+            </div>
+          </a>
         </div>
       </header>
 

@@ -43,7 +43,7 @@ const Auth = {
   },
 
   initTheme() {
-    const theme = localStorage.getItem('theme') || 'dark';
+    const theme = localStorage.getItem('theme') || 'light';
     if (theme === 'light') {
       document.body.classList.add('light-theme');
     } else {
@@ -57,6 +57,23 @@ const Auth = {
     localStorage.setItem('theme', isLight ? 'light' : 'dark');
   },
 
+  updateNavigationPermissions() {
+    const user = this.getUser();
+    if (!user) return;
+
+    const isAdmin = (user.role === 'admin' || user.role === 'manager' || user.role === 'host');
+    const dashNavItem = document.getElementById('navItemDashboard');
+
+    if (dashNavItem) {
+      dashNavItem.style.display = isAdmin ? 'block' : 'none';
+    }
+
+    // Sıradan katılımcılar ana sayfaya (Dashboard) girmek isterse doğrudan Toplantılarım sayfasına yönlendir
+    if (!isAdmin && window.location.pathname === '/') {
+      window.location.href = '/meetings';
+    }
+  },
+
   updateUserBadge() {
     const user = this.getUser();
     if (!user) return;
@@ -64,11 +81,17 @@ const Auth = {
     const initialsEl = document.getElementById('userInitials');
     const avatarImgEl = document.getElementById('userAvatarImg');
     const nameEl = document.getElementById('userName');
+    const roleBadgeEl = document.getElementById('userRoleBadge');
 
     const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email;
     const initials = (user.first_name?.[0] || '') + (user.last_name?.[0] || '') || 'U';
+    const isAdmin = (user.role === 'admin' || user.role === 'manager' || user.role === 'host');
 
     if (nameEl) nameEl.textContent = fullName;
+    if (roleBadgeEl) {
+      roleBadgeEl.textContent = isAdmin ? 'Yönetici' : 'Katılımcı';
+      roleBadgeEl.className = `role-badge ${isAdmin ? 'role-badge-admin' : 'role-badge-user'}`;
+    }
 
     if (user.avatar_url && avatarImgEl) {
       avatarImgEl.src = user.avatar_url;
@@ -81,6 +104,8 @@ const Auth = {
         initialsEl.style.display = 'flex';
       }
     }
+
+    this.updateNavigationPermissions();
   },
 
   async fetchUserProfile() {

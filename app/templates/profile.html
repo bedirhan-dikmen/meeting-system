@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Profilim - YebMeeting{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>Kullanıcı Profili ve Katıldığım Toplantılar</h1>
+    <p>Katıldığınız tüm toplantıların detaylarını ve resmi katılım raporlarını inceleyin</p>
+  </div>
+</div>
+
+<!-- USER PROFILE OVERVIEW HEADER CARD -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1.5rem; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
+  <div style="display: flex; align-items: center; gap: 1.25rem;">
+    <div style="position: relative;">
+      <img id="profileHeaderAvatar" src="" alt="Avatar" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent-primary); display: none;">
+      <div id="profileHeaderInitials" class="avatar" style="width: 80px; height: 80px; font-size: 2.2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--accent-primary), var(--accent-cyan)); color: #fff; font-weight: 800;">U</div>
+      <label for="profileAvatarTrigger" style="position: absolute; bottom: 0; right: 0; background: var(--accent-primary); color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid var(--bg-secondary);" title="Fotoğraf Yükle">
+        <i class="fas fa-camera" style="font-size: 0.75rem;"></i>
+      </label>
+      <input type="file" id="profileAvatarTrigger" accept="image/*" style="display: none;" onchange="Auth.handleAvatarUpload(event)">
+    </div>
+
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.25rem;">
+        <h2 id="profileHeaderName" style="font-size: 1.35rem; font-weight: 800;">Kullanıcı Yükleniyor...</h2>
+        <span id="profileHeaderRoleBadge" class="role-badge role-badge-user">Katılımcı</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 1.25rem; color: var(--text-secondary); font-size: 0.85rem; flex-wrap: wrap;">
+        <span><i class="fas fa-envelope" style="color: var(--accent-cyan); margin-right: 0.35rem;"></i><span id="profileHeaderEmail">-</span></span>
+        <span><i class="fas fa-id-badge" style="color: var(--accent-amber); margin-right: 0.35rem;"></i>Sicil / Kod: <span id="profileHeaderUserCode">-</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS OVERVIEW CARDS -->
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 1.5rem;">
+  <div class="stat-card">
+    <div class="stat-icon indigo">
+      <i class="fas fa-calendar-check"></i>
+    </div>
+    <div class="stat-info">
+      <h3 id="statProfileTotalMeetings">0</h3>
+      <p>Katılınan Benzersiz Toplantı</p>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon cyan">
+      <i class="fas fa-stopwatch"></i>
+    </div>
+    <div class="stat-info">
+      <h3 id="statProfileTotalDuration">0 dk</h3>
+      <p>Toplam Katılım Süresi</p>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon emerald">
+      <i class="fas fa-file-invoice"></i>
+    </div>
+    <div class="stat-info">
+      <h3 id="statProfileReportsCount">0</h3>
+      <p>Erişilebilir Toplantı Raporu</p>
+    </div>
+  </div>
+</div>
+
+<!-- MEETINGS & REPORTS CONTAINER -->
+<div class="card" style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); padding: 1.5rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
+    <h3 style="font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+      <i class="fas fa-list-alt" style="color: var(--accent-primary);"></i> Katıldığım Toplantılar & Resmi Raporlar
+    </h3>
+    <div style="display: flex; gap: 0.75rem; width: 320px;">
+      <input type="text" id="profileMeetingSearch" class="form-control" placeholder="Toplantı başlığı veya kodu ile ara..." onkeyup="ProfilePage.filterMeetings()">
+    </div>
+  </div>
+
+  <div style="overflow-x: auto;">
+    <table class="data-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+      <thead>
+        <tr style="background: var(--bg-secondary); border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">
+          <th style="padding: 0.85rem 1rem;">Toplantı Başlığı</th>
+          <th style="padding: 0.85rem 1rem;">Toplantı Kodu</th>
+          <th style="padding: 0.85rem 1rem;">Toplantı Türü</th>
+          <th style="padding: 0.85rem 1rem;">Tarih & Saat</th>
+          <th style="padding: 0.85rem 1rem;">Rolünüz</th>
+          <th style="padding: 0.85rem 1rem;">Durum</th>
+          <th style="padding: 0.85rem 1rem; text-align: right;">Toplantı Raporu</th>
+        </tr>
+      </thead>
+      <tbody id="profileMeetingsTableBody">
+        <tr>
+          <td colspan="7" style="padding: 2.5rem; text-align: center; color: var(--text-muted);">
+            Toplantı geçmişiniz yükleniyor...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/profile.js"></script>
+{% endblock %}

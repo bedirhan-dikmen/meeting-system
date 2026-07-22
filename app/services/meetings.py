@@ -25,8 +25,13 @@ def create_new_meeting(db: Session, meeting_data: MeetingCreate, host_id: UUID) 
             break
 
     scheduled_start = meeting_data.scheduled_start
+    if scheduled_start and getattr(scheduled_start, 'tzinfo', None) is not None:
+        scheduled_start = scheduled_start.replace(tzinfo=None)
+
     if meeting_data.scheduled_end:
         scheduled_end = meeting_data.scheduled_end
+        if getattr(scheduled_end, 'tzinfo', None) is not None:
+            scheduled_end = scheduled_end.replace(tzinfo=None)
     else:
         duration = meeting_data.duration_minutes or 30
         scheduled_end = scheduled_start + timedelta(minutes=duration)

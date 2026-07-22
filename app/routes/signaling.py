@@ -57,14 +57,29 @@ async def websocket_endpoint(
             meeting.actual_start = datetime.now(timezone.utc)
         db.commit()
 
-    # Katılımcı Oturumu (ParticipantSession) Başlat
+    # Katılımcı Oturumu (ParticipantSession) ve Katılımcı Kaydı Başlat
     from app.models.participant_session import ParticipantSession
+    from app.models.meeting_participant import MeetingParticipant
+
     session_entry = ParticipantSession(
         meeting_id=meeting.id,
         user_id=current_user.id,
         joined_at=datetime.now(timezone.utc)
     )
     db.add(session_entry)
+
+    existing_p = db.query(MeetingParticipant).filter(
+        MeetingParticipant.meeting_id == meeting.id,
+        MeetingParticipant.user_id == current_user.id
+    ).first()
+    if not existing_p:
+        db.add(MeetingParticipant(
+            meeting_id=meeting.id,
+            user_id=current_user.id,
+            role="host" if meeting.created_by == current_user.id else "participant",
+            status="joined"
+        ))
+
     db.commit()
     session_id = session_entry.id
     db.close()

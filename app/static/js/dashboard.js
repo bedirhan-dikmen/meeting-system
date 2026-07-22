@@ -58,15 +58,18 @@ const Dashboard = {
     }
 
     container.innerHTML = users.map((u, idx) => `
-      <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid var(--border-color);">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0; border-bottom: 1px solid var(--border-color);">
         <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <span style="font-weight: 800; color: var(--accent-primary); font-size: 0.9rem;">#${idx + 1}</span>
+          <span style="font-weight: 800; color: var(--accent-primary); font-size: 0.95rem;">#${idx + 1}</span>
           <div>
             <strong style="display: block; font-size: 0.9rem;">${u.name}</strong>
             <span style="font-size: 0.75rem; color: var(--text-secondary);">${u.email}</span>
           </div>
         </div>
-        <span class="meeting-badge badge-scheduled">${u.count} Toplantı</span>
+        <div style="text-align: right;">
+          <span class="badge badge-primary" style="font-size: 0.75rem; font-weight: 600;">${u.count} Toplantı</span>
+          <span style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-top: 2px;"><i class="fas fa-clock" style="color: var(--accent-amber); font-size: 0.7rem; margin-right: 2px;"></i>${u.duration_minutes || 0} dk Katılım</span>
+        </div>
       </div>
     `).join('');
   },

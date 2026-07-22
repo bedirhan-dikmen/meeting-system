@@ -75,6 +75,10 @@ def page_room(request: Request, meeting_code: str):
 def page_report(request: Request, meeting_id: str):
     return templates.TemplateResponse("report.html", {"request": request, "meeting_id": meeting_id})
 
+@app.get("/profile", tags=["Frontend Sayfaları"])
+def page_profile(request: Request):
+    return templates.TemplateResponse("profile.html", {"request": request})
+
 @app.get("/api-status", tags=["Health Check"])
 def read_root():
     return {

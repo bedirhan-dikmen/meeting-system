@@ -18,6 +18,8 @@ from app.services.users import (
     update_existing_user
 )
 
+from datetime import datetime, timezone
+
 router = APIRouter()
 
 @router.get("/me", response_model=UserOut)
@@ -26,6 +28,95 @@ def read_current_user_profile(
 ):
     """Giriş yapmış aktif kullanıcının kendi profil detaylarını getirir."""
     return current_user
+
+@router.get("/me/profile-overview")
+def read_current_user_profile_overview(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Giriş yapmış kullanıcının detaylı istatistikleri ve katıldığı toplantı geçmişini döner."""
+    from app.models.meeting import Meeting
+    from app.models.meeting_participant import MeetingParticipant
+    from app.models.participant_session import ParticipantSession
+
+    host_meetings = db.query(Meeting).filter(Meeting.created_by == current_user.id).all()
+    part_meeting_ids = db.query(MeetingParticipant.meeting_id).filter(MeetingParticipant.user_id == current_user.id).all()
+    part_ids = [m_id for (m_id,) in part_meeting_ids]
+    
+    session_meeting_ids = db.query(ParticipantSession.meeting_id).filter(ParticipantSession.user_id == current_user.id).all()
+    session_m_ids = [m_id for (m_id,) in session_meeting_ids]
+
+    all_ids = list(set(part_ids + session_m_ids))
+    participant_meetings = db.query(Meeting).filter(Meeting.id.in_(all_ids)).all() if all_ids else []
+
+    all_user_meetings_dict = {m.id: m for m in (host_meetings + participant_meetings)}
+    
+    def get_sort_key(m):
+        dt = m.created_at or m.scheduled_start
+        if dt is None:
+            return datetime.min.replace(tzinfo=timezone.utc)
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
+
+    all_user_meetings = sorted(all_user_meetings_dict.values(), key=get_sort_key, reverse=True)
+
+    sessions = db.query(ParticipantSession).filter(ParticipantSession.user_id == current_user.id).all()
+    total_seconds = 0
+    now_utc = datetime.now(timezone.utc)
+    for s in sessions:
+        if s.duration_seconds and s.duration_seconds > 0:
+            total_seconds += s.duration_seconds
+        elif s.joined_at:
+            joined = s.joined_at
+            if joined.tzinfo is None:
+                joined = joined.replace(tzinfo=timezone.utc)
+            end_t = s.left_at
+            if end_t:
+                if end_t.tzinfo is None:
+                    end_t = end_t.replace(tzinfo=timezone.utc)
+            else:
+                end_t = now_utc
+            diff = max(0, int((end_t - joined).total_seconds()))
+            total_seconds += diff
+
+    total_minutes = round(total_seconds / 60)
+
+    meeting_list_data = []
+    for m in all_user_meetings:
+        dur_mins = 30
+        if m.scheduled_start and m.scheduled_end:
+            dur_mins = max(1, int((m.scheduled_end - m.scheduled_start).total_seconds() / 60))
+
+        meeting_list_data.append({
+            "id": str(m.id),
+            "meeting_code": m.meeting_code,
+            "title": m.title,
+            "meeting_type": m.meeting_type or "Planlı Toplantı",
+            "status": m.status or "planlandı",
+            "scheduled_start": m.scheduled_start.isoformat() if m.scheduled_start else None,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+            "duration_minutes": dur_mins,
+            "is_host": (m.created_by == current_user.id)
+        })
+
+    return {
+        "user_info": {
+            "id": str(current_user.id),
+            "first_name": current_user.first_name,
+            "last_name": current_user.last_name,
+            "email": current_user.email,
+            "user_code": current_user.user_code,
+            "role": current_user.role,
+            "avatar_url": getattr(current_user, "avatar_url", None)
+        },
+        "stats": {
+            "total_meetings": len(all_user_meetings),
+            "total_duration_minutes": total_minutes,
+            "reports_count": len(all_user_meetings)
+        },
+        "meetings_history": meeting_list_data
+    }
 
 @router.put("/me", response_model=UserOut)
 def update_current_user_profile(

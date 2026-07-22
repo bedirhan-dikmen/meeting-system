@@ -74,53 +74,29 @@ def get_dashboard_stats(
     else:
         avg_duration_minutes = 0.0
 
-    # 8. En fazla toplantıya katılan kullanıcılar (Top 5)
-    top_user_query = (
-        db.query(
-            User.first_name,
-            User.last_name,
-            User.email,
-            func.count(ParticipantSession.id).label("session_count")
-        )
-        .join(ParticipantSession, ParticipantSession.user_id == User.id)
-        .group_by(User.id, User.first_name, User.last_name, User.email)
-        .order_by(func.count(ParticipantSession.id).desc())
-        .limit(5)
-        .all()
-    )
+    # 8. En fazla katılan kullanıcılar (Benzersiz katıldığı toplantı sayısı ve toplam geçirdiği süre)
+    users = db.query(User).filter(User.is_active == True).all()
+    top_user_data = []
+    
+    for u in users:
+        part_m_ids = db.query(MeetingParticipant.meeting_id).filter(MeetingParticipant.user_id == u.id).all()
+        host_m_ids = db.query(Meeting.id).filter(Meeting.created_by == u.id).all()
+        unique_m_ids = set([m_id for (m_id,) in part_m_ids] + [m_id for (m_id,) in host_m_ids])
+        
+        total_seconds = db.query(func.sum(ParticipantSession.duration_seconds)).filter(ParticipantSession.user_id == u.id).scalar() or 0
+        total_minutes = round(total_seconds / 60)
+        
+        if len(unique_m_ids) > 0 or total_minutes > 0:
+            user_full_name = f"{u.first_name or ''} {u.last_name or ''}".strip() or u.email
+            top_user_data.append({
+                "name": user_full_name,
+                "email": u.email,
+                "count": len(unique_m_ids),
+                "duration_minutes": total_minutes
+            })
 
-    top_participants = [
-        {
-            "name": f"{u[0]} {u[1]}",
-            "email": u[2],
-            "count": u[3]
-        }
-        for u in top_user_query
-    ]
-
-    # Fallback if no sessions yet: show users with created meetings count
-    if not top_participants:
-        top_creators = (
-            db.query(
-                User.first_name,
-                User.last_name,
-                User.email,
-                func.count(Meeting.id).label("meeting_count")
-            )
-            .join(Meeting, Meeting.created_by == User.id)
-            .group_by(User.id, User.first_name, User.last_name, User.email)
-            .order_by(func.count(Meeting.id).desc())
-            .limit(5)
-            .all()
-        )
-        top_participants = [
-            {
-                "name": f"{u[0]} {u[1]}",
-                "email": u[2],
-                "count": u[3]
-            }
-            for u in top_creators
-        ]
+    top_user_data.sort(key=lambda x: (x["count"], x["duration_minutes"]), reverse=True)
+    top_participants = top_user_data[:5]
 
     # GRAFİK 1: Aylara göre toplantı sayısı (Son 6 ay)
     months_labels = []
