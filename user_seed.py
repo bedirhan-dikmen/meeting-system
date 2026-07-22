@@ -21,8 +21,20 @@ def seed_db():
             db.add(user)
             db.commit()
             print("[+] Baslangic User kullanicisi veritabanina yazildi: user@yebsoft.net / User123!")
-        else:
-            print("[*] User kullanicisi veritabaninda zaten mevcut.")
+        existing_user2 = db.query(User).filter(User.email == "user2@yebsoft.net").first()
+        if not existing_user2:
+            user2 = User(
+                email="user2@yebsoft.net",
+                password_hash=get_password_hash("User123!"),
+                first_name="Mehmet",
+                last_name="Yilmaz",
+                role="user",
+                is_active=True,
+                user_code="YEB003"
+            )
+            db.add(user2)
+            db.commit()
+            print("[+] Ikinci User kullanicisi veritabanina yazildi: user2@yebsoft.net / User123!")
     except Exception as e:
         print(f"[X] Hata Olustu: {e}")
     finally:

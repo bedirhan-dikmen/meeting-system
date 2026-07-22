@@ -49,18 +49,9 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    # .env dosyasından gelen güncel veritabanı url'ini doğrudan Alembic'e enjekte ediyoruz
-    configuration = {    
-        "sqlalchemy.url": settings.DATABASE_URL
-    }
+    from app.core.database import engine
 
-    connectable = engine_from_config(
-        configuration,
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    with connectable.connect() as connection:
+    with engine.connect() as connection:
         context.configure(
             connection=connection, 
             target_metadata=target_metadata
@@ -68,6 +59,7 @@ def run_migrations_online() -> None:
 
         with context.begin_transaction():
             context.run_migrations()
+
 
 
 if context.is_offline_mode():

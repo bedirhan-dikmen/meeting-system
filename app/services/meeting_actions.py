@@ -1,12 +1,13 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from app.models.meeting_action import MeetingAction
+from app.schemas.meeting_actions import MeetingActionCreate
 from app.services.notifications import create_notification  # Bildirim servisini import edildi
 
-def create_action(db: Session, action_data: any, creator_id: UUID) -> MeetingAction:
+def create_action(db: Session, action_data: MeetingActionCreate, creator_id: UUID) -> MeetingAction:
     """Toplantıda alınan yeni bir aksiyon kararını kaydeder."""
     db_action = MeetingAction(
         meeting_id=action_data.meeting_id,
@@ -16,7 +17,7 @@ def create_action(db: Session, action_data: any, creator_id: UUID) -> MeetingAct
         assigned_to=action_data.assigned_to,
         due_date=action_data.due_date,
         is_completed=False,
-        created_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc)
     )
     db.add(db_action)
     db.commit()

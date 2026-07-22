@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -19,8 +19,13 @@ class Meeting(Base):
     meeting_type = Column(String, default="Genel Toplantı", nullable=False) # günlük, haftalık, proje, vb.
     agenda = Column(Text, nullable=True) # toplantı gündemi
     status = Column(String, default="planlandı", nullable=False) # taslak, planlandı, başladı, tamamlandı, iptal edildi
+    passcode = Column(String(50), nullable=True) # Oda şifresi
+    lobby_enabled = Column(Boolean, default=False, nullable=False) # Bekleme odası / Lobi
+    is_private = Column(Boolean, default=False, nullable=False) # Sadece davetliler
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
 
     # Yabancı Anahtar (Yalnızca bir kez tanımlandı)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)

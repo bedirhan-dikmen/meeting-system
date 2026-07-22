@@ -14,6 +14,8 @@ def generate_unique_meeting_code() -> str:
     part2 = "".join(secrets.choice("abcdefghijklmnopqrstuvwxyz") for _ in range(4))
     return f"yeb-{part1}-{part2}"
 
+from datetime import timedelta
+
 def create_new_meeting(db: Session, meeting_data: MeetingCreate, host_id: UUID) -> Meeting:
     """Model parametrelerine tam uyumlu toplantı kaydı oluşturur ve davetlileri kaydeder."""
     while True:
@@ -22,21 +24,32 @@ def create_new_meeting(db: Session, meeting_data: MeetingCreate, host_id: UUID) 
         if not existing:
             break
 
+    scheduled_start = meeting_data.scheduled_start
+    if meeting_data.scheduled_end:
+        scheduled_end = meeting_data.scheduled_end
+    else:
+        duration = meeting_data.duration_minutes or 30
+        scheduled_end = scheduled_start + timedelta(minutes=duration)
+
     db_meeting = Meeting(
         title=meeting_data.title,
         description=meeting_data.description,
-        scheduled_start=meeting_data.scheduled_start,
-        scheduled_end=meeting_data.scheduled_end,
+        scheduled_start=scheduled_start,
+        scheduled_end=scheduled_end,
         meeting_code=code,
         meeting_type=meeting_data.meeting_type or "Genel Toplantı",
         agenda=meeting_data.agenda,
         status=meeting_data.status or "planlandı",
+        passcode=meeting_data.passcode,
+        lobby_enabled=bool(meeting_data.lobby_enabled),
+        is_private=bool(meeting_data.is_private),
         created_by=host_id,
         is_active=True
     )
     db.add(db_meeting)
     db.commit()
     db.refresh(db_meeting)
+
 
     # Toplantı Yöneticisini Moderator olarak ekle
     host_participant = MeetingParticipant(

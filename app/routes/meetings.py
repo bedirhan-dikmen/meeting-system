@@ -40,6 +40,20 @@ def read_meetings(
     """Sistemdeki aktif toplantıları listeler."""
     return get_meetings_list(db, skip=skip, limit=limit)
 
+@router.get("/active/live", response_model=List[MeetingOut])
+def read_active_live_meetings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Halen devam eden (canlı/başlamış) toplantıları listeler."""
+    from app.models.meeting import Meeting
+    active_meetings = db.query(Meeting).filter(
+        Meeting.is_active == True,
+        Meeting.status.in_(["ACTIVE", "başladı"])
+    ).all()
+    return active_meetings
+
+
 @router.get("/{meeting_id}", response_model=MeetingOut)
 def read_meeting(
     meeting_id: UUID,  # UUID olarak güncellendi!

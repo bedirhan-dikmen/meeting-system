@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, Integer, Text
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
@@ -13,4 +13,4 @@ class WebhookLog(Base):
     payload = Column(Text, nullable=False)  # Gönderilen JSON paket içeriği
     response_status = Column(Integer, nullable=True)  # HTTP Status (200, 500 vb.)
     response_body = Column(Text, nullable=True)
-    delivered_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    delivered_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)

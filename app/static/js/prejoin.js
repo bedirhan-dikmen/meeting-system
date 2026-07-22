@@ -11,13 +11,11 @@ const Prejoin = {
   isMicMuted: false,
   isCameraOff: false,
 
-  selectedCamId: '',
-  selectedMicId: '',
+  selectedSpeakerId: '',
 
   async init() {
-    await this.enumerateDevices();
-    await this.startPreview();
     this.bindControls();
+    await this.startPreview();
   },
 
   async enumerateDevices() {
@@ -30,35 +28,34 @@ const Prejoin = {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoSelect = document.getElementById('cameraSelect');
       const audioSelect = document.getElementById('micSelect');
+      const speakerSelect = document.getElementById('speakerSelect');
 
       if (videoSelect) videoSelect.innerHTML = '';
       if (audioSelect) audioSelect.innerHTML = '';
+      if (speakerSelect) speakerSelect.innerHTML = '';
+
+      let camCount = 1;
+      let micCount = 1;
+      let spkCount = 1;
 
       devices.forEach(dev => {
         const option = document.createElement('option');
         option.value = dev.deviceId;
-        option.text = dev.label || `${dev.kind} (${dev.deviceId.slice(0, 5)}...)`;
 
         if (dev.kind === 'videoinput' && videoSelect) {
+          option.text = dev.label || `Kamera ${camCount++}`;
+          if (this.selectedCamId === dev.deviceId) option.selected = true;
           videoSelect.appendChild(option);
         } else if (dev.kind === 'audioinput' && audioSelect) {
+          option.text = dev.label || `Mikrofon ${micCount++}`;
+          if (this.selectedMicId === dev.deviceId) option.selected = true;
           audioSelect.appendChild(option);
+        } else if (dev.kind === 'audiooutput' && speakerSelect) {
+          option.text = dev.label || `Hoparlör ${spkCount++}`;
+          if (this.selectedSpeakerId === dev.deviceId) option.selected = true;
+          speakerSelect.appendChild(option);
         }
       });
-
-      if (videoSelect) {
-        videoSelect.addEventListener('change', () => {
-          this.selectedCamId = videoSelect.value;
-          this.startPreview();
-        });
-      }
-
-      if (audioSelect) {
-        audioSelect.addEventListener('change', () => {
-          this.selectedMicId = audioSelect.value;
-          this.startPreview();
-        });
-      }
     } catch (err) {
       console.warn("Cihaz listeleme hatası:", err);
     }
@@ -75,7 +72,11 @@ const Prejoin = {
         audio: this.selectedMicId ? { deviceId: { exact: this.selectedMicId } } : true
       };
 
+      // 1. Önce izinleri tetikle
       this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      // 2. İzin alındıktan sonra gerçek cihaz etiketlerini çek
+      await this.enumerateDevices();
 
       const videoElement = document.getElementById('prejoinVideo');
       const avatarPlaceholder = document.getElementById('prejoinAvatar');
@@ -89,10 +90,15 @@ const Prejoin = {
         avatarPlaceholder.style.display = this.isCameraOff ? 'flex' : 'none';
       }
 
+      const permWarning = document.getElementById('prejoinPermWarning');
+      if (permWarning) permWarning.style.display = 'none';
+
       this.setupAudioMeter(this.localStream);
     } catch (err) {
       console.error("Kamera/Mikrofon erişim hatası:", err);
-      Notifications.show("Kamera veya mikrofona erişilemedi. Lütfen tarayıcı izinlerini kontrol edin.", "warning", "Medya İzni");
+      const permWarning = document.getElementById('prejoinPermWarning');
+      if (permWarning) permWarning.style.display = 'block';
+      Notifications.show("Kamera veya mikrofona erişilemedi. Lütfen tarayıcı izin çubuğundan onay verin.", "warning", "Medya İzni");
     }
   },
 
@@ -171,9 +177,43 @@ const Prejoin = {
   bindControls() {
     const btnMic = document.getElementById('btnToggleMicPrejoin');
     const btnCam = document.getElementById('btnToggleCamPrejoin');
+    const videoSelect = document.getElementById('cameraSelect');
+    const audioSelect = document.getElementById('micSelect');
+    const speakerSelect = document.getElementById('speakerSelect');
+    const btnReqPerms = document.getElementById('btnRequestPerms');
 
     if (btnMic) btnMic.addEventListener('click', () => this.toggleMic());
     if (btnCam) btnCam.addEventListener('click', () => this.toggleCamera());
+
+    if (videoSelect) {
+      videoSelect.addEventListener('change', () => {
+        this.selectedCamId = videoSelect.value;
+        this.startPreview();
+      });
+    }
+
+    if (audioSelect) {
+      audioSelect.addEventListener('change', () => {
+        this.selectedMicId = audioSelect.value;
+        this.startPreview();
+      });
+    }
+
+    if (speakerSelect) {
+      speakerSelect.addEventListener('change', () => {
+        this.selectedSpeakerId = speakerSelect.value;
+        const videoElement = document.getElementById('prejoinVideo');
+        if (videoElement && typeof videoElement.setSinkId === 'function') {
+          videoElement.setSinkId(this.selectedSpeakerId).catch(e => console.warn("Hoparlör değişimi hatası:", e));
+        }
+      });
+    }
+
+    if (btnReqPerms) {
+      btnReqPerms.addEventListener('click', () => {
+        this.startPreview();
+      });
+    }
   },
 
   stopPreview() {

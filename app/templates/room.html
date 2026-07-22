@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
+
 <body style="overflow: hidden; background: #090d16;">
   <div class="room-container">
 
@@ -15,7 +17,8 @@
       <div class="prejoin-card">
         <div>
           <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 0.5rem;">Cihaz Ön İzleme ve Ayarlar</h2>
-          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.5rem;">Toplantıya katılmadan önce kamera ve mikrofonunuzu kontrol edin</p>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.5rem;">Toplantıya katılmadan önce
+            kamera ve mikrofonunuzu kontrol edin</p>
 
           <div class="video-preview-box">
             <video id="prejoinVideo" autoplay playsinline muted></video>
@@ -36,23 +39,40 @@
           </div>
         </div>
 
-        <div style="display: flex; flex-direction: column; justify-content: center; gap: 1.25rem;">
+        <div style="display: flex; flex-direction: column; justify-content: center; gap: 1rem;">
+          <div id="prejoinPermWarning" style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px solid var(--accent-amber); padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 0.85rem; color: var(--accent-amber);">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <i class="fas fa-exclamation-triangle"></i> Kamera veya mikrofon izni bekleniyor!
+            </div>
+            <button id="btnRequestPerms" type="button" class="btn btn-secondary" style="width: 100%; padding: 0.4rem; font-size: 0.8rem;">
+              <i class="fas fa-key"></i> İzinleri Onayla ve Yeniden Dene
+            </button>
+          </div>
+
           <div class="form-group">
             <label><i class="fas fa-camera"></i> Kamera Seçin</label>
             <select id="cameraSelect" class="form-select">
-              <option value="">Varsayılan Kamera</option>
+              <option value="">Kamera Aranıyor...</option>
             </select>
           </div>
 
           <div class="form-group">
             <label><i class="fas fa-microphone"></i> Mikrofon Seçin</label>
             <select id="micSelect" class="form-select">
-              <option value="">Varsayılan Mikrofon</option>
+              <option value="">Mikrofon Aranıyor...</option>
             </select>
           </div>
 
-          <div style="margin-top: 1.5rem;">
-            <button id="btnJoinMeetingNow" type="button" class="btn btn-primary" style="width: 100%; padding: 0.9rem; font-size: 1.05rem;">
+          <div class="form-group">
+            <label><i class="fas fa-volume-up"></i> Hoparlör Seçin</label>
+            <select id="speakerSelect" class="form-select">
+              <option value="">Hoparlör Aranıyor...</option>
+            </select>
+          </div>
+
+          <div style="margin-top: 1rem;">
+            <button id="btnJoinMeetingNow" type="button" class="btn btn-primary"
+              style="width: 100%; padding: 0.9rem; font-size: 1.05rem;">
               <i class="fas fa-door-open"></i> Şimdi Toplantıya Katıl
             </button>
           </div>
@@ -66,66 +86,176 @@
       <header class="top-header" style="background: rgba(15, 23, 42, 0.9); position: relative; z-index: 100;">
         <div style="display: flex; align-items: center; gap: 1rem;">
           <h2 id="roomTitle" style="font-size: 1.15rem; font-weight: 700;">Toplantı Odası</h2>
-          <span style="font-family: monospace; background: rgba(255,255,255,0.08); padding: 0.25rem 0.6rem; border-radius: 4px; color: var(--accent-cyan); font-size: 0.85rem;">{{ meeting_code }}</span>
+          <span
+            style="font-family: monospace; background: rgba(255,255,255,0.08); padding: 0.25rem 0.6rem; border-radius: 4px; color: var(--accent-cyan); font-size: 0.85rem;">{{
+            meeting_code }}</span>
         </div>
 
         <div style="display: flex; align-items: center; gap: 1.5rem;">
           <!-- TIMER -->
-          <div style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-secondary); padding: 0.4rem 0.85rem; border-radius: var(--radius-full); border: 1px solid var(--border-color); font-weight: 700; font-family: monospace;">
+          <div
+            style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-secondary); padding: 0.4rem 0.85rem; border-radius: var(--radius-full); border: 1px solid var(--border-color); font-weight: 700; font-family: monospace;">
             <i class="fas fa-stopwatch" style="color: var(--accent-amber);"></i>
             <span id="roomTimer">00:00:00</span>
           </div>
 
           <!-- CONNECTION STATUS BADGE -->
-          <div style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-secondary); padding: 0.4rem 0.85rem; border-radius: var(--radius-full); border: 1px solid var(--border-color); font-size: 0.85rem;">
-            <span id="connectionDot" style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent-emerald);"></span>
+          <div
+            style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-secondary); padding: 0.4rem 0.85rem; border-radius: var(--radius-full); border: 1px solid var(--border-color); font-size: 0.85rem;">
+            <span id="connectionDot"
+              style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent-emerald);"></span>
             <span id="connectionText">Bağlı</span>
           </div>
         </div>
       </header>
 
+      <!-- DYNAMIC TOP CAROUSEL BAR (Shown during Screen Share) -->
+      <div id="topCarouselBar" class="top-carousel-bar" style="display: none;">
+        <!-- Participant cards dynamically moved here during screen share -->
+      </div>
+
       <!-- ROOM MAIN CONTENT -->
       <div class="room-main">
-        <!-- VIDEO TILES GRID -->
+        <!-- SCREEN SHARE PRESENTATION AREA -->
+        <div id="screenShareArea" class="screenshare-container" style="display: none; position: relative;">
+          <video id="screenShareVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: contain; background: #000;"></video>
+          <div
+            style="position: absolute; top: 1rem; left: 1rem; background: rgba(0,0,0,0.75); padding: 0.4rem 0.85rem; border-radius: 20px; font-size: 0.85rem; border: 1px solid var(--border-active); color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem; backdrop-filter: blur(8px);">
+            <i class="fas fa-desktop"></i> <span id="screenSharePresenterName">Canlı Ekran Paylaşımı</span>
+          </div>
+          <div style="position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; z-index: 10;">
+            <button id="btnFullscreenShare" type="button" onclick="WebRTC.toggleScreenShareFullscreen()" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.15);" title="Tam Ekran Yap">
+              <i class="fas fa-expand"></i> Tam Ekran
+            </button>
+            <button id="btnPopoutShare" type="button" onclick="WebRTC.popoutScreenShare()" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.15);" title="Ayrı Pencerede Aç (Picture-in-Picture)">
+              <i class="fas fa-external-link-alt"></i> Ayrı Pencere
+            </button>
+          </div>
+        </div>
+
+        <!-- VIDEO TILES GRID (Standard Layout) -->
         <div id="videoGrid" class="video-grid">
           <!-- Local and remote tiles rendered by webrtc.js -->
         </div>
 
-        <!-- HOST CONTROLS SIDEBAR (Shown when Host) -->
-        <div id="hostControlsPanel" class="room-sidebar" style="display: none;">
-          <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem;"><i class="fas fa-user-shield" style="color: var(--accent-primary);"></i> Yönetici Kontrolleri</h3>
-          
-          <button id="btnEndMeetingHost" class="btn btn-danger" style="margin-bottom: 1rem;">
-            <i class="fas fa-power-off"></i> Toplantıyı Sonlandır
-          </button>
-
-          <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
-            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">Toplantı Notu / Karar Ekle</label>
-            <textarea id="hostNoteContent" class="form-control" rows="3" placeholder="Not veya karar metni..." style="margin-top: 0.5rem;"></textarea>
-            <button onclick="addHostNote()" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem; font-size: 0.85rem;">
-              <i class="fas fa-save"></i> Notu Kaydet
+        <!-- MULTI-TAB INTERACTIVE SIDEBAR -->
+        <div id="roomSidebar" class="room-sidebar" style="display: flex;">
+          <!-- SIDEBAR TABS -->
+          <div class="sidebar-tabs">
+            <button id="tabBtnChat" type="button" class="sidebar-tab active" onclick="switchSidebarTab('chat')">
+              <i class="fas fa-comments"></i> Sohbet
+              <span id="unreadChatBadge" class="tab-badge" style="display: none;">0</span>
             </button>
+            <button id="tabBtnNotes" type="button" class="sidebar-tab" onclick="switchSidebarTab('notes')">
+              <i class="fas fa-sticky-note"></i> Notlar
+            </button>
+            <button id="tabBtnParticipants" type="button" class="sidebar-tab"
+              onclick="switchSidebarTab('participants')">
+              <i class="fas fa-users"></i> Katılımcılar
+              <span id="participantCountBadge" class="tab-badge" style="background: var(--accent-primary);">1</span>
+            </button>
+          </div>
+
+          <!-- TAB CONTENT 1: SOHBET (CHAT) -->
+          <div id="tabContentChat" class="tab-content" style="display: flex;">
+            <div id="chatMessagesContainer" class="chat-messages">
+              <div class="note-card"
+                style="border-left-color: var(--accent-cyan); background: rgba(6, 182, 212, 0.08);">
+                <div class="note-card-body"
+                  style="font-size: 0.8rem; color: var(--text-secondary); text-align: center;">
+                  <i class="fas fa-lock"></i> Canlı sohbet odası aktif. Mesajlarınız tüm katılımcılara anlık iletilir.
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-input-area">
+              <input id="chatInputText" type="text" class="form-control" placeholder="Mesajınızı yazın..."
+                onkeypress="handleChatKeyPress(event)">
+              <button id="btnSendChat" type="button" class="btn btn-primary" onclick="sendRoomChatMessage()"
+                style="padding: 0.65rem 1rem;">
+                <i class="fas fa-paper-plane"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- TAB CONTENT 2: NOTLAR & KARARLAR -->
+          <div id="tabContentNotes" class="tab-content" style="display: none;">
+            <div id="notesFeedContainer" class="notes-feed">
+              <div class="note-card">
+                <div class="note-card-header">
+                  <span><i class="fas fa-info-circle"></i> Sistem</span>
+                  <span>Canlı</span>
+                </div>
+                <div class="note-card-body">
+                  Toplantı yöneticisi tarafından eklenen notlar ve kararlar burada tüm personelin ekranına anlık düşer.
+                </div>
+              </div>
+            </div>
+
+            <!-- HOST NOTE CREATION SECTION (Shown for Host) -->
+            <div id="hostNoteSection"
+              style="padding: 1rem; border-top: 1px solid var(--border-color); background: var(--bg-secondary); display: none;">
+              <label
+                style="font-size: 0.8rem; font-weight: 700; color: var(--accent-amber); display: block; margin-bottom: 0.4rem;">
+                <i class="fas fa-pen-fancy"></i> Yönetici Notu / Karar Ekle
+              </label>
+              <textarea id="hostNoteContent" class="form-control" rows="2"
+                placeholder="Tüm personelin önüne düşecek not..."
+                style="margin-bottom: 0.5rem; font-size: 0.85rem;"></textarea>
+              <button onclick="addHostNote()" type="button" class="btn btn-primary"
+                style="width: 100%; font-size: 0.85rem; padding: 0.5rem;">
+                <i class="fas fa-broadcast-tower"></i> Herkese Yayınla & Kaydet
+              </button>
+            </div>
+          </div>
+
+          <!-- TAB CONTENT 3: KATILIMCILAR -->
+          <div id="tabContentParticipants" class="tab-content" style="display: none; padding: 1rem;">
+            <div id="participantsListContainer" style="display: flex; flex-direction: column; gap: 0.75rem;">
+              <!-- Dynamic participant list -->
+            </div>
+
+            <div id="hostAdminActions"
+              style="margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-color); display: none;">
+              <button id="btnEndMeetingHost" type="button" class="btn btn-danger" style="width: 100%;">
+                <i class="fas fa-power-off"></i> Toplantıyı Sonlandır
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- ROOM CONTROL BAR -->
       <footer class="room-control-bar">
-        <div style="display: flex; gap: 1rem; align-items: center;">
-          <button id="btnRoomMic" class="control-btn" title="Mikrofon">
+        <div style="display: flex; gap: 0.75rem; align-items: center;">
+          <button id="btnRoomMic" class="control-btn" title="Mikrofon (Mute/Unmute)">
             <i class="fas fa-microphone"></i>
           </button>
-          <button id="btnRoomCam" class="control-btn" title="Kamera">
+          <button id="btnRoomCam" class="control-btn" title="Kamera (Aç/Kapat)">
             <i class="fas fa-video"></i>
           </button>
-          <button id="btnScreenShare" class="control-btn" title="Ekran Paylaş">
+          <button id="btnScreenShare" class="control-btn" title="Ekran Paylaşımı">
             <i class="fas fa-desktop"></i>
           </button>
         </div>
 
+        <div style="display: flex; gap: 0.75rem; align-items: center;">
+          <button id="btnToggleChatSidebar" class="control-btn" title="Sohbet" onclick="toggleSidebarTab('chat')">
+            <i class="fas fa-comments"></i>
+          </button>
+          <button id="btnToggleNotesSidebar" class="control-btn" title="Toplantı Notları"
+            onclick="toggleSidebarTab('notes')">
+            <i class="fas fa-sticky-note"></i>
+          </button>
+          <button id="btnToggleParticipantsSidebar" class="control-btn" title="Katılımcılar"
+            onclick="toggleSidebarTab('participants')">
+            <i class="fas fa-users"></i>
+          </button>
+        </div>
+
         <div>
-          <button id="btnLeaveRoom" class="btn btn-danger" style="padding: 0.75rem 1.5rem; font-size: 0.95rem;">
-            <i class="fas fa-phone-slash"></i> Ayrıl
+          <button id="btnLeaveRoom" class="btn btn-danger" style="padding: 0.65rem 1.4rem; font-size: 0.9rem;">
+            <i class="fas fa-phone-slash"></i> Odadan Ayrıl
           </button>
         </div>
       </footer>
@@ -140,6 +270,8 @@
   <script src="/static/js/webrtc.js"></script>
   <script>
     const MEETING_CODE = "{{ meeting_code }}";
+    let activeTab = 'chat';
+    let unreadChatCount = 0;
 
     document.addEventListener('DOMContentLoaded', async () => {
       await Prejoin.init();
@@ -157,28 +289,89 @@
       });
     });
 
+    function switchSidebarTab(tabName) {
+      activeTab = tabName;
+      document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+
+      if (tabName === 'chat') {
+        document.getElementById('tabBtnChat')?.classList.add('active');
+        document.getElementById('tabContentChat').style.display = 'flex';
+        unreadChatCount = 0;
+        updateUnreadBadge();
+      } else if (tabName === 'notes') {
+        document.getElementById('tabBtnNotes')?.classList.add('active');
+        document.getElementById('tabContentNotes').style.display = 'flex';
+      } else if (tabName === 'participants') {
+        document.getElementById('tabBtnParticipants')?.classList.add('active');
+        document.getElementById('tabContentParticipants').style.display = 'flex';
+      }
+    }
+
+    function toggleSidebarTab(tabName) {
+      const sidebar = document.getElementById('roomSidebar');
+      if (sidebar.style.display === 'none') {
+        sidebar.style.display = 'flex';
+        switchSidebarTab(tabName);
+      } else if (activeTab === tabName) {
+        sidebar.style.display = 'none';
+      } else {
+        switchSidebarTab(tabName);
+      }
+    }
+
+    function updateUnreadBadge() {
+      const badge = document.getElementById('unreadChatBadge');
+      if (badge) {
+        if (unreadChatCount > 0) {
+          badge.textContent = unreadChatCount;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    }
+
+    function handleChatKeyPress(e) {
+      if (e.key === 'Enter') {
+        sendRoomChatMessage();
+      }
+    }
+
+    function sendRoomChatMessage() {
+      const input = document.getElementById('chatInputText');
+      if (!input) return;
+      const text = input.value.trim();
+      if (text) {
+        WebRTC.sendChatMessage(text);
+        input.value = '';
+      }
+    }
+
     async function addHostNote() {
-      const content = document.getElementById('hostNoteContent').value.trim();
+      const contentEl = document.getElementById('hostNoteContent');
+      if (!contentEl) return;
+      const content = contentEl.value.trim();
       if (!content) return;
 
       try {
         const meetingId = WebRTC.meetingInfo?.id;
-        if (!meetingId) return;
-
-        const res = await fetch(`/api/v1/notes/${meetingId}`, {
-          method: 'POST',
-          headers: Auth.getAuthHeaders(),
-          body: JSON.stringify({ content })
-        });
-
-        if (res.ok) {
-          Notifications.show('Toplantı notu başarıyla eklendi.', 'success', 'Not Eklendi');
-          document.getElementById('hostNoteContent').value = '';
+        if (meetingId) {
+          await fetch('/api/v1/notes/', {
+            method: 'POST',
+            headers: Auth.getAuthHeaders(),
+            body: JSON.stringify({ meeting_id: meetingId, content: content })
+          });
         }
+        WebRTC.broadcastNote(content);
+        contentEl.value = '';
       } catch (e) {
-        console.error(e);
+        console.error("Not kaydedilirken hata oluştu:", e);
+        WebRTC.broadcastNote(content);
+        contentEl.value = '';
       }
     }
   </script>
 </body>
+
 </html>

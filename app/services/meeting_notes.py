@@ -1,18 +1,20 @@
+from datetime import timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from uuid import UUID
 from datetime import datetime
 from typing import List, Optional
-from app.models.meeting_note import MeetingNote  # Model isminizin doğruluğundan emin olun
+from app.models.meeting_note import MeetingNote
+from app.schemas.meeting_notes import MeetingNoteCreate
 
-def create_note(db: Session, note_data: any, author_id: UUID) -> MeetingNote:
+def create_note(db: Session, note_data: MeetingNoteCreate, author_id: UUID) -> MeetingNote:
     """Toplantı esnasında yeni bir anlık not kaydeder."""
     db_note = MeetingNote(
         meeting_id=note_data.meeting_id,
         author_id=author_id,
         content=note_data.content,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc)
     )
     db.add(db_note)
     db.commit()

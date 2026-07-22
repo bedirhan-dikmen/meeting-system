@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.models.user import User
 from app.schemas.meeting_reports import MeetingReportOut
 from app.services import meeting_reports as report_service
 from app.services.webhooks import trigger_webhook_event  # Webhook servisini bağladık!
@@ -16,7 +17,7 @@ def get_meeting_report(
     background_tasks: BackgroundTasks,
     export: Optional[str] = Query(None, description="İleride çıktı formatı için: 'pdf' veya 'excel'"),
     db: Session = Depends(get_db),
-    current_user: any = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Toplantıya ait katılım sürelerini, notları ve aksiyon kararlarını içeren özet raporu getirir."""
     report_data = report_service.generate_meeting_report_data(db, meeting_id=meeting_id)

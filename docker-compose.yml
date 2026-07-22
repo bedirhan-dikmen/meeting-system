@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:16-alpine
@@ -26,16 +24,22 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - .:/code  # Lokal kod degisikliklerinin Docker icinde anlik yansımasını saglar
+      - .:/workspace  # Lokal kod degisikliklerinin Docker icinde anlik yansımasını saglar
     environment:
       - DATABASE_URL=postgresql://yebsoft_user:YebsoftSecretPassword2026!@db:5432/meeting_system_prod
       - SECRET_KEY=yebsoft_super_secure_crypto_secret_key_2026_jwt
       - ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=60
+      - DB_POOL_SIZE=20
+      - DB_MAX_OVERFLOW=10
+      - DB_POOL_TIMEOUT=30
+      - DB_POOL_RECYCLE=1800
+      - AVATAR_UPLOAD_DIR=app/static/avatars
     depends_on:
       db:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload # Canli hot-reload aktif!
+
 
 volumes:
   postgres_data:

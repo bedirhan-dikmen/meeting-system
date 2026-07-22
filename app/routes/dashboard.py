@@ -1,3 +1,4 @@
+from datetime import timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
@@ -21,7 +22,7 @@ def get_dashboard_stats(
     """
     Ana yönetim paneli (Dashboard) için 8 özet metrik ve 2 grafik verisini döndürür.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     today_start = datetime(now.year, now.month, now.day)
     today_end = today_start + timedelta(days=1)
     month_start = datetime(now.year, now.month, 1)

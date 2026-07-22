@@ -199,11 +199,44 @@ const Meetings = {
   openCreateModal() {
     const modal = document.getElementById('createMeetingModal');
     if (modal) modal.classList.add('active');
+
+    // Default start time: Now formatted as YYYY-MM-DDTHH:MM
+    const startInput = document.getElementById('createStart');
+    if (startInput && !startInput.value) {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      startInput.value = now.toISOString().slice(0, 16);
+    }
+    this.onStartChange();
   },
 
   closeCreateModal() {
     const modal = document.getElementById('createMeetingModal');
     if (modal) modal.classList.remove('active');
+  },
+
+  onStartChange() {
+    const startInput = document.getElementById('createStart');
+    const durationInput = document.getElementById('createDuration');
+    const endInput = document.getElementById('createEnd');
+
+    if (!startInput || !startInput.value || !durationInput || !endInput) return;
+
+    const startDate = new Date(startInput.value);
+    const durationMins = parseInt(durationInput.value || '30', 10);
+
+    const endDate = new Date(startDate.getTime() + durationMins * 60000);
+    endDate.setMinutes(endDate.getMinutes() - endDate.getTimezoneOffset());
+
+    endInput.value = endDate.toISOString().slice(0, 16);
+  },
+
+  generatePasscode() {
+    const passcodeEl = document.getElementById('createPasscode');
+    if (passcodeEl) {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      passcodeEl.value = code;
+    }
   },
 
   async handleCreateMeeting(e) {
@@ -213,9 +246,12 @@ const Meetings = {
     const description = document.getElementById('createDescription').value;
     const scheduled_start = document.getElementById('createStart').value;
     const scheduled_end = document.getElementById('createEnd').value;
+    const duration_minutes = parseInt(document.getElementById('createDuration').value || '30', 10);
     const meeting_type = document.getElementById('createType').value;
     const agenda = document.getElementById('createAgenda').value;
-    const status = document.getElementById('createStatus').value;
+    const passcode = document.getElementById('createPasscode')?.value || null;
+    const lobby_enabled = document.getElementById('createLobby')?.checked || false;
+    const is_private = document.getElementById('createPrivate')?.checked || false;
 
     const invitedCheckboxes = document.querySelectorAll('input[name="invitedUsers"]:checked');
     const invited_user_ids = Array.from(invitedCheckboxes).map(cb => cb.value);
@@ -229,9 +265,13 @@ const Meetings = {
           description,
           scheduled_start,
           scheduled_end,
+          duration_minutes,
           meeting_type,
           agenda,
-          status,
+          passcode,
+          lobby_enabled,
+          is_private,
+          status: "planlandı",
           invited_user_ids
         })
       });
@@ -241,15 +281,22 @@ const Meetings = {
         throw new Error(errData.detail || "Toplantı oluşturulamadı.");
       }
 
+      const createdMeeting = await response.json();
       Notifications.show('Toplantı başarıyla planlandı ve davetler gönderildi.', 'success', 'Başarılı');
       this.closeCreateModal();
       document.getElementById('formCreateMeeting').reset();
       await this.loadMeetings();
+
+      // İstenirse doğrudan odaya yönlendir
+      if (meeting_type === 'Anlık Toplantı') {
+        window.location.href = `/room/${createdMeeting.meeting_code}`;
+      }
     } catch (err) {
       console.error(err);
       Notifications.show(err.message, 'danger', 'Hata');
     }
   }
+
 };
 
 document.addEventListener('DOMContentLoaded', () => {

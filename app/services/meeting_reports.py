@@ -1,3 +1,4 @@
+from datetime import timezone
 from datetime import datetime
 
 from sqlalchemy import select, func
@@ -105,7 +106,7 @@ def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict
     if scheduled_start_val is None:
         scheduled_start_val = getattr(meeting, 'start_date', None)
     if scheduled_start_val is None:
-        scheduled_start_val = getattr(meeting, 'created_at', datetime.utcnow())
+        scheduled_start_val = getattr(meeting, 'created_at', datetime.now(timezone.utc))
 
     report_data = {
         "meeting_id": meeting.id,

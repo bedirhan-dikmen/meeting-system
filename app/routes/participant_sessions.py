@@ -4,6 +4,7 @@ from uuid import UUID
 from typing import List
 from app.core.database import get_db
 from app.core.security import get_current_user  # Kendi security dosyanızdaki isimle eşleyin
+from app.models.user import User
 from app.schemas.participant_sessions import ParticipantSessionOut
 from app.services import participant_sessions as session_service
 
@@ -14,7 +15,7 @@ def start_user_session(
     meeting_id: UUID,
     user_id: UUID,
     db: Session = Depends(get_db),
-    current_user: any = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Katılımcı toplantıya bağlandığında yeni bir canlı oturum logu açar."""
     return session_service.create_session(db, meeting_id=meeting_id, user_id=user_id)
@@ -23,7 +24,7 @@ def start_user_session(
 def close_user_session(
     session_id: UUID,
     db: Session = Depends(get_db),
-    current_user: any = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Katılımcı toplantıdan ayrıldığında oturumu kapatır ve süreyi kaydeder."""
     session = session_service.close_session(db, session_id=session_id)
@@ -35,7 +36,7 @@ def close_user_session(
 def read_meeting_sessions(
     meeting_id: UUID,
     db: Session = Depends(get_db),
-    current_user: any = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Toplantıya katılan tüm kullanıcıların oturum kayıtlarını listeler."""
     return session_service.get_meeting_sessions(db, meeting_id=meeting_id)

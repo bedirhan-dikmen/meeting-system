@@ -56,6 +56,13 @@
         </div>
 
         <div class="header-actions">
+          <!-- Live Active Meeting Indicator Badge -->
+          <div id="liveMeetingBadge" style="display: none; align-items: center; gap: 0.5rem; background: rgba(225, 29, 72, 0.15); border: 1px solid rgba(225, 29, 72, 0.4); padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; color: #f43f5e; cursor: pointer;" onclick="Auth.joinLiveMeeting()">
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f43f5e; animation: pulse 1.5s infinite;"></span>
+            <span id="liveMeetingText">Devam Eden Canlı Toplantı</span>
+            <i class="fas fa-video" style="font-size: 0.75rem;"></i>
+          </div>
+
           <!-- Dark/Light Theme Toggle -->
           <button onclick="Auth.toggleTheme()" class="icon-btn" title="Tema Değiştir">
             <i class="fas fa-moon"></i>
@@ -70,9 +77,11 @@
           </div>
 
           <!-- User Profile Badge -->
-          <div class="user-profile-badge">
+          <div class="user-profile-badge" onclick="Auth.openProfileModal()" style="cursor: pointer;" title="Profili Düzenle">
+            <img id="userAvatarImg" src="" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; display: none;">
             <div id="userInitials" class="avatar">U</div>
             <span id="userName" style="font-size: 0.85rem; font-weight: 600;">Kullanıcı</span>
+            <i class="fas fa-user-edit" style="font-size: 0.75rem; color: var(--text-muted); margin-left: 4px;"></i>
           </div>
         </div>
       </header>
@@ -84,8 +93,76 @@
     </div>
   </div>
 
+  <!-- Profile Edit Modal -->
+  <div id="profileModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: var(--bg-card, #1e293b); padding: 1.5rem; border-radius: 12px; max-width: 500px; width: 90%; color: var(--text-primary, #fff); position: relative;">
+      <button onclick="Auth.closeProfileModal()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+      
+      <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+        <i class="fas fa-user-circle" style="color: var(--accent-blue, #3b82f6);"></i>
+        Profil Bilgilerini Güncelle
+      </h3>
+
+      <!-- Avatar Upload Form -->
+      <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1);">
+        <div style="position: relative; margin-bottom: 0.5rem;">
+          <img id="modalAvatarPreview" src="" alt="Avatar" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; background: #334155; border: 2px solid #3b82f6; display: none;">
+          <div id="modalInitialsPreview" class="avatar" style="width: 80px; height: 80px; font-size: 2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #3b82f6; color: #fff;">U</div>
+        </div>
+        <label for="avatarInput" class="btn btn-secondary" style="font-size: 0.8rem; cursor: pointer;">
+          <i class="fas fa-camera"></i> Fotoğraf Değiştir
+        </label>
+        <input type="file" id="avatarInput" accept="image/*" style="display: none;" onchange="Auth.handleAvatarUpload(event)">
+      </div>
+
+      <!-- User Info Form -->
+      <form id="profileForm" onsubmit="Auth.saveProfile(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div>
+            <label style="font-size: 0.8rem; color: var(--text-muted);">Ad</label>
+            <input type="text" id="profFirstName" class="form-input" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff;" required>
+          </div>
+          <div>
+            <label style="font-size: 0.8rem; color: var(--text-muted);">Soyad</label>
+            <input type="text" id="profLastName" class="form-input" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff;" required>
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">E-posta Adresi</label>
+          <input type="email" id="profEmail" class="form-input" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff;" required>
+        </div>
+
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Kullanıcı Kodu (Sicil / ID)</label>
+          <input type="text" id="profUserCode" class="form-input" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff;" required>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 0.5rem 0;">
+
+        <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">Şifre Değiştir (Opsiyonel)</div>
+        
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Mevcut Şifre</label>
+          <input type="password" id="profCurrentPass" class="form-input" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff;" placeholder="••••••••">
+        </div>
+
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Yeni Şifre</label>
+          <input type="password" id="profNewPass" class="form-input" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff;" placeholder="En az 6 karakter">
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
+          <button type="button" onclick="Auth.closeProfileModal()" class="btn btn-secondary">İptal</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Kaydet</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Toast Notifications Container -->
   <div id="toastContainer" class="toast-container"></div>
+
 
   <!-- Core Scripts -->
   <script src="/static/js/auth.js"></script>

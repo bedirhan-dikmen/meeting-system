@@ -7,8 +7,18 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # Veritabanı Ayarları (Canlıda veya .env dosyasından ezilebilir)
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/yebsoft_db"
+    DATABASE_URL: str = "postgresql://yebsoft_user:YebsoftSecretPassword2026!@localhost:5432/meeting_system_prod"
     
+    # Connection Pooling Ayarları (Canlı medya sinyalizasyonu için optimize edildi)
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_RECYCLE: int = 1800
+
+    # Profil Resmi Upload Ayarları
+    AVATAR_UPLOAD_DIR: str = "app/static/avatars"
+    MAX_AVATAR_SIZE_MB: int = 5
+
     # Güvenlik Ayarları
     SECRET_KEY: str = "SecretKey123!?"
     ALGORITHM: str = "HS256"
@@ -22,5 +32,6 @@ class Settings(BaseSettings):
     )
 
 settings = Settings()
+
 
 

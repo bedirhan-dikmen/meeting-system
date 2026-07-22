@@ -1,12 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query  # Query mutlaka fastapi'den gelmeli!
+import os
+import uuid
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
 
+from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import get_current_admin_user
+from app.core.security import get_current_user, get_current_admin_user, verify_password, get_password_hash
 from app.models.user import User
-from app.schemas.users import UserOut, UserCreate, UserUpdate
+from app.schemas.users import UserOut, UserCreate, UserUpdate, UserProfileUpdate
 from app.services.users import (
     create_new_user, 
     get_user_by_email, 
@@ -17,7 +20,96 @@ from app.services.users import (
 
 router = APIRouter()
 
+@router.get("/me", response_model=UserOut)
+def read_current_user_profile(
+    current_user: User = Depends(get_current_user)
+):
+    """Giriş yapmış aktif kullanıcının kendi profil detaylarını getirir."""
+    return current_user
+
+@router.put("/me", response_model=UserOut)
+def update_current_user_profile(
+    payload: UserProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Giriş yapmış kullanıcının ad, soyad, e-posta, kullanıcı kodu ve şifre bilgilerini günceller."""
+    if payload.email and payload.email != current_user.email:
+        existing = get_user_by_email(db, email=payload.email)
+        if existing and existing.id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Bu e-posta adresi başka bir kullanıcı tarafından kullanılıyor."
+            )
+        current_user.email = payload.email
+
+    if payload.first_name:
+        current_user.first_name = payload.first_name
+
+    if payload.last_name:
+        current_user.last_name = payload.last_name
+
+    if payload.user_code:
+        current_user.user_code = payload.user_code
+
+    if payload.new_password:
+        if not payload.current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mevcut şifrenizi girmeniz gerekmektedir."
+            )
+        if not verify_password(payload.current_password, current_user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mevcut şifreniz hatalı."
+            )
+        current_user.password_hash = get_password_hash(payload.new_password)
+
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+@router.post("/me/avatar", response_model=UserOut)
+async def upload_user_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Profil fotoğrafı yükleme ve static klasör altında saklama ucu."""
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+    ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
+    if ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Geçersiz dosya formatı. Yalnızca JPG, PNG, WEBP ve GIF yükleyebilirsiniz."
+        )
+
+    # Avatars dizini kontrol et
+    avatar_dir = os.path.join(os.getcwd(), settings.AVATAR_UPLOAD_DIR)
+    os.makedirs(avatar_dir, exist_ok=True)
+
+    filename = f"{current_user.id}_{uuid.uuid4().hex[:8]}{ext}"
+    file_path = os.path.join(avatar_dir, filename)
+
+    contents = await file.read()
+    if len(contents) > settings.MAX_AVATAR_SIZE_MB * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Dosya boyutu {settings.MAX_AVATAR_SIZE_MB}MB'dan büyük olamaz."
+        )
+
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    avatar_url = f"/static/avatars/{filename}"
+    current_user.avatar_url = avatar_url
+    db.commit()
+    db.refresh(current_user)
+
+    return current_user
+
 @router.post("/", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+
 def register_user(
     payload: UserCreate,
     db: Session = Depends(get_db),

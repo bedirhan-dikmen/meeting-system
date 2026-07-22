@@ -4,4 +4,14 @@ venv/
 .gitignore
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 .env
+*.db
+*.sqlite3
+.vscode/
+.idea/
+uploads/
+app/static/avatars/*
+!app/static/avatars/.gitkeep
+

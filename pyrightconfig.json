@@ -1,0 +1,11 @@
+{
+  "venvPath": "c:/Users/yebso/Documents/code/meeting-system",
+  "venv": "venv",
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Windows",
+  "extraPaths": [
+    "c:/Users/yebso/Documents/code/meeting-system",
+    "c:/Users/yebso/Documents/code/meeting-system/app",
+    "c:/Users/yebso/Documents/code/meeting-system/venv/Lib/site-packages"
+  ]
+}

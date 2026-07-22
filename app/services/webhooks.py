@@ -4,7 +4,7 @@ import json
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 from app.core.database import SessionLocal  # Arka plan taskı için bağımsız session köprüsü
 from app.models.webhook_log import WebhookLog  # Senin mevcuttaki gerçek log modelin!
@@ -35,7 +35,7 @@ async def send_and_log_webhook(target_url: str, event_name: str, payload_data: D
             payload=json.dumps(payload_data), # JSON'ı string'e cevirip basıyoruz
             response_status=status_code,      # Tablonuzdaki kolon adına gore senkron edin
             response_body=response_text,
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         db.add(db_log)
         db.commit()
@@ -54,7 +54,7 @@ def trigger_webhook_event(db: Session, event_name: str, payload: Dict[str, Any],
     
     payload_data = {
         "event": event_name,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "data": payload
     }
 
