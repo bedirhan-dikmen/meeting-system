@@ -1,4 +1,3 @@
-
 FROM python:3.12-slim
 
 # Python'un çıktıları tamponlamadan doğrudan konsola yazdırmasını sağlıyoruz (Loglama için kritik)
@@ -24,11 +23,11 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Tüm proje kodlarını kopyalıyoruz
 COPY . .
 
-# Static ve Avatar klasörlerinin varlığından emin olunuyor
-RUN mkdir -p /workspace/app/static/avatars
+# Static, Avatar ve Uploads klasörlerinin varlığından emin olunuyor
+RUN mkdir -p /workspace/app/static/avatars /workspace/uploads
 
 # FastAPI'ın çalışacağı portu dış dünyaya açıyoruz
 EXPOSE 8000
 
 # Uygulamayı ayağa kaldıracak komut (Uvicorn)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

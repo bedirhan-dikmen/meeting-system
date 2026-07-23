@@ -22,8 +22,8 @@ import app.models
 config = context.config
 
 # app/core/database veya docker-compose'dan gelen dinamik DATABASE_URL'i Alembic'e tanıtıyoruz
-if os.getenv("DATABASE_URL"):
-    config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
+db_url = os.getenv("DATABASE_URL") or settings.DATABASE_URL
+config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
