@@ -87,8 +87,18 @@ const WebRTC = {
       });
       if (response.ok) {
         this.meetingInfo = await response.json();
-        this.isHost = (this.currentUser && this.meetingInfo.created_by === this.currentUser.id);
-        
+
+        if (typeof Auth !== 'undefined' && Auth.getCurrentUser) {
+          this.currentUser = Auth.getCurrentUser();
+        } else if (typeof Auth !== 'undefined' && Auth.getUser) {
+          this.currentUser = Auth.getUser();
+        }
+
+        const isCreator = (this.currentUser && this.meetingInfo && String(this.meetingInfo.created_by) === String(this.currentUser.id));
+        const isAdmin = (this.currentUser && (this.currentUser.role === 'admin' || this.currentUser.is_superuser));
+
+        this.isHost = Boolean(isCreator || isAdmin);
+
         const titleEl = document.getElementById('roomTitle');
         if (titleEl) titleEl.textContent = this.meetingInfo.title;
 
@@ -104,6 +114,9 @@ const WebRTC = {
 
         const btnEndBar = document.getElementById('btnEndMeetingHostBar');
         if (btnEndBar) btnEndBar.style.display = this.isHost ? 'inline-flex' : 'none';
+
+        const btnEndPopover = document.getElementById('btnEndMeetingHostPopover');
+        if (btnEndPopover) btnEndPopover.style.display = this.isHost ? 'flex' : 'none';
       }
     } catch (e) {
       console.warn("Toplantı detayları alınamadı:", e);
@@ -122,7 +135,7 @@ const WebRTC = {
     this.socket.onopen = () => {
       console.log("WebSocket Sinyalleşme Sunucusuna Bağlandı.");
       this.updateConnectionBadge('online', 'Bağlı');
-      
+
       const myName = `${this.currentUser?.first_name || ''} ${this.currentUser?.last_name || ''}`.trim() || 'Kullanıcı';
 
       this.participantsMap[this.currentUser.id] = {
@@ -219,14 +232,22 @@ const WebRTC = {
         if (Array.isArray(data.users)) {
           data.users.forEach(u => {
             if (u && u.id) {
-              this.participantsMap[u.id] = u;
+              this.participantsMap[u.id] = {
+                id: u.id,
+                name: u.name || 'Katılımcı',
+                avatar_url: u.avatar_url,
+                role: u.role || 'user',
+                isMicMuted: u.isMicMuted !== undefined ? u.isMicMuted : true,
+                isCameraOff: u.isCameraOff !== undefined ? u.isCameraOff : true
+              };
             }
           });
           this.renderParticipantsList();
           this.renderAllParticipantTiles();
+          this.reflowVideoGrid();
+
           for (const u of data.users) {
             if (u.id && u.id !== this.currentUser?.id) {
-              // Deterministik Initiator: Id'si küçük olan taraf teklif (offer) gönderir (Çifte teklif çakışmasını engeller)
               const isInitiator = Boolean(this.currentUser?.id && u.id && this.currentUser.id < u.id);
               await this.createPeerConnection(u.id, isInitiator);
             }
@@ -242,9 +263,17 @@ const WebRTC = {
       case 'user-joined':
         if (data.user_info) {
           const joinedId = data.user_info.id || senderId;
-          this.participantsMap[joinedId] = data.user_info;
+          this.participantsMap[joinedId] = {
+            id: joinedId,
+            name: data.user_info.name || 'Katılımcı',
+            avatar_url: data.user_info.avatar_url,
+            role: data.user_info.role || 'user',
+            isMicMuted: data.user_info.isMicMuted !== undefined ? data.user_info.isMicMuted : true,
+            isCameraOff: data.user_info.isCameraOff !== undefined ? data.user_info.isCameraOff : true
+          };
           this.renderParticipantsList();
           this.renderRemoteTile(joinedId);
+          this.reflowVideoGrid();
 
           if (joinedId && joinedId !== this.currentUser?.id) {
             const isInitiator = Boolean(this.currentUser?.id && joinedId && this.currentUser.id < joinedId);
@@ -260,6 +289,7 @@ const WebRTC = {
           if (data.isCameraOff !== undefined) this.participantsMap[senderId].isCameraOff = data.isCameraOff;
           this.renderParticipantsList();
           this.renderRemoteTile(senderId);
+          this.reflowVideoGrid();
         }
         break;
 
@@ -267,7 +297,6 @@ const WebRTC = {
         if (senderId) {
           const pc = await this.createPeerConnection(senderId, false);
 
-          // Teklif Çakışması (Offer Glare) Kontrolü
           if (pc.signalingState !== 'stable') {
             const isPolite = Boolean(this.currentUser?.id && senderId && this.currentUser.id > senderId);
             if (!isPolite) {
@@ -275,7 +304,7 @@ const WebRTC = {
               return;
             } else {
               console.warn(`[WebRTC] Teklif çakışması: Kibar taraf yerel offer'ı geri alıyor (rollback).`);
-              await pc.setLocalDescription({ type: 'rollback' }).catch(() => {});
+              await pc.setLocalDescription({ type: 'rollback' }).catch(() => { });
             }
           }
 
@@ -366,12 +395,15 @@ const WebRTC = {
         break;
 
       case 'user-left':
-        if (senderId && this.participantsMap[senderId]) {
-          delete this.participantsMap[senderId];
+        const leavingId = senderId || data.user_info?.id;
+        if (leavingId) {
+          delete this.participantsMap[leavingId];
+          delete this.peerStreams[leavingId];
+          this.removePeer(leavingId);
           this.renderParticipantsList();
+          this.reflowVideoGrid();
+          Notifications.show(`Bir katılımcı toplantıdan ayrıldı.`, 'info', 'Ayrıldı');
         }
-        Notifications.show(`Bir katılımcı toplantıdan ayrıldı.`, 'info', 'Ayrıldı');
-        this.removePeer(senderId);
         break;
 
       case 'host-kick':
@@ -530,17 +562,17 @@ const WebRTC = {
     const avatarUrl = this.currentUser?.avatar_url;
 
     tile.innerHTML = `
-      <video id="localVideo" autoplay playsinline muted></video>
-      <div id="localAvatar" class="avatar-placeholder" style="display: ${this.isCameraOff ? 'flex' : 'none'};">
+      <video id="localVideo" autoplay playsinline muted style="display: ${this.isCameraOff ? 'none' : 'block'}; width: 100%; height: 100%; object-fit: cover;"></video>
+      <div id="localAvatar" style="display: ${this.isCameraOff ? 'flex' : 'none'}; flex-direction: column; align-items: center; justify-content: center; width: 84px; height: 84px; border-radius: 50%; background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); color: #4f46e5; border: 2px solid #ffffff; font-size: 2.2rem; font-weight: 800; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.15); margin: auto;">
         ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials.toUpperCase()}
       </div>
-      <div class="tile-overlay">
+      <div class="tile-overlay" style="position: absolute; bottom: 0.75rem; left: 0.75rem; right: 0.75rem; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(6px); border-radius: 8px; padding: 0.35rem 0.75rem; display: flex; align-items: center; justify-content: space-between; color: #fff;">
         <span title="${name} (Siz)">
-          <strong style="color: #fff; font-weight: 700;">${name}</strong>
-          <span style="font-size: 0.72rem; color: var(--accent-cyan); opacity: 0.9;">(Siz)</span>
+          <strong style="color: #fff; font-weight: 700; font-size: 0.85rem;">${name}</strong>
+          <span style="font-size: 0.72rem; color: #38bdf8; opacity: 0.9;">(Siz)</span>
         </span>
-        <div style="display: flex; gap: 0.5rem; align-items: center; margin-left: auto;">
-          <i id="localMicStatusIcon" class="fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${this.isMicMuted ? 'var(--accent-rose)' : 'var(--accent-emerald)'}; font-size: 0.9rem;"></i>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <i id="localMicStatusIcon" class="fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${this.isMicMuted ? '#f43f5e' : '#10b981'}; font-size: 0.85rem;"></i>
         </div>
       </div>
     `;
@@ -550,6 +582,7 @@ const WebRTC = {
       videoEl.srcObject = this.localStream;
       videoEl.style.display = this.isCameraOff ? 'none' : 'block';
     }
+    this.reflowVideoGrid();
   },
 
   renderRemoteTile(remoteUserId, stream = null) {
@@ -563,8 +596,8 @@ const WebRTC = {
     const name = info.name || 'Katılımcı';
     const initials = (name[0] || 'K').toUpperCase();
     const avatarUrl = info.avatar_url;
-    const isCameraOff = info.isCameraOff || false;
-    const isMicMuted = info.isMicMuted || false;
+    const isCameraOff = (info.isCameraOff !== false);
+    const isMicMuted = (info.isMicMuted !== false);
     const isHostUser = (remoteUserId === this.meetingInfo?.created_by);
 
     let tile = document.getElementById(`remoteTile_${remoteUserId}`);
@@ -578,17 +611,17 @@ const WebRTC = {
     }
 
     tile.innerHTML = `
-      <video id="remoteVideo_${remoteUserId}" autoplay playsinline style="display: ${isCameraOff ? 'none' : 'block'};"></video>
-      <div id="remoteAvatar_${remoteUserId}" class="avatar-placeholder" style="display: ${isCameraOff ? 'flex' : 'none'};">
+      <video id="remoteVideo_${remoteUserId}" autoplay playsinline style="display: ${isCameraOff ? 'none' : 'block'}; width: 100%; height: 100%; object-fit: cover;"></video>
+      <div id="remoteAvatar_${remoteUserId}" style="display: ${isCameraOff ? 'flex' : 'none'}; flex-direction: column; align-items: center; justify-content: center; width: 84px; height: 84px; border-radius: 50%; background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); color: #4f46e5; border: 2px solid #ffffff; font-size: 2.2rem; font-weight: 800; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.15); margin: auto;">
         ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials}
       </div>
-      <div class="tile-overlay">
+      <div class="tile-overlay" style="position: absolute; bottom: 0.75rem; left: 0.75rem; right: 0.75rem; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(6px); border-radius: 8px; padding: 0.35rem 0.75rem; display: flex; align-items: center; justify-content: space-between; color: #fff;">
         <span title="${name}">
-          <strong style="color: #fff; font-weight: 700; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</strong>
+          <strong style="color: #fff; font-weight: 700; font-size: 0.85rem; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</strong>
           <span class="role-badge ${isHostUser ? 'role-badge-admin' : 'role-badge-user'}" style="font-size: 0.6rem; padding: 0.1rem 0.35rem;">${isHostUser ? 'Yönetici' : 'Katılımcı'}</span>
         </span>
         <div style="display: flex; gap: 0.5rem; align-items: center; margin-left: auto;">
-          <i class="fas ${isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${isMicMuted ? 'var(--accent-rose)' : 'var(--accent-emerald)'}; font-size: 0.9rem;"></i>
+          <i class="fas ${isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${isMicMuted ? '#f43f5e' : '#10b981'}; font-size: 0.85rem;"></i>
           ${this.isHost ? `
             <button onclick="WebRTC.kickParticipant('${remoteUserId}')" class="btn btn-danger" style="padding: 0.15rem 0.35rem; font-size: 0.65rem;" title="Çıkar">
               <i class="fas fa-user-minus"></i>
@@ -604,6 +637,8 @@ const WebRTC = {
       videoEl.srcObject = streamToUse;
       videoEl.play().catch(e => console.warn("Uzaktan video oynatma başlatılamadı:", e));
     }
+
+    this.reflowVideoGrid();
   },
 
   renderAllParticipantTiles() {
@@ -612,12 +647,16 @@ const WebRTC = {
         this.renderRemoteTile(uid);
       }
     });
+    this.reflowVideoGrid();
   },
 
   setRemoteStream(remoteUserId, stream) {
     const videoEl = document.getElementById(`remoteVideo_${remoteUserId}`);
     if (videoEl) {
       videoEl.srcObject = stream;
+    } else {
+      this.peerStreams[remoteUserId] = stream;
+      this.renderRemoteTile(remoteUserId, stream);
     }
   },
 
@@ -632,7 +671,7 @@ const WebRTC = {
     shareArea.style.display = 'flex';
     grid.style.display = 'none';
 
-    // Katilimci kartlarini ust karuselse sorunsuz tasi
+    // Katılımcı kartlarını üst karuselle sorunsuz taşı
     const tiles = document.querySelectorAll('.participant-tile');
     tiles.forEach(tile => topBar.appendChild(tile));
 
@@ -669,9 +708,14 @@ const WebRTC = {
     const shareVid = document.getElementById('screenShareVideo');
     if (shareVid) shareVid.srcObject = null;
 
-    // Tüm yerel ve uzaktaki katılımcı kartlarını ana video ızgarasında yeniden çiz
+    // Tüm kartları tekrar ana video ızgarasına taşı
+    const tiles = topBar.querySelectorAll('.participant-tile');
+    tiles.forEach(tile => grid.appendChild(tile));
+
+    // Yerel ve uzaktaki katılımcı kartlarını yeniden hesapla
     this.renderLocalTile();
     this.renderAllParticipantTiles();
+    this.reflowVideoGrid();
   },
 
   sendChatMessage(text) {
@@ -760,10 +804,12 @@ const WebRTC = {
     if (this.localStream) {
       this.localStream.getAudioTracks().forEach(t => t.enabled = !this.isMicMuted);
     }
-    const btn = document.getElementById('btnRoomMic');
+    const mainBtn = document.getElementById('btnRoomMicMain') || document.getElementById('btnRoomMic');
+    const mainIcon = document.getElementById('btnRoomMicIcon');
     const micIcon = document.getElementById('localMicStatusIcon');
 
-    if (btn) btn.classList.toggle('active-off', this.isMicMuted);
+    if (mainBtn) mainBtn.classList.toggle('muted-off', this.isMicMuted);
+    if (mainIcon) mainIcon.className = `fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}`;
     if (micIcon) {
       micIcon.className = `fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}`;
       micIcon.style.color = this.isMicMuted ? 'var(--accent-rose)' : 'var(--accent-emerald)';
@@ -786,11 +832,13 @@ const WebRTC = {
     if (this.localStream) {
       this.localStream.getVideoTracks().forEach(t => t.enabled = !this.isCameraOff);
     }
-    const btn = document.getElementById('btnRoomCam');
+    const mainBtn = document.getElementById('btnRoomCamMain') || document.getElementById('btnRoomCam');
+    const mainIcon = document.getElementById('btnRoomCamIcon');
     const videoEl = document.getElementById('localVideo');
     const avatarEl = document.getElementById('localAvatar');
 
-    if (btn) btn.classList.toggle('active-off', this.isCameraOff);
+    if (mainBtn) mainBtn.classList.toggle('muted-off', this.isCameraOff);
+    if (mainIcon) mainIcon.className = `fas ${this.isCameraOff ? 'fa-video-slash' : 'fa-video'}`;
     if (videoEl) videoEl.style.display = this.isCameraOff ? 'none' : 'block';
     if (avatarEl) avatarEl.style.display = this.isCameraOff ? 'flex' : 'none';
 
@@ -798,6 +846,8 @@ const WebRTC = {
       this.participantsMap[this.currentUser.id].isCameraOff = this.isCameraOff;
       this.renderParticipantsList();
     }
+
+    this.reflowVideoGrid();
 
     this.sendSignal({
       type: 'user-state-update',
@@ -874,7 +924,17 @@ const WebRTC = {
       });
 
       this.isScreenSharing = true;
-      document.getElementById('btnScreenShare')?.classList.add('active-off');
+      const shareBtn = document.getElementById('btnScreenShare');
+      const shareText = document.getElementById('btnScreenShareText');
+      const shareIcon = document.getElementById('btnScreenShareIcon');
+
+      if (shareBtn) {
+        shareBtn.style.background = '#fff1f2';
+        shareBtn.style.borderColor = '#fecdd3';
+        shareBtn.style.color = '#e11d48';
+      }
+      if (shareText) shareText.textContent = 'Paylaşımı Durdur';
+      if (shareIcon) shareIcon.className = 'fas fa-circle-stop';
 
       this.screenTrack.onended = () => this.stopScreenShare();
     } catch (e) {
@@ -950,7 +1010,18 @@ const WebRTC = {
     this.sendSignal({ type: 'screen-share-stop' });
 
     this.isScreenSharing = false;
-    document.getElementById('btnScreenShare')?.classList.remove('active-off');
+
+    const shareBtn = document.getElementById('btnScreenShare');
+    const shareText = document.getElementById('btnScreenShareText');
+    const shareIcon = document.getElementById('btnScreenShareIcon');
+
+    if (shareBtn) {
+      shareBtn.style.background = '';
+      shareBtn.style.borderColor = '';
+      shareBtn.style.color = '';
+    }
+    if (shareText) shareText.textContent = 'Paylaş';
+    if (shareIcon) shareIcon.className = 'fas fa-arrow-up-from-bracket';
   },
 
   toggleScreenShareFullscreen() {
@@ -1046,5 +1117,80 @@ const WebRTC = {
     document.getElementById('btnLeaveRoom')?.addEventListener('click', () => this.leaveMeeting());
     document.getElementById('btnEndMeetingHost')?.addEventListener('click', () => this.endMeeting());
     document.getElementById('btnEndMeetingHostBar')?.addEventListener('click', () => this.endMeeting());
+  },
+
+  reflowVideoGrid() {
+    const grid = document.getElementById('videoGrid');
+    if (!grid) return;
+    const tiles = grid.querySelectorAll('.participant-tile');
+    const count = tiles.length;
+    if (count <= 1) {
+      grid.style.gridTemplateColumns = '1fr';
+    } else if (count === 2) {
+      grid.style.gridTemplateColumns = '1fr 1fr';
+    } else if (count <= 4) {
+      grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    } else {
+      grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
+    }
+  },
+
+  async switchVideoDevice(deviceId) {
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId } },
+        audio: !this.isMicMuted
+      });
+      const newTrack = newStream.getVideoTracks()[0];
+      if (this.localStream) {
+        const oldTrack = this.localStream.getVideoTracks()[0];
+        if (oldTrack) this.localStream.removeTrack(oldTrack);
+        this.localStream.addTrack(newTrack);
+      }
+      const localVid = document.getElementById('localVideo');
+      if (localVid) localVid.srcObject = this.localStream;
+      for (const pc of Object.values(this.peers)) {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) await sender.replaceTrack(newTrack);
+      }
+      Notifications.show("Kamera cihazı başarıyla değiştirildi.", "success", "Cihaz Değişimi");
+    } catch (e) {
+      console.warn("Kamera değiştirme hatası:", e);
+    }
+  },
+
+  async switchAudioInput(deviceId) {
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: deviceId } }
+      });
+      const newTrack = newStream.getAudioTracks()[0];
+      if (this.localStream) {
+        const oldTrack = this.localStream.getAudioTracks()[0];
+        if (oldTrack) this.localStream.removeTrack(oldTrack);
+        this.localStream.addTrack(newTrack);
+      }
+      for (const pc of Object.values(this.peers)) {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'audio');
+        if (sender) await sender.replaceTrack(newTrack);
+      }
+      Notifications.show("Mikrofon cihazı başarıyla değiştirildi.", "success", "Cihaz Değişimi");
+    } catch (e) {
+      console.warn("Mikrofon değiştirme hatası:", e);
+    }
+  },
+
+  async switchAudioOutput(deviceId) {
+    try {
+      const audioElements = document.querySelectorAll('audio, video');
+      for (const el of audioElements) {
+        if (typeof el.setSinkId === 'function') {
+          await el.setSinkId(deviceId);
+        }
+      }
+      Notifications.show("Hoparlör çıkış cihazı değiştirildi.", "success", "Cihaz Değişimi");
+    } catch (e) {
+      console.warn("Hoparlör değiştirme hatası:", e);
+    }
   }
 };

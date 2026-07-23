@@ -10,117 +10,156 @@
       <i class="fas fa-chart-line"></i> Dashboard & Analytics Portal
     </div>
     <h1 class="executive-title">Genel Bakış & Kurumsal Analizler</h1>
-    <p class="executive-subtitle">Sistem genelindeki canlı toplantı istatistikleri, aktif katılımcı sayıları ve performans metrikleri</p>
+    <p class="executive-subtitle">Sistem genelindeki canlı toplantı istatistikleri, aktif katılımcı sayıları ve
+      performans metrikleri</p>
   </div>
 </div>
 
-<!-- 8 STAT CARDS GRID -->
-<div class="stats-grid">
-  <!-- Card 1 -->
-  <div class="stat-card">
-    <div class="stat-icon indigo">
+
+
+<!-- MS TEAMS STYLE EXECUTIVE STAT CARDS GRID -->
+<div class="stats-grid"
+  style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 2.5rem;">
+
+  <!-- Card 1: Toplam Kullanıcı -->
+  <div class="stat-card"
+    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease;">
+    <div
+      style="width: 48px; height: 48px; border-radius: 12px; background: #e0e7ff; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;">
       <i class="fas fa-users"></i>
     </div>
     <div class="stat-info">
-      <h3 id="statTotalUsers">0</h3>
-      <p>Toplam Kullanıcı</p>
+      <h3 id="statTotalUsers" style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.1;">
+        0</h3>
+      <p
+        style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin: 0.2rem 0 0 0; text-transform: uppercase; letter-spacing: 0.4px;">
+        Toplam Kullanıcı</p>
     </div>
   </div>
 
-  <!-- Card 2 -->
-  <div class="stat-card">
-    <div class="stat-icon cyan">
+  <!-- Card 2: Bugünkü Toplantı -->
+  <div class="stat-card"
+    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease;">
+    <div
+      style="width: 48px; height: 48px; border-radius: 12px; background: #e0f2fe; color: #0ea5e9; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;">
       <i class="fas fa-calendar-day"></i>
     </div>
     <div class="stat-info">
-      <h3 id="statTodayMeetings">0</h3>
-      <p>Bugünkü Toplantı</p>
+      <h3 id="statTodayMeetings"
+        style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.1;">0</h3>
+      <p
+        style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin: 0.2rem 0 0 0; text-transform: uppercase; letter-spacing: 0.4px;">
+        Bugünkü Toplantı</p>
     </div>
   </div>
 
-  <!-- Card 3 -->
-  <div class="stat-card">
-    <div class="stat-icon amber">
+  <!-- Card 3: Yaklaşan Toplantı -->
+  <div class="stat-card"
+    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease;">
+    <div
+      style="width: 48px; height: 48px; border-radius: 12px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;">
       <i class="fas fa-clock"></i>
     </div>
     <div class="stat-info">
-      <h3 id="statUpcomingMeetings">0</h3>
-      <p>Yaklaşan Toplantı</p>
+      <h3 id="statUpcomingMeetings"
+        style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.1;">0</h3>
+      <p
+        style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin: 0.2rem 0 0 0; text-transform: uppercase; letter-spacing: 0.4px;">
+        Yaklaşan Toplantı</p>
     </div>
   </div>
 
-  <!-- Card 4 -->
-  <div class="stat-card">
-    <div class="stat-icon emerald">
+  <!-- Card 4: Tamamlanan Toplantı -->
+  <div class="stat-card"
+    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease;">
+    <div
+      style="width: 48px; height: 48px; border-radius: 12px; background: #d1fae5; color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;">
       <i class="fas fa-check-circle"></i>
     </div>
     <div class="stat-info">
-      <h3 id="statCompletedMeetings">0</h3>
-      <p>Tamamlanan Toplantı</p>
+      <h3 id="statCompletedMeetings"
+        style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.1;">0</h3>
+      <p
+        style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin: 0.2rem 0 0 0; text-transform: uppercase; letter-spacing: 0.4px;">
+        Tamamlanan Toplantı</p>
     </div>
   </div>
 
-  <!-- Card 5 -->
-  <div class="stat-card">
-    <div class="stat-icon rose">
+  <!-- Card 5: İptal Edilen -->
+  <div class="stat-card"
+    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease;">
+    <div
+      style="width: 48px; height: 48px; border-radius: 12px; background: #ffe4e6; color: #e11d48; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;">
       <i class="fas fa-ban"></i>
     </div>
     <div class="stat-info">
-      <h3 id="statCancelledMeetings">0</h3>
-      <p>İptal Edilen</p>
+      <h3 id="statCancelledMeetings"
+        style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.1;">0</h3>
+      <p
+        style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin: 0.2rem 0 0 0; text-transform: uppercase; letter-spacing: 0.4px;">
+        İptal Edilen</p>
     </div>
   </div>
 
-  <!-- Card 6 -->
-  <div class="stat-card">
-    <div class="stat-icon indigo">
+  <!-- Card 6: Bu Ay Yapılan -->
+  <div class="stat-card"
+    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease;">
+    <div
+      style="width: 48px; height: 48px; border-radius: 12px; background: #f3e8ff; color: #8b5cf6; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;">
       <i class="fas fa-calendar-alt"></i>
     </div>
     <div class="stat-info">
-      <h3 id="statThisMonthMeetings">0</h3>
-      <p>Bu Ay Yapılan</p>
+      <h3 id="statThisMonthMeetings"
+        style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.1;">0</h3>
+      <p
+        style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin: 0.2rem 0 0 0; text-transform: uppercase; letter-spacing: 0.4px;">
+        Bu Ay Yapılan</p>
     </div>
   </div>
 
-  <!-- Card 7 -->
-  <div class="stat-card">
-    <div class="stat-icon cyan">
-      <i class="fas fa-stopwatch"></i>
-    </div>
-    <div class="stat-info">
-      <h3 id="statAvgDuration">0 dk</h3>
-      <p>Ortalama Süre</p>
-    </div>
-  </div>
 </div>
 
 <!-- CHARTS GRID & TOP PARTICIPANTS -->
-<div class="charts-grid">
+<div class="charts-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
   <!-- Chart 1: Aylara Göre Toplantı Sayısı -->
-  <div class="chart-card">
-    <div class="chart-header">
-      <h3><i class="fas fa-chart-bar" style="color: var(--accent-primary); margin-right: 0.5rem;"></i> Aylara Göre Toplantı Sayısı</h3>
+  <div class="chart-card"
+    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.5rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
+    <div class="chart-header"
+      style="border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem; margin-bottom: 1.25rem;">
+      <h3
+        style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+        <i class="fas fa-chart-bar" style="color: #5b5fc7;"></i> Aylara Göre Toplantı Sayısı
+      </h3>
     </div>
-    <div class="chart-container">
+    <div class="chart-container" style="position: relative; height: 280px;">
       <canvas id="chartMonthly"></canvas>
     </div>
   </div>
 
   <!-- Chart 2: Toplantı Türlerine Göre Dağılım -->
-  <div class="chart-card">
-    <div class="chart-header">
-      <h3><i class="fas fa-chart-pie" style="color: var(--accent-cyan); margin-right: 0.5rem;"></i> Tür Dağılımı</h3>
+  <div class="chart-card"
+    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.5rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
+    <div class="chart-header"
+      style="border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem; margin-bottom: 1.25rem;">
+      <h3
+        style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+        <i class="fas fa-chart-pie" style="color: #0ea5e9;"></i> Tür Dağılımı
+      </h3>
     </div>
-    <div class="chart-container">
+    <div class="chart-container" style="position: relative; height: 280px;">
       <canvas id="chartTypes"></canvas>
     </div>
   </div>
 </div>
 
 <!-- TOP PARTICIPANTS LEADERBOARD CARD -->
-<div class="chart-card" style="margin-bottom: 2rem;">
-  <div class="chart-header">
-    <h3><i class="fas fa-award" style="color: var(--accent-amber); margin-right: 0.5rem;"></i> En Fazla Katılan Kullanıcılar</h3>
+<div class="chart-card"
+  style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.5rem; margin-bottom: 2.5rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
+  <div class="chart-header" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem; margin-bottom: 1.25rem;">
+    <h3
+      style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+      <i class="fas fa-award" style="color: #d97706;"></i> En Fazla Katılan Kullanıcılar
+    </h3>
   </div>
   <div id="topParticipantsList">
     <!-- Populated by JS -->

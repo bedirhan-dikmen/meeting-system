@@ -89,7 +89,9 @@ async def websocket_endpoint(
         "name": f"{current_user.first_name or ''} {current_user.last_name or ''}".strip() or "Kullanıcı",
         "email": current_user.email,
         "role": current_user.role,
-        "avatar_url": getattr(current_user, 'avatar_url', None)
+        "avatar_url": getattr(current_user, 'avatar_url', None),
+        "isMicMuted": True,
+        "isCameraOff": True
     }
 
     # 3. Bağlantıyı Kabul Et ve Odaya Kaydet
@@ -107,6 +109,9 @@ async def websocket_endpoint(
 
             target_id = data.get("target_id")
             data["sender_id"] = user_id_str
+
+            if data.get("type") == "user-joined" and data.get("user_info"):
+                await signaling_manager.update_user_info(meeting_code, user_id_str, data["user_info"])
 
             if data.get("type") == "user-state-update":
                 await signaling_manager.update_user_info(meeting_code, user_id_str, data)

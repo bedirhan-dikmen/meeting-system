@@ -8,14 +8,37 @@ const Prejoin = {
   analyser: null,
   animFrameId: null,
 
-  isMicMuted: false,
-  isCameraOff: false,
+  isMicMuted: true, // Default OFF
+  isCameraOff: true, // Default OFF
 
+  selectedCamId: '',
+  selectedMicId: '',
   selectedSpeakerId: '',
 
   async init() {
+    this.updateUserChip();
     this.bindControls();
     await this.startPreview();
+  },
+
+  updateUserChip() {
+    try {
+      const user = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
+      if (user) {
+        const first = user.first_name || '';
+        const last = user.last_name || '';
+        const initials = `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || 'YS';
+        const fullName = `${first} ${last}`.trim() || 'Kullanıcı';
+
+        const initEl = document.getElementById('prejoinInitialsChip');
+        const nameEl = document.getElementById('prejoinUserNameChip');
+
+        if (initEl) initEl.textContent = initials;
+        if (nameEl) nameEl.textContent = fullName;
+      }
+    } catch (e) {
+      console.warn("Kullanıcı profil çipi güncellenemedi:", e);
+    }
   },
 
   async enumerateDevices() {
@@ -30,32 +53,37 @@ const Prejoin = {
       const audioSelect = document.getElementById('micSelect');
       const speakerSelect = document.getElementById('speakerSelect');
 
-      if (videoSelect) videoSelect.innerHTML = '';
-      if (audioSelect) audioSelect.innerHTML = '';
-      if (speakerSelect) speakerSelect.innerHTML = '';
+      if (videoSelect) videoSelect.innerHTML = '<option value="">Kamera Yok / Kapalı</option>';
+      if (audioSelect) audioSelect.innerHTML = '<option value="">Mikrofon Yok / Kapalı</option>';
+      if (speakerSelect) speakerSelect.innerHTML = '<option value="">Hoparlör Seçin</option>';
 
-      let camCount = 1;
-      let micCount = 1;
-      let spkCount = 1;
+      const videoDevices = devices.filter(d => d.kind === 'videoinput');
+      const audioInputs = devices.filter(d => d.kind === 'audioinput');
+      const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
 
-      devices.forEach(dev => {
-        const option = document.createElement('option');
-        option.value = dev.deviceId;
-
-        if (dev.kind === 'videoinput' && videoSelect) {
-          option.text = dev.label || `Kamera ${camCount++}`;
-          if (this.selectedCamId === dev.deviceId) option.selected = true;
-          videoSelect.appendChild(option);
-        } else if (dev.kind === 'audioinput' && audioSelect) {
-          option.text = dev.label || `Mikrofon ${micCount++}`;
-          if (this.selectedMicId === dev.deviceId) option.selected = true;
-          audioSelect.appendChild(option);
-        } else if (dev.kind === 'audiooutput' && speakerSelect) {
-          option.text = dev.label || `Hoparlör ${spkCount++}`;
-          if (this.selectedSpeakerId === dev.deviceId) option.selected = true;
-          speakerSelect.appendChild(option);
+      if (videoDevices.length > 0 && videoSelect) {
+        videoSelect.innerHTML = videoDevices.map((dev, i) => `
+          <option value="${dev.deviceId}">${dev.label || 'Kamera ' + (i + 1)}</option>
+        `).join('');
+      } else {
+        const btnCam = document.getElementById('btnToggleCamPrejoin');
+        if (btnCam) {
+          btnCam.disabled = true;
+          btnCam.innerHTML = '<i class="fas fa-video-slash"></i> Kamera Algılanamadı';
         }
-      });
+      }
+
+      if (audioInputs.length > 0 && audioSelect) {
+        audioSelect.innerHTML = audioInputs.map((dev, i) => `
+          <option value="${dev.deviceId}">${dev.label || 'Mikrofon ' + (i + 1)}</option>
+        `).join('');
+      }
+
+      if (audioOutputs.length > 0 && speakerSelect) {
+        speakerSelect.innerHTML = audioOutputs.map((dev, i) => `
+          <option value="${dev.deviceId}">${dev.label || 'Hoparlör ' + (i + 1)}</option>
+        `).join('');
+      }
     } catch (err) {
       console.warn("Cihaz listeleme hatası:", err);
     }
@@ -67,15 +95,16 @@ const Prejoin = {
         this.localStream.getTracks().forEach(t => t.stop());
       }
 
-      const constraints = {
-        video: this.selectedCamId ? { deviceId: { exact: this.selectedCamId } } : true,
-        audio: this.selectedMicId ? { deviceId: { exact: this.selectedMicId } } : true
-      };
+      // Pre-request permissions with standard constraints
+      this.localStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
 
-      // 1. Önce izinleri tetikle
-      this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Default OFF state for tracks
+      this.localStream.getVideoTracks().forEach(t => t.enabled = !this.isCameraOff);
+      this.localStream.getAudioTracks().forEach(t => t.enabled = !this.isMicMuted);
 
-      // 2. İzin alındıktan sonra gerçek cihaz etiketlerini çek
       await this.enumerateDevices();
 
       const videoElement = document.getElementById('prejoinVideo');
@@ -90,55 +119,18 @@ const Prejoin = {
         avatarPlaceholder.style.display = this.isCameraOff ? 'flex' : 'none';
       }
 
-      const permWarning = document.getElementById('prejoinPermWarning');
-      if (permWarning) permWarning.style.display = 'none';
+      const btnCam = document.getElementById('btnToggleCamPrejoin');
+      if (btnCam) {
+        btnCam.innerHTML = this.isCameraOff ? '<i class="fas fa-video-slash"></i> Kamerayı Aç' : '<i class="fas fa-video"></i> Kamerayı Kapat';
+      }
 
-      this.setupAudioMeter(this.localStream);
     } catch (err) {
-      console.error("Kamera/Mikrofon erişim hatası:", err);
-      const permWarning = document.getElementById('prejoinPermWarning');
-      if (permWarning) permWarning.style.display = 'block';
-      Notifications.show("Kamera veya mikrofona erişilemedi. Lütfen tarayıcı izin çubuğundan onay verin.", "warning", "Medya İzni");
-    }
-  },
-
-  setupAudioMeter(stream) {
-    try {
-      if (this.audioContext) this.audioContext.close();
-      const audioTrack = stream.getAudioTracks()[0];
-      if (!audioTrack) return;
-
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const mediaStreamSource = this.audioContext.createMediaStreamSource(stream);
-      this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = 256;
-      mediaStreamSource.connect(this.analyser);
-
-      const bufferLength = this.analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      const fillBar = document.getElementById('micMeterFill');
-
-      const updateMeter = () => {
-        if (!this.analyser) return;
-        this.analyser.getByteFrequencyData(dataArray);
-
-        let sum = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          sum += dataArray[i];
-        }
-        const average = sum / bufferLength;
-        const volumePercent = Math.min(100, Math.round((average / 128) * 100));
-
-        if (fillBar) {
-          fillBar.style.width = this.isMicMuted ? '0%' : `${volumePercent}%`;
-        }
-
-        this.animFrameId = requestAnimationFrame(updateMeter);
-      };
-
-      updateMeter();
-    } catch (e) {
-      console.warn("Ses göstergesi başlatılamadı:", e);
+      console.warn("Medya cihazı başlatılamadı veya izin verilmedi:", err);
+      const videoElement = document.getElementById('prejoinVideo');
+      const avatarPlaceholder = document.getElementById('prejoinAvatar');
+      if (videoElement) videoElement.style.display = 'none';
+      if (avatarPlaceholder) avatarPlaceholder.style.display = 'flex';
+      await this.enumerateDevices();
     }
   },
 
@@ -146,12 +138,6 @@ const Prejoin = {
     this.isMicMuted = !this.isMicMuted;
     if (this.localStream) {
       this.localStream.getAudioTracks().forEach(t => t.enabled = !this.isMicMuted);
-    }
-
-    const btn = document.getElementById('btnToggleMicPrejoin');
-    if (btn) {
-      btn.classList.toggle('active-off', this.isMicMuted);
-      btn.innerHTML = this.isMicMuted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
     }
   },
 
@@ -169,58 +155,34 @@ const Prejoin = {
 
     const btn = document.getElementById('btnToggleCamPrejoin');
     if (btn) {
-      btn.classList.toggle('active-off', this.isCameraOff);
-      btn.innerHTML = this.isCameraOff ? '<i class="fas fa-video-slash"></i>' : '<i class="fas fa-video"></i>';
+      btn.innerHTML = this.isCameraOff ? '<i class="fas fa-video-slash"></i> Kamerayı Aç' : '<i class="fas fa-video"></i> Kamerayı Kapat';
     }
   },
 
   bindControls() {
-    const btnMic = document.getElementById('btnToggleMicPrejoin');
     const btnCam = document.getElementById('btnToggleCamPrejoin');
     const videoSelect = document.getElementById('cameraSelect');
     const audioSelect = document.getElementById('micSelect');
     const speakerSelect = document.getElementById('speakerSelect');
-    const btnReqPerms = document.getElementById('btnRequestPerms');
 
-    if (btnMic) btnMic.addEventListener('click', () => this.toggleMic());
     if (btnCam) btnCam.addEventListener('click', () => this.toggleCamera());
 
     if (videoSelect) {
       videoSelect.addEventListener('change', () => {
         this.selectedCamId = videoSelect.value;
-        this.startPreview();
       });
     }
 
     if (audioSelect) {
       audioSelect.addEventListener('change', () => {
         this.selectedMicId = audioSelect.value;
-        this.startPreview();
       });
     }
 
     if (speakerSelect) {
       speakerSelect.addEventListener('change', () => {
         this.selectedSpeakerId = speakerSelect.value;
-        const videoElement = document.getElementById('prejoinVideo');
-        if (videoElement && typeof videoElement.setSinkId === 'function') {
-          videoElement.setSinkId(this.selectedSpeakerId).catch(e => console.warn("Hoparlör değişimi hatası:", e));
-        }
       });
-    }
-
-    if (btnReqPerms) {
-      btnReqPerms.addEventListener('click', () => {
-        this.startPreview();
-      });
-    }
-  },
-
-  stopPreview() {
-    if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
-    if (this.audioContext) this.audioContext.close();
-    if (this.localStream) {
-      // Don't stop tracks so they can be transferred to meeting room, or keep reference
     }
   }
 };

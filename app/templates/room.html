@@ -4,264 +4,358 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Canlı Toplantı Odası - YebMeeting</title>
+  <title>Canlı Toplantı Odası | Meeting with Yeb Soft</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
-<body style="overflow: hidden; background: #090d16;">
+<body style="overflow: hidden; background: #f3f2f1; color: #0f172a; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;">
   <div class="room-container">
 
-    <!-- PHASE 1: PRE-JOIN PREVIEW SCREEN -->
-    <div id="prejoinScreen" class="prejoin-screen">
-      <div class="prejoin-card">
-        <div>
-          <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 0.5rem;">Cihaz Ön İzleme ve Ayarlar</h2>
-          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.5rem;">Toplantıya katılmadan önce
-            kamera ve mikrofonunuzu kontrol edin</p>
-
-          <div class="video-preview-box">
-            <video id="prejoinVideo" autoplay playsinline muted></video>
-            <div id="prejoinAvatar" class="avatar-placeholder" style="display: none;">Öİ</div>
+    <!-- LIVE MEETING ROOM SCREEN -->
+    <div id="liveRoomScreen" style="display: flex; flex-direction: column; height: 100vh; background: #f8fafc;">
+      
+      <!-- TEAMS SPLIT CONTROLS TOP TOOLBAR -->
+      <header class="yeb-room-topbar">
+        <div style="display: flex; align-items: center; gap: 0.75rem; min-width: 0;">
+          <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: #5b5fc7; color: #fff; border-radius: 8px; font-size: 0.9rem; font-weight: 800; flex-shrink: 0;">
+            <i class="fas fa-video"></i>
           </div>
-
-          <div class="mic-meter-bar">
-            <div id="micMeterFill" class="mic-meter-fill"></div>
-          </div>
-
-          <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1.25rem;">
-            <button id="btnToggleMicPrejoin" type="button" class="control-btn" title="Mikrofon Aç/Kapat">
-              <i class="fas fa-microphone"></i>
-            </button>
-            <button id="btnToggleCamPrejoin" type="button" class="control-btn" title="Kamera Aç/Kapat">
-              <i class="fas fa-video"></i>
-            </button>
-          </div>
+          <h2 id="roomTitle" style="font-size: 0.92rem; font-weight: 800; color: #0f172a; margin: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ meeting_code }}">Toplantı Odası</h2>
+          <span style="font-family: monospace; background: #e0f2fe; border: 1px solid #bae6fd; padding: 0.15rem 0.55rem; border-radius: 6px; color: #0369a1; font-weight: 800; font-size: 0.78rem; flex-shrink: 0;">{{ meeting_code }}</span>
+          <span id="roomTimer" style="font-family: monospace; font-size: 0.85rem; color: #475569; font-weight: 700; flex-shrink: 0; background: #f1f5f9; padding: 0.2rem 0.6rem; border-radius: 20px; border: 1px solid #cbd5e1;"><i class="far fa-clock" style="color: #6366f1; margin-right: 0.3rem;"></i>00:00:00</span>
         </div>
 
-        <div style="display: flex; flex-direction: column; justify-content: center; gap: 1rem;">
-          <div id="prejoinPermWarning" style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px solid var(--accent-amber); padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 0.85rem; color: var(--accent-amber);">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-              <i class="fas fa-exclamation-triangle"></i> Kamera veya mikrofon izni bekleniyor!
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <!-- MAIN VIEW SWITCHER -->
+          <button id="btnViewStage" class="yeb-toolbar-btn active" onclick="switchMainView('stage')" title="Canlı Görüntü Sahnesi">
+            <i class="fas fa-video" style="color: #4f46e5;"></i>
+            <span>Sahne</span>
+          </button>
+          <button id="btnViewNotes" class="yeb-toolbar-btn" onclick="switchMainView('notes')" title="Toplantı & Kişisel Notlar">
+            <i class="far fa-sticky-note" style="color: #10b981;"></i>
+            <span>Notlar</span>
+          </button>
+
+          <div style="width: 1px; height: 24px; background: #cbd5e1; margin: 0 0.2rem;"></div>
+
+          <!-- SIDEBAR TOGGLES -->
+          <button class="yeb-toolbar-btn" onclick="toggleSidebarTab('chat')" title="Canlı Sohbet">
+            <i class="far fa-comment-dots" style="color: #0ea5e9;"></i>
+            <span>Sohbet</span>
+          </button>
+          <button class="yeb-toolbar-btn" onclick="toggleSidebarTab('participants')" title="Katılımcı Listesi">
+            <i class="far fa-user" style="color: #8b5cf6;"></i>
+            <span>Kişiler</span>
+          </button>
+
+          <div style="width: 1px; height: 24px; background: #cbd5e1; margin: 0 0.2rem;"></div>
+
+          <!-- TEAMS SPLIT CAMERA CONTROL -->
+          <div class="teams-split-btn-group">
+            <button id="btnRoomCamMain" type="button" class="teams-split-main muted-off" onclick="WebRTC.toggleCamera()">
+              <i id="btnRoomCamIcon" class="fas fa-video-slash"></i>
+              <span>Kamera</span>
+            </button>
+            <button type="button" class="teams-split-chevron" onclick="togglePopoverMenu('camPopover')">
+              <i class="fas fa-chevron-down"></i>
+            </button>
+            
+            <div id="camPopover" class="teams-dropdown-popover">
+              <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; padding: 0.2rem 0.5rem;">KAMERA SEÇİMİ</div>
+              <div id="camDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.2rem;"></div>
             </div>
-            <button id="btnRequestPerms" type="button" class="btn btn-secondary" style="width: 100%; padding: 0.4rem; font-size: 0.8rem;">
-              <i class="fas fa-key"></i> İzinleri Onayla ve Yeniden Dene
+          </div>
+
+          <!-- TEAMS SPLIT MIC CONTROL -->
+          <div class="teams-split-btn-group">
+            <button id="btnRoomMicMain" type="button" class="teams-split-main muted-off" onclick="WebRTC.toggleMic()">
+              <i id="btnRoomMicIcon" class="fas fa-microphone-slash"></i>
+              <span>Mikrofon</span>
             </button>
-          </div>
-
-          <div class="form-group">
-            <label><i class="fas fa-camera"></i> Kamera Seçin</label>
-            <select id="cameraSelect" class="form-select">
-              <option value="">Kamera Aranıyor...</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label><i class="fas fa-microphone"></i> Mikrofon Seçin</label>
-            <select id="micSelect" class="form-select">
-              <option value="">Mikrofon Aranıyor...</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label><i class="fas fa-volume-up"></i> Hoparlör Seçin</label>
-            <select id="speakerSelect" class="form-select">
-              <option value="">Hoparlör Aranıyor...</option>
-            </select>
-          </div>
-
-          <div style="margin-top: 1rem;">
-            <button id="btnJoinMeetingNow" type="button" class="btn-emerald"
-              style="width: 100%; justify-content: center; padding: 0.95rem; font-size: 1.05rem; border-radius: 12px;">
-              <i class="fas fa-door-open"></i> Şimdi Toplantıya Katıl
+            <button type="button" class="teams-split-chevron" onclick="togglePopoverMenu('micPopover')">
+              <i class="fas fa-chevron-down"></i>
             </button>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- PHASE 2: LIVE MEETING ROOM SCREEN -->
-    <div id="liveRoomScreen" style="display: none; flex-direction: column; height: 100vh;">
-      <!-- ROOM TOP BAR -->
-      <header class="top-header" style="background: rgba(15, 23, 42, 0.9); position: relative; z-index: 100;">
-        <div style="display: flex; align-items: center; gap: 1rem;">
-          <h2 id="roomTitle" style="font-size: 1.15rem; font-weight: 700;">Toplantı Odası</h2>
-          <span
-            style="font-family: monospace; background: rgba(255,255,255,0.08); padding: 0.25rem 0.6rem; border-radius: 4px; color: var(--accent-cyan); font-size: 0.85rem;">{{
-            meeting_code }}</span>
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 1.5rem;">
-          <!-- TIMER -->
-          <div
-            style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-secondary); padding: 0.4rem 0.85rem; border-radius: var(--radius-full); border: 1px solid var(--border-color); font-weight: 700; font-family: monospace;">
-            <i class="fas fa-stopwatch" style="color: var(--accent-amber);"></i>
-            <span id="roomTimer">00:00:00</span>
+            <div id="micPopover" class="teams-dropdown-popover">
+              <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; padding: 0.2rem 0.5rem;">MİKROFON SEÇİMİ</div>
+              <div id="micDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.2rem;"></div>
+              
+              <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; padding: 0.4rem 0.5rem 0.2rem 0.5rem; border-top: 1px solid #e2e8f0; margin-top: 0.3rem;">HOPARLÖR ÇIKIŞI</div>
+              <div id="speakerDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.2rem;"></div>
+            </div>
           </div>
 
-          <!-- CONNECTION STATUS BADGE -->
-          <div
-            style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-secondary); padding: 0.4rem 0.85rem; border-radius: var(--radius-full); border: 1px solid var(--border-color); font-size: 0.85rem;">
-            <span id="connectionDot"
-              style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent-emerald);"></span>
-            <span id="connectionText">Bağlı</span>
+          <!-- SCREEN SHARE BUTTON -->
+          <button id="btnScreenShare" class="yeb-toolbar-btn" onclick="WebRTC.toggleScreenShare()" title="Ekran Paylaş">
+            <i id="btnScreenShareIcon" class="fas fa-arrow-up-from-bracket"></i>
+            <span id="btnScreenShareText">Paylaş</span>
+          </button>
+
+          <div style="width: 1px; height: 24px; background: #cbd5e1; margin: 0 0.2rem;"></div>
+
+          <!-- THREE-DOTS (...) ROOM OPTIONS & SETTINGS POPOVER -->
+          <div class="teams-split-btn-group">
+            <button type="button" class="teams-split-main" onclick="togglePopoverMenu('moreOptionsPopover')" title="Daha Fazla Seçenek & Oda Ayarları">
+              <i class="fas fa-ellipsis-v"></i>
+            </button>
+
+            <div id="moreOptionsPopover" class="teams-dropdown-popover" style="right: 0; width: 230px;">
+              <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; padding: 0.3rem 0.6rem; border-bottom: 1px solid #e2e8f0; margin-bottom: 0.2rem;">ODA SEÇENEKLERİ</div>
+              <button type="button" class="teams-popover-item" onclick="copyRoomLink()">
+                <i class="fas fa-link" style="color: #0ea5e9;"></i> Oda Bağlantısını Kopyala
+              </button>
+              <button type="button" class="teams-popover-item" onclick="openRoomInviteModal()">
+                <i class="fas fa-user-plus" style="color: #10b981;"></i> Odaya Katılımcı Davet Et
+              </button>
+              <button type="button" class="teams-popover-item" onclick="openRoomSettingsModal()">
+                <i class="fas fa-sliders-h" style="color: #6366f1;"></i> Oda Ayarlarını Düzenle
+              </button>
+            </div>
           </div>
+
+          <!-- TEAMS SPLIT LEAVE / END CONTROL -->
+          <div class="teams-split-btn-group" style="background: #fff1f2; border-color: #fecdd3;">
+            <button type="button" class="teams-split-main" onclick="WebRTC.leaveMeeting()" style="color: #e11d48;">
+              <i class="fas fa-phone-slash" style="color: #e11d48;"></i>
+              <span>Ayrıl</span>
+            </button>
+            
+            <button id="btnLeaveChevron" type="button" class="teams-split-chevron" onclick="togglePopoverMenu('leavePopover')" style="border-left-color: #fecdd3; color: #e11d48;">
+              <i class="fas fa-chevron-down"></i>
+            </button>
+
+            <div id="leavePopover" class="teams-dropdown-popover" style="right: 0;">
+              <button type="button" class="teams-popover-item" onclick="WebRTC.leaveMeeting()">
+                <i class="fas fa-sign-out-alt" style="color: #e11d48;"></i> Toplantıdan Ayrıl
+              </button>
+              <button id="btnEndMeetingHostPopover" type="button" class="teams-popover-item" onclick="WebRTC.endMeeting()" style="display: none; color: #be123c;">
+                <i class="fas fa-power-off" style="color: #be123c;"></i> Toplantıyı Herkes İçin Sonlandır
+              </button>
+            </div>
+          </div>
+
         </div>
       </header>
 
       <!-- DYNAMIC TOP CAROUSEL BAR (Shown during Screen Share) -->
-      <div id="topCarouselBar" class="top-carousel-bar" style="display: none;">
-        <!-- Participant cards dynamically moved here during screen share -->
+      <div id="topCarouselBar" class="top-carousel-bar" style="display: none; background: #ffffff; border-bottom: 1px solid #cbd5e1;">
       </div>
 
-      <!-- ROOM MAIN CONTENT -->
-      <div class="room-main">
-        <!-- SCREEN SHARE PRESENTATION AREA -->
-        <div id="screenShareArea" class="screenshare-container" style="display: none; position: relative;">
+      <!-- VIEW MODE 1: FLEXIBLE RESIZING STAGE & SIDEBAR CONTAINER -->
+      <div id="meetingStageContainer" class="room-main" style="display: flex; width: 100%; height: calc(100vh - 60px); position: relative; overflow: hidden;">
+        
+        <!-- SCREEN SHARE AREA -->
+        <div id="screenShareArea" class="screenshare-container" style="display: none; position: relative; background: #f8fafc; border-right: 1px solid #e1dfdd; flex: 1; height: 100%;">
           <video id="screenShareVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: contain; background: #000;"></video>
-          <div
-            style="position: absolute; top: 1rem; left: 1rem; background: rgba(0,0,0,0.75); padding: 0.4rem 0.85rem; border-radius: 20px; font-size: 0.85rem; border: 1px solid var(--border-active); color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem; backdrop-filter: blur(8px);">
+          <div style="position: absolute; top: 1rem; left: 1rem; background: rgba(15,23,42,0.85); padding: 0.4rem 0.85rem; border-radius: 20px; font-size: 0.85rem; color: #38bdf8; display: flex; align-items: center; gap: 0.5rem; backdrop-filter: blur(8px);">
             <i class="fas fa-desktop"></i> <span id="screenSharePresenterName">Canlı Ekran Paylaşımı</span>
           </div>
-          <div style="position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; z-index: 10;">
-            <button id="btnFullscreenShare" type="button" onclick="WebRTC.toggleScreenShareFullscreen()" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.15);" title="Tam Ekran Yap">
-              <i class="fas fa-expand"></i> Tam Ekran
-            </button>
-            <button id="btnPopoutShare" type="button" onclick="WebRTC.popoutScreenShare()" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.15);" title="Ayrı Pencerede Aç (Picture-in-Picture)">
-              <i class="fas fa-external-link-alt"></i> Ayrı Pencere
-            </button>
-          </div>
         </div>
 
-        <!-- VIDEO TILES GRID (Standard Layout) -->
-        <div id="videoGrid" class="video-grid">
-          <!-- Local and remote tiles rendered by webrtc.js -->
+        <!-- VIDEO TILES GRID -->
+        <div id="videoGrid" class="video-grid" style="background: #f8fafc; flex: 1; height: 100%; width: 100%; transition: all 0.3s ease;">
         </div>
 
-        <!-- MULTI-TAB INTERACTIVE SIDEBAR -->
-        <div id="roomSidebar" class="room-sidebar" style="display: flex;">
-          <!-- SIDEBAR TABS -->
-          <div class="sidebar-tabs">
-            <button id="tabBtnChat" type="button" class="sidebar-tab active" onclick="switchSidebarTab('chat')">
+        <!-- INLINE RESIZING ROOM SIDEBAR -->
+        <div id="roomSidebar" class="room-sidebar" style="display: none; background: #ffffff; border-left: 1px solid #cbd5e1; width: 350px; height: 100%; flex-shrink: 0;">
+          <div class="sidebar-tabs" style="background: #f8fafc; border-bottom: 1px solid #cbd5e1; display: flex;">
+            <button id="tabBtnChat" type="button" class="sidebar-tab active" onclick="switchSidebarTab('chat')" style="font-weight: 700; color: #4f46e5; flex: 1; padding: 0.85rem;">
               <i class="fas fa-comments"></i> Sohbet
-              <span id="unreadChatBadge" class="tab-badge" style="display: none;">0</span>
             </button>
-            <button id="tabBtnNotes" type="button" class="sidebar-tab" onclick="switchSidebarTab('notes')">
-              <i class="fas fa-sticky-note"></i> Notlar
-            </button>
-            <button id="tabBtnParticipants" type="button" class="sidebar-tab"
-              onclick="switchSidebarTab('participants')">
+            <button id="tabBtnParticipants" type="button" class="sidebar-tab" onclick="switchSidebarTab('participants')" style="font-weight: 700; color: #475569; flex: 1; padding: 0.85rem;">
               <i class="fas fa-users"></i> Katılımcılar
-              <span id="participantCountBadge" class="tab-badge" style="background: var(--accent-primary);">1</span>
             </button>
+            <button type="button" onclick="closeSidebar()" style="background: none; border: none; padding: 0.85rem; color: #64748b; cursor: pointer;"><i class="fas fa-times"></i></button>
           </div>
 
-          <!-- TAB CONTENT 1: SOHBET (CHAT) -->
-          <div id="tabContentChat" class="tab-content" style="display: flex;">
-            <div id="chatMessagesContainer" class="chat-messages">
-              <div class="note-card"
-                style="border-left-color: var(--accent-cyan); background: rgba(6, 182, 212, 0.08);">
-                <div class="note-card-body"
-                  style="font-size: 0.8rem; color: var(--text-secondary); text-align: center;">
-                  <i class="fas fa-lock"></i> Canlı sohbet odası aktif. Mesajlarınız tüm katılımcılara anlık iletilir.
-                </div>
+          <!-- TAB 1: SOHBET -->
+          <div id="tabContentChat" class="tab-content" style="display: flex; flex-direction: column; height: calc(100% - 48px);">
+            <div id="chatMessagesContainer" class="chat-messages" style="flex: 1; padding: 1.25rem; overflow-y: auto; background: #ffffff; display: flex; flex-direction: column; gap: 0.85rem;">
+              <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem 1rem; font-size: 0.82rem; color: #64748b; text-align: center;">
+                <i class="fas fa-lock" style="color: #6366f1; margin-right: 0.3rem;"></i> Canlı sohbet odası aktif.
               </div>
             </div>
 
-            <div class="chat-input-area">
-              <input id="chatInputText" type="text" class="form-control" placeholder="Mesajınızı yazın..."
-                onkeypress="handleChatKeyPress(event)">
-              <button id="btnSendChat" type="button" class="btn btn-primary" onclick="sendRoomChatMessage()"
-                style="padding: 0.65rem 1rem;">
+            <div class="yeb-chat-footer">
+              <input id="chatInputText" type="text" class="yeb-chat-input" placeholder="Mesajınızı yazın..." onkeypress="handleChatKeyPress(event)">
+              <button id="btnSendChat" type="button" class="yeb-chat-send-btn" onclick="sendRoomChatMessage()">
                 <i class="fas fa-paper-plane"></i>
               </button>
             </div>
           </div>
 
-          <!-- TAB CONTENT 2: NOTLAR & KARARLAR -->
-          <div id="tabContentNotes" class="tab-content" style="display: none;">
-            <div id="notesFeedContainer" class="notes-feed">
-              <div class="note-card">
-                <div class="note-card-header">
-                  <span><i class="fas fa-info-circle"></i> Sistem</span>
-                  <span>Canlı</span>
-                </div>
-                <div class="note-card-body">
-                  Toplantı yöneticisi tarafından eklenen notlar ve kararlar burada tüm personelin ekranına anlık düşer.
-                </div>
-              </div>
+          <!-- TAB 2: KATILIMCILAR -->
+          <div id="tabContentParticipants" class="tab-content" style="display: none; flex-direction: column; height: calc(100% - 48px); padding: 1.25rem; background: #ffffff;">
+            <div id="participantsListContainer" style="display: flex; flex-direction: column; gap: 0.85rem; flex: 1; overflow-y: auto;">
             </div>
 
-            <!-- HOST NOTE CREATION SECTION (Shown for Host) -->
-            <div id="hostNoteSection"
-              style="padding: 1rem; border-top: 1px solid var(--border-color); background: var(--bg-secondary); display: none;">
-              <label
-                style="font-size: 0.8rem; font-weight: 700; color: var(--accent-amber); display: block; margin-bottom: 0.4rem;">
-                <i class="fas fa-pen-fancy"></i> Yönetici Notu / Karar Ekle
-              </label>
-              <textarea id="hostNoteContent" class="form-control" rows="2"
-                placeholder="Tüm personelin önüne düşecek not..."
-                style="margin-bottom: 0.5rem; font-size: 0.85rem;"></textarea>
-              <button onclick="addHostNote()" type="button" class="btn btn-primary"
-                style="width: 100%; font-size: 0.85rem; padding: 0.5rem;">
-                <i class="fas fa-broadcast-tower"></i> Herkese Yayınla & Kaydet
-              </button>
-            </div>
-          </div>
-
-          <!-- TAB CONTENT 3: KATILIMCILAR -->
-          <div id="tabContentParticipants" class="tab-content" style="display: none; padding: 1rem;">
-            <div id="participantsListContainer" style="display: flex; flex-direction: column; gap: 0.75rem;">
-              <!-- Dynamic participant list -->
-            </div>
-
-            <div id="hostAdminActions"
-              style="margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-color); display: none;">
-              <button id="btnEndMeetingHost" type="button" class="btn btn-danger" style="width: 100%;">
+            <div id="hostAdminActions" style="margin-top: auto; padding-top: 1rem; border-top: 1px solid #e2e8f0; display: none;">
+              <button id="btnEndMeetingHost" type="button" class="btn btn-danger" style="width: 100%; border-radius: 8px; font-weight: 700; padding: 0.75rem;">
                 <i class="fas fa-power-off"></i> Toplantıyı Sonlandır
               </button>
             </div>
           </div>
         </div>
+
       </div>
 
-      <!-- ROOM CONTROL BAR -->
-      <footer class="room-control-bar">
-        <div style="display: flex; gap: 0.75rem; align-items: center;">
-          <button id="btnRoomMic" class="control-btn" title="Mikrofon (Mute/Unmute)">
-            <i class="fas fa-microphone"></i>
-          </button>
-          <button id="btnRoomCam" class="control-btn" title="Kamera (Aç/Kapat)">
-            <i class="fas fa-video"></i>
-          </button>
-          <button id="btnScreenShare" class="control-btn" title="Ekran Paylaşımı">
-            <i class="fas fa-desktop"></i>
-          </button>
+      <!-- VIEW MODE 2: DEDICATED 2-TAB EXECUTIVE NOTES DASHBOARD -->
+      <div id="meetingNotesContainer" style="display: none; flex: 1; padding: 2rem; background: #f8fafc; overflow-y: auto;">
+        <div style="max-width: 1100px; margin: 0 auto;">
+          
+          <div class="notes-tab-bar">
+            <button id="tabBtnOfficialNotes" class="notes-tab-item active" onclick="switchNotesTab('official')">
+              <i class="fas fa-clipboard-check" style="color: #4f46e5;"></i> Resmi Toplantı Kararları
+            </button>
+            <button id="tabBtnPersonalNotes" class="notes-tab-item" onclick="switchNotesTab('personal')">
+              <i class="fas fa-user-pen" style="color: #10b981;"></i> Kişisel Not Defterim
+            </button>
+          </div>
+
+          <div id="notesTabOfficial" style="display: block;">
+            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.75rem; box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);">
+              <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+                <div>
+                  <h3 style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0;">Toplantı Kararları & Duyurular</h3>
+                  <p style="font-size: 0.85rem; color: #64748b; margin: 0.2rem 0 0 0;">Yöneticiler tarafından yayınlanan resmi karar ve not akışı.</p>
+                </div>
+                <span style="background: #e0e7ff; color: #4f46e5; border: 1px solid #c7d2fe; padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: 700; font-size: 0.78rem;">Yönetici Onaylı</span>
+              </div>
+
+              <div id="hostNoteSection" class="yeb-editor-card" style="display: none;">
+                <div class="yeb-editor-toolbar">
+                  <span style="font-size: 0.82rem; font-weight: 700; color: #0f172a; margin-right: 0.5rem;"><i class="fas fa-pen-nib" style="color: #10b981;"></i> Metin Araç Çubuğu:</span>
+                  <button type="button" class="yeb-editor-btn" onclick="formatNoteText('hostNoteContent', 'bold')" title="Kalın Metin"><b>B</b></button>
+                  <button type="button" class="yeb-editor-btn" onclick="formatNoteText('hostNoteContent', 'italic')" title="İtalik Metin"><i>I</i></button>
+                  <button type="button" class="yeb-editor-btn" onclick="formatNoteText('hostNoteContent', 'bullet')" title="Madde İmi"><i class="fas fa-list-ul"></i></button>
+                  <button type="button" class="yeb-editor-btn" onclick="formatNoteText('hostNoteContent', 'decision')" title="Karar Etiketi"><i class="fas fa-thumbtack" style="color: #e11d48;"></i></button>
+                  <button type="button" class="yeb-editor-btn" onclick="formatNoteText('hostNoteContent', 'time')" title="Zaman Damgası"><i class="far fa-clock" style="color: #6366f1;"></i></button>
+                </div>
+                <textarea id="hostNoteContent" class="yeb-editor-textarea" placeholder="Tüm personelin ekranında yayınlanacak kararı veya notu yazın..."></textarea>
+                <div style="padding: 0.75rem 1rem; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+                  <button onclick="addHostNote()" type="button" class="btn-emerald" style="font-size: 0.88rem; padding: 0.6rem 1.4rem; border-radius: 8px; font-weight: 700;">
+                    <i class="fas fa-broadcast-tower"></i> Kararı Yayınla & Kaydet
+                  </button>
+                </div>
+              </div>
+
+              <div id="notesFeedContainer" style="display: flex; flex-direction: column; gap: 1rem; min-height: 250px;">
+                <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 1.5rem; text-align: center; color: #64748b; font-size: 0.9rem;">
+                  <i class="fas fa-info-circle" style="color: #6366f1; font-size: 1.4rem; margin-bottom: 0.4rem; display: block;"></i>
+                  Toplantı süresince yayınlanan tüm kararlar tarih sırasıyla burada sıralanır.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="notesTabPersonal" style="display: none;">
+            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.75rem; box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);">
+              <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+                <div>
+                  <h3 style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0;">Kişisel Özel Not Defterim</h3>
+                  <p style="font-size: 0.85rem; color: #64748b; margin: 0.2rem 0 0 0;">Sadece sizin görebildiğiniz özel toplantı notları.</p>
+                </div>
+                <span style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: 700; font-size: 0.78rem;"><i class="fas fa-lock" style="font-size: 0.7rem;"></i> Gizli Not Defteri</span>
+              </div>
+
+              <div class="yeb-editor-card">
+                <div class="yeb-editor-toolbar">
+                  <span style="font-size: 0.82rem; font-weight: 700; color: #0f172a; margin-right: 0.5rem;"><i class="fas fa-pen-nib" style="color: #4f46e5;"></i> Metin Araç Çubuğu:</span>
+                  <button type="button" class="yeb-editor-btn" onclick="formatNoteText('personalNoteInput', 'bold')" title="Kalın Metin"><b>B</b></button>
+                  <button type="button" class="yeb-editor-btn" onclick="formatNoteText('personalNoteInput', 'italic')" title="İtalik Metin"><i>I</i></button>
+                  <button type="button" class="yeb-editor-btn" onclick="formatNoteText('personalNoteInput', 'bullet')" title="Madde İmi"><i class="fas fa-list-ul"></i></button>
+                  <button type="button" class="yeb-editor-btn" onclick="formatNoteText('personalNoteInput', 'time')" title="Zaman Damgası"><i class="far fa-clock" style="color: #6366f1;"></i></button>
+                </div>
+                <textarea id="personalNoteInput" class="yeb-editor-textarea" placeholder="Gündem veya kişisel notlarınızı buraya yazın..."></textarea>
+                <div style="padding: 0.75rem 1rem; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+                  <button type="button" onclick="addPersonalNoteItem()" class="btn" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; padding: 0.65rem 1.4rem; border-radius: 8px; font-size: 0.88rem; font-weight: 700; border: none; cursor: pointer;">
+                    <i class="fas fa-save"></i> Kişisel Notu Ekle & Kaydet
+                  </button>
+                </div>
+              </div>
+
+              <h4 style="font-size: 1rem; font-weight: 800; color: #0f172a; margin-bottom: 0.85rem;">Kaydedilen Not Geçmişi</h4>
+              <div id="personalNotesList" style="display: flex; flex-direction: column; gap: 0.85rem; min-height: 180px;">
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROOM INVITE MODAL -->
+  <div id="roomInviteModal" class="modal-backdrop">
+    <div class="modal-card" style="border-radius: 16px; max-width: 560px; width: 92%; border: 1px solid #e2e8f0; box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.25);">
+      <div class="modal-header" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem;">
+        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 0.6rem;">
+          <i class="fas fa-user-plus" style="color: #10b981;"></i> Katılımcı Davet Et & Oda Bağlantısı
+        </h3>
+        <button type="button" onclick="document.getElementById('roomInviteModal').style.display='none'" class="icon-btn" style="width: 32px; height: 32px; border-radius: 50%;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div style="padding: 1.25rem 0; display: flex; flex-direction: column; gap: 1.25rem;">
+        
+        <!-- COPY LINK BOX -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem;">
+          <label style="font-size: 0.78rem; font-weight: 800; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 0.4rem;">Toplantı Katılım Bağlantısı</label>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="text" id="modalInviteLinkInput" readonly class="form-control" style="border-radius: 8px; font-size: 0.85rem; font-family: monospace; background: #ffffff; color: #0369a1; font-weight: 700;">
+            <button type="button" onclick="copyModalInviteLink()" class="btn" style="background: #5b5fc7; color: #ffffff; border-radius: 8px; font-weight: 700; font-size: 0.85rem; padding: 0.55rem 1rem; border: none; white-space: nowrap; cursor: pointer;">
+              <i class="fas fa-copy"></i> Bağlantıyı Kopyala
+            </button>
+          </div>
         </div>
 
-        <div style="display: flex; gap: 0.75rem; align-items: center;">
-          <button id="btnToggleChatSidebar" class="control-btn" title="Sohbet" onclick="toggleSidebarTab('chat')">
-            <i class="fas fa-comments"></i>
-          </button>
-          <button id="btnToggleNotesSidebar" class="control-btn" title="Toplantı Notları"
-            onclick="toggleSidebarTab('notes')">
-            <i class="fas fa-sticky-note"></i>
-          </button>
-          <button id="btnToggleParticipantsSidebar" class="control-btn" title="Katılımcılar"
-            onclick="toggleSidebarTab('participants')">
-            <i class="fas fa-users"></i>
-          </button>
+        <!-- SEARCH USERS & INVITE LIST -->
+        <div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem;">
+            <label style="font-size: 0.78rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin: 0;">Sistemdeki Kullanıcılar</label>
+            <span id="inviteUsersCount" style="font-size: 0.75rem; color: #64748b; font-weight: 700;">0 kullanıcı</span>
+          </div>
+
+          <input type="text" id="inviteUserSearchInput" oninput="filterInviteUserList()" class="form-control" placeholder="İsim veya e-posta ile ara..." style="border-radius: 8px; font-size: 0.85rem; margin-bottom: 0.75rem;">
+
+          <div id="roomInviteUserList" style="max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; padding-right: 0.2rem;">
+            <!-- Populated by JS -->
+          </div>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <button id="btnEndMeetingHostBar" type="button" class="btn" style="display: none; padding: 0.65rem 1.25rem; font-size: 0.9rem; background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); color: #fff; border: none; border-radius: 8px; font-weight: 700; gap: 0.4rem; align-items: center;" title="Toplantıyı Herkes İçin Sonlandır">
-            <i class="fas fa-power-off"></i> Toplantıyı Sonlandır
-          </button>
-          <button id="btnLeaveRoom" class="btn" style="padding: 0.65rem 1.25rem; font-size: 0.9rem; background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); border-radius: 8px; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem;">
-            <i class="fas fa-phone-slash"></i> Odadan Ayrıl
-          </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROOM SETTINGS MODAL -->
+  <div id="roomSettingsModal" class="modal-backdrop">
+    <div class="modal-card" style="border-radius: 16px; max-width: 520px; border: 1px solid #e2e8f0; box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.2);">
+      <div class="modal-header" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem;">
+        <h3 style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 0.5rem;">
+          <i class="fas fa-sliders-h" style="color: #6366f1;"></i> Oda İzinleri & Ayarları
+        </h3>
+        <button type="button" onclick="document.getElementById('roomSettingsModal').style.display='none'" class="icon-btn" style="width: 32px; height: 32px; border-radius: 50%;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div style="padding: 1rem 0; display: flex; flex-direction: column; gap: 1rem;">
+        <label style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9rem; font-weight: 600; color: #334155; cursor: pointer; background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+          <span>Katılımcılar Ekran Paylaşımı Yapabilsin</span>
+          <input type="checkbox" checked style="accent-color: #5b5fc7; width: 18px; height: 18px;">
+        </label>
+
+        <label style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9rem; font-weight: 600; color: #334155; cursor: pointer; background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+          <span>Katılımcılar Sohbet Kullanabilsin</span>
+          <input type="checkbox" checked style="accent-color: #5b5fc7; width: 18px; height: 18px;">
+        </label>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
+          <button type="button" onclick="document.getElementById('roomSettingsModal').style.display='none'" class="btn btn-secondary" style="border-radius: 8px;">İptal</button>
+          <button type="button" onclick="saveRoomSettings()" class="btn-emerald" style="border-radius: 8px; padding: 0.6rem 1.25rem;">Kaydet</button>
         </div>
-      </footer>
+      </div>
     </div>
   </div>
 
@@ -269,76 +363,274 @@
 
   <script src="/static/js/auth.js"></script>
   <script src="/static/js/notifications.js"></script>
-  <script src="/static/js/prejoin.js"></script>
   <script src="/static/js/webrtc.js"></script>
   <script>
     const MEETING_CODE = "{{ meeting_code }}";
-    let activeTab = 'chat';
-    let unreadChatCount = 0;
+    let activeMainView = 'stage';
+    let activeSidebarTab = 'chat';
 
     document.addEventListener('DOMContentLoaded', async () => {
-      await Prejoin.init();
+      renderPersonalNotesList();
+      populateDevicePopovers();
 
-      document.getElementById('btnJoinMeetingNow').addEventListener('click', async () => {
-        document.getElementById('prejoinScreen').style.display = 'none';
-        document.getElementById('liveRoomScreen').style.display = 'flex';
+      await WebRTC.joinRoom(
+        MEETING_CODE,
+        null,
+        true,
+        true
+      );
 
-        await WebRTC.joinRoom(
-          MEETING_CODE,
-          Prejoin.localStream,
-          Prejoin.isMicMuted,
-          Prejoin.isCameraOff
-        );
+      if (WebRTC.isHost) {
+        document.getElementById('btnEndMeetingHostPopover').style.display = 'flex';
+      }
+
+      // Close popovers on outside click
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.teams-split-btn-group')) {
+          document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
+        }
       });
     });
 
+    function togglePopoverMenu(popoverId) {
+      document.querySelectorAll('.teams-dropdown-popover').forEach(p => {
+        if (p.id === popoverId) {
+          p.classList.toggle('show');
+        } else {
+          p.classList.remove('show');
+        }
+      });
+    }
+
+    function copyRoomLink() {
+      const url = `${window.location.origin}/prejoin/${MEETING_CODE}`;
+      navigator.clipboard.writeText(url);
+      Notifications.show('Toplantı oda bağlantısı panoya kopyalandı.', 'success', 'Bağlantı Kopyalandı');
+      document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
+    }
+
+    function copyModalInviteLink() {
+      const input = document.getElementById('modalInviteLinkInput');
+      const url = input ? input.value : `${window.location.origin}/prejoin/${MEETING_CODE}`;
+      navigator.clipboard.writeText(url);
+      Notifications.show('Toplantı katılım bağlantısı panoya kopyalandı.', 'success', 'Bağlantı Kopyalandı');
+    }
+
+    let allInviteUsers = [];
+
+    async function openRoomInviteModal() {
+      document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
+      const modal = document.getElementById('roomInviteModal');
+      if (modal) modal.style.display = 'flex';
+      
+      const linkInput = document.getElementById('modalInviteLinkInput');
+      if (linkInput) {
+        linkInput.value = `${window.location.origin}/prejoin/${MEETING_CODE}`;
+      }
+
+      const listEl = document.getElementById('roomInviteUserList');
+      if (!listEl) return;
+
+      try {
+        const res = await fetch('/api/v1/users/', { headers: Auth.getAuthHeaders() });
+        if (res.ok) {
+          allInviteUsers = await res.json();
+          renderInviteUserList(allInviteUsers);
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    function renderInviteUserList(users) {
+      const listEl = document.getElementById('roomInviteUserList');
+      const countEl = document.getElementById('inviteUsersCount');
+      if (!listEl) return;
+
+      if (countEl) countEl.textContent = `${users.length} kullanıcı`;
+
+      if (users.length === 0) {
+        listEl.innerHTML = '<div style="padding: 1rem; text-align: center; color: #64748b; font-size: 0.85rem;">Kullanıcı bulunamadı.</div>';
+        return;
+      }
+
+      listEl.innerHTML = users.map(u => `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0.75rem; border: 1px solid #f1f5f9; border-radius: 10px; background: #ffffff;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 36px; height: 36px; border-radius: 50%; background: #e0e7ff; color: #4f46e5; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; flex-shrink: 0;">
+              ${(u.first_name?.[0] || 'K').toUpperCase()}
+            </div>
+            <div>
+              <strong style="font-size: 0.88rem; color: #0f172a; display: block;">${u.first_name || ''} ${u.last_name || ''}</strong>
+              <small style="color: #64748b; font-size: 0.78rem;">${u.email}</small>
+            </div>
+          </div>
+          <button type="button" onclick="sendRoomInvite('${u.id}', '${u.first_name || 'Kullanıcı'}')" class="btn-emerald" style="padding: 0.4rem 0.85rem; font-size: 0.78rem; border-radius: 8px; font-weight: 700;">
+            <i class="fas fa-paper-plane"></i> Davet Et
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function filterInviteUserList() {
+      const query = (document.getElementById('inviteUserSearchInput')?.value || '').toLowerCase().trim();
+      if (!query) {
+        renderInviteUserList(allInviteUsers);
+        return;
+      }
+      const filtered = allInviteUsers.filter(u => {
+        const fullName = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
+        const email = (u.email || '').toLowerCase();
+        return fullName.includes(query) || email.includes(query);
+      });
+      renderInviteUserList(filtered);
+    }
+
+    function sendRoomInvite(userId, userName) {
+      Notifications.show(`${userName} adlı kullanıcıya katılım daveti gönderildi.`, 'success', 'Davet İletildi');
+    }
+
+    function openRoomSettingsModal() {
+      document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
+      const modal = document.getElementById('roomSettingsModal');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function saveRoomSettings() {
+      Notifications.show('Oda ayarları ve yetkileri başarıyla güncellendi.', 'success', 'Ayarlar Kaydedildi');
+      const modal = document.getElementById('roomSettingsModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function populateDevicePopovers() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        const audioInputs = devices.filter(d => d.kind === 'audioinput');
+        const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+
+        const camMainBtn = document.getElementById('btnRoomCamMain');
+        const micMainBtn = document.getElementById('btnRoomMicMain');
+
+        if (videoDevices.length === 0 && camMainBtn) {
+          camMainBtn.disabled = true;
+          camMainBtn.classList.add('muted-off');
+          camMainBtn.title = 'Kamera cihazı bulunamadı';
+        }
+        if (audioInputs.length === 0 && micMainBtn) {
+          micMainBtn.disabled = true;
+          micMainBtn.classList.add('muted-off');
+          micMainBtn.title = 'Mikrofon cihazı bulunamadı';
+        }
+
+        const camContainer = document.getElementById('camDeviceListContainer');
+        const micContainer = document.getElementById('micDeviceListContainer');
+        const speakerContainer = document.getElementById('speakerDeviceListContainer');
+
+        if (camContainer) {
+          camContainer.innerHTML = videoDevices.length > 0 ? videoDevices.map(d => `
+            <button class="teams-popover-item" onclick="WebRTC.switchVideoDevice('${d.deviceId}')">
+              <i class="fas fa-camera" style="color: #6366f1;"></i> ${d.label || 'Kamera ' + (d.deviceId.substr(0,4))}
+            </button>
+          `).join('') : '<div style="padding:0.4rem; color:#94a3b8; font-size:0.8rem;">Kamera algılanamadı</div>';
+        }
+
+        if (micContainer) {
+          micContainer.innerHTML = audioInputs.length > 0 ? audioInputs.map(d => `
+            <button class="teams-popover-item" onclick="WebRTC.switchAudioInput('${d.deviceId}')">
+              <i class="fas fa-microphone" style="color: #10b981;"></i> ${d.label || 'Mikrofon ' + (d.deviceId.substr(0,4))}
+            </button>
+          `).join('') : '<div style="padding:0.4rem; color:#94a3b8; font-size:0.8rem;">Mikrofon algılanamadı</div>';
+        }
+
+        if (speakerContainer) {
+          speakerContainer.innerHTML = audioOutputs.length > 0 ? audioOutputs.map(d => `
+            <button class="teams-popover-item" onclick="WebRTC.switchAudioOutput('${d.deviceId}')">
+              <i class="fas fa-volume-up" style="color: #0ea5e9;"></i> ${d.label || 'Hoparlör'}
+            </button>
+          `).join('') : '<div style="padding:0.4rem; color:#94a3b8; font-size:0.8rem;">Hoparlör algılanamadı</div>';
+        }
+      } catch (e) {
+        console.warn("Cihaz listesi alınamadı:", e);
+      }
+    }
+
+    function switchMainView(viewMode) {
+      activeMainView = viewMode;
+      closeSidebar();
+      const stageBtn = document.getElementById('btnViewStage');
+      const notesBtn = document.getElementById('btnViewNotes');
+      const stageCont = document.getElementById('meetingStageContainer');
+      const notesCont = document.getElementById('meetingNotesContainer');
+
+      if (viewMode === 'stage') {
+        stageBtn.classList.add('active');
+        notesBtn.classList.remove('active');
+        stageCont.style.display = 'flex';
+        notesCont.style.display = 'none';
+      } else if (viewMode === 'notes') {
+        notesBtn.classList.add('active');
+        stageBtn.classList.remove('active');
+        stageCont.style.display = 'none';
+        notesCont.style.display = 'block';
+      }
+    }
+
+    function toggleSidebarTab(tabName) {
+      if (activeMainView !== 'stage') switchMainView('stage');
+      const sidebar = document.getElementById('roomSidebar');
+      if (sidebar.style.display === 'none' || activeSidebarTab !== tabName) {
+        sidebar.style.display = 'flex';
+        switchSidebarTab(tabName);
+      } else {
+        sidebar.style.display = 'none';
+      }
+      WebRTC.reflowVideoGrid();
+    }
+
     function switchSidebarTab(tabName) {
-      activeTab = tabName;
-      document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+      activeSidebarTab = tabName;
+      document.getElementById('tabBtnChat')?.classList.remove('active');
+      document.getElementById('tabBtnParticipants')?.classList.remove('active');
+      document.getElementById('tabContentChat').style.display = 'none';
+      document.getElementById('tabContentParticipants').style.display = 'none';
 
       if (tabName === 'chat') {
         document.getElementById('tabBtnChat')?.classList.add('active');
         document.getElementById('tabContentChat').style.display = 'flex';
-        unreadChatCount = 0;
-        updateUnreadBadge();
-      } else if (tabName === 'notes') {
-        document.getElementById('tabBtnNotes')?.classList.add('active');
-        document.getElementById('tabContentNotes').style.display = 'flex';
       } else if (tabName === 'participants') {
         document.getElementById('tabBtnParticipants')?.classList.add('active');
         document.getElementById('tabContentParticipants').style.display = 'flex';
       }
     }
 
-    function toggleSidebarTab(tabName) {
+    function closeSidebar() {
       const sidebar = document.getElementById('roomSidebar');
-      if (sidebar.style.display === 'none') {
-        sidebar.style.display = 'flex';
-        switchSidebarTab(tabName);
-      } else if (activeTab === tabName) {
-        sidebar.style.display = 'none';
-      } else {
-        switchSidebarTab(tabName);
-      }
+      if (sidebar) sidebar.style.display = 'none';
+      WebRTC.reflowVideoGrid();
     }
 
-    function updateUnreadBadge() {
-      const badge = document.getElementById('unreadChatBadge');
-      if (badge) {
-        if (unreadChatCount > 0) {
-          badge.textContent = unreadChatCount;
-          badge.style.display = 'inline-block';
-        } else {
-          badge.style.display = 'none';
-        }
+    function switchNotesTab(tabName) {
+      const officialBtn = document.getElementById('tabBtnOfficialNotes');
+      const personalBtn = document.getElementById('tabBtnPersonalNotes');
+      const officialCont = document.getElementById('notesTabOfficial');
+      const personalCont = document.getElementById('notesTabPersonal');
+
+      if (tabName === 'official') {
+        officialBtn.classList.add('active');
+        personalBtn.classList.remove('active');
+        officialCont.style.display = 'block';
+        personalCont.style.display = 'none';
+      } else if (tabName === 'personal') {
+        personalBtn.classList.add('active');
+        officialBtn.classList.remove('active');
+        officialCont.style.display = 'none';
+        personalCont.style.display = 'block';
       }
     }
 
     function handleChatKeyPress(e) {
-      if (e.key === 'Enter') {
-        sendRoomChatMessage();
-      }
+      if (e.key === 'Enter') sendRoomChatMessage();
     }
 
     function sendRoomChatMessage() {
@@ -349,6 +641,97 @@
         WebRTC.sendChatMessage(text);
         input.value = '';
       }
+    }
+
+    function formatNoteText(targetId, type) {
+      const el = document.getElementById(targetId);
+      if (!el) return;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const val = el.value;
+      const selectedText = val.substring(start, end);
+
+      let replacement = '';
+      if (type === 'bold') replacement = `**${selectedText || 'Kalın Metin'}**`;
+      else if (type === 'italic') replacement = `*${selectedText || 'İtalik Metin'}*`;
+      else if (type === 'bullet') replacement = `\n• ${selectedText || 'Madde başlığı'}`;
+      else if (type === 'decision') replacement = `\n📌 KARAR: ${selectedText || 'Alınan karar...'}`;
+      else if (type === 'time') {
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        replacement = ` [${timeStr}] `;
+      }
+
+      el.value = val.substring(0, start) + replacement + val.substring(end);
+      el.focus();
+    }
+
+    function getPersonalNotesKey() {
+      const user = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
+      const userId = user?.id || 'guest';
+      return `personal_notes_list_${MEETING_CODE}_${userId}`;
+    }
+
+    function addPersonalNoteItem() {
+      const input = document.getElementById('personalNoteInput');
+      if (!input) return;
+      const text = input.value.trim();
+      if (!text) return;
+
+      const key = getPersonalNotesKey();
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { list = []; }
+
+      const newItem = {
+        id: Date.now(),
+        text: text,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+      };
+
+      list.unshift(newItem);
+      localStorage.setItem(key, JSON.stringify(list));
+      input.value = '';
+      renderPersonalNotesList();
+    }
+
+    function deletePersonalNoteItem(id) {
+      const key = getPersonalNotesKey();
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { list = []; }
+
+      list = list.filter(item => item.id !== id);
+      localStorage.setItem(key, JSON.stringify(list));
+      renderPersonalNotesList();
+    }
+
+    function renderPersonalNotesList() {
+      const container = document.getElementById('personalNotesList');
+      if (!container) return;
+
+      const key = getPersonalNotesKey();
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { list = []; }
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 1.25rem; text-align: center; color: #64748b; font-size: 0.88rem;">
+            <i class="fas fa-edit" style="color: #10b981; font-size: 1.2rem; margin-bottom: 0.4rem; display: block;"></i>
+            Henüz kaydedilmiş kişisel notunuz bulunmuyor.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = list.map(item => `
+        <div class="note-history-card note-history-card-personal">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+            <span style="font-size: 0.78rem; color: #10b981; font-weight: 700;"><i class="far fa-clock"></i> ${item.timestamp}</span>
+            <button onclick="deletePersonalNoteItem(${item.id})" style="background: none; border: none; color: #ef4444; font-size: 0.8rem; cursor: pointer;" title="Notu Sil">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          </div>
+          <p style="font-size: 0.9rem; color: #0f172a; margin: 0; line-height: 1.5; white-space: pre-wrap;">${item.text}</p>
+        </div>
+      `).join('');
     }
 
     async function addHostNote() {

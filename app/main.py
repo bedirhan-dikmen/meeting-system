@@ -67,6 +67,10 @@ def page_dashboard(request: Request):
 def page_meetings(request: Request):
     return templates.TemplateResponse("meetings.html", {"request": request})
 
+@app.get("/prejoin/{meeting_code}", tags=["Frontend Sayfaları"])
+def page_prejoin(request: Request, meeting_code: str):
+    return templates.TemplateResponse("prejoin.html", {"request": request, "meeting_code": meeting_code})
+
 @app.get("/room/{meeting_code}", tags=["Frontend Sayfaları"])
 def page_room(request: Request, meeting_code: str):
     return templates.TemplateResponse("room.html", {"request": request, "meeting_code": meeting_code})
