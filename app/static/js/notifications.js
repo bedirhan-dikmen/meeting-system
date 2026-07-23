@@ -52,7 +52,7 @@ const Notifications = {
       });
       if (!response.ok) return;
 
-      const data = await response.json();
+      this.allNotifs = data;
       const unreadCount = data.filter(n => !n.is_read).length;
       
       const badge = document.getElementById('notifBadgeCount');
@@ -64,12 +64,61 @@ const Notifications = {
           badge.style.display = 'none';
         }
       }
+
+      this.renderDropdownList(data);
     } catch (err) {
       console.warn("Bildirimler yüklenemedi:", err);
+    }
+  },
+
+  renderDropdownList(data) {
+    const listEl = document.getElementById('notifListContainer');
+    if (!listEl) return;
+
+    if (!data || data.length === 0) {
+      listEl.innerHTML = `<p style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1rem 0;">Yeni bildiriminiz bulunmuyor.</p>`;
+      return;
+    }
+
+    listEl.innerHTML = data.slice(0, 5).map(n => `
+      <div style="padding: 0.6rem; border-radius: 8px; background: ${n.is_read ? 'transparent' : 'rgba(99, 102, 241, 0.08)'}; border-left: 3px solid ${n.is_read ? 'transparent' : '#6366f1'}; font-size: 0.82rem;">
+        <strong style="display: block; color: var(--text-primary); margin-bottom: 0.15rem;">${n.title || 'Bildirim'}</strong>
+        <span style="color: var(--text-secondary); line-height: 1.3; display: block;">${n.message || ''}</span>
+      </div>
+    `).join('');
+  },
+
+  toggleDropdown() {
+    const menu = document.getElementById('notifDropdownMenu');
+    if (!menu) return;
+    const isHidden = menu.style.display === 'none';
+    menu.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) {
+      this.fetchNotifications();
+    }
+  },
+
+  async markAllRead() {
+    try {
+      await fetch('/api/v1/notifications/read-all', {
+        method: 'POST',
+        headers: Auth.getAuthHeaders()
+      });
+      await this.fetchNotifications();
+      this.show('Tüm bildirimler okundu olarak işaretlendi.', 'success', 'Bildirim');
+    } catch (e) {
+      console.warn("Mark all read failed:", e);
     }
   }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
   Notifications.init();
+  document.addEventListener('click', (e) => {
+    const notifContainer = e.target.closest('#notifDropdownMenu, button[title="Bildirimler"]');
+    if (!notifContainer) {
+      const menu = document.getElementById('notifDropdownMenu');
+      if (menu) menu.style.display = 'none';
+    }
+  });
 });

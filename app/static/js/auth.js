@@ -44,17 +44,50 @@ const Auth = {
 
   initTheme() {
     const theme = localStorage.getItem('theme') || 'light';
-    if (theme === 'light') {
-      document.body.classList.add('light-theme');
-    } else {
+    const icon = document.getElementById('themeToggleIcon');
+    if (theme === 'dark') {
+      document.body.classList.add('dark-theme');
       document.body.classList.remove('light-theme');
+      if (icon) icon.className = 'fas fa-sun';
+    } else {
+      document.body.classList.add('light-theme');
+      document.body.classList.remove('dark-theme');
+      if (icon) icon.className = 'fas fa-moon';
     }
   },
 
   toggleTheme() {
-    document.body.classList.toggle('light-theme');
-    const isLight = document.body.classList.contains('light-theme');
-    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    const isDark = document.body.classList.contains('dark-theme');
+    const icon = document.getElementById('themeToggleIcon');
+    if (isDark) {
+      document.body.classList.remove('dark-theme');
+      document.body.classList.add('light-theme');
+      localStorage.setItem('theme', 'light');
+      if (icon) icon.className = 'fas fa-moon';
+    } else {
+      document.body.classList.add('dark-theme');
+      document.body.classList.remove('light-theme');
+      localStorage.setItem('theme', 'dark');
+      if (icon) icon.className = 'fas fa-sun';
+    }
+  },
+
+  handleGlobalSearch(e) {
+    if (e.key === 'Enter') {
+      const val = e.target.value.trim();
+      if (!val) return;
+      if (window.location.pathname === '/meetings') {
+        const filterInput = document.getElementById('filterSearch');
+        if (filterInput) {
+          filterInput.value = val;
+          if (typeof Meetings !== 'undefined' && Meetings.applyFilters) {
+            Meetings.applyFilters();
+          }
+        }
+      } else {
+        window.location.href = `/meetings?search=${encodeURIComponent(val)}`;
+      }
+    }
   },
 
   updateNavigationPermissions() {

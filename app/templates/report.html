@@ -3,17 +3,21 @@
 {% block title %}Toplantı Katılım ve Sonuç Raporu - YebMeeting{% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <div class="page-title">
-    <h1>Toplantı Katılım ve Sonuç Raporu</h1>
-    <p>Resmi toplantı tutanağı, oturum süreleri ve alınan kararlar</p>
+<!-- EXECUTIVE REPORT HERO BANNER -->
+<div class="executive-hero">
+  <div>
+    <div class="executive-badge executive-badge-emerald">
+      <i class="fas fa-file-contract"></i> Executive Report Portal
+    </div>
+    <h1 class="executive-title">Toplantı Katılım & Resmi Tutanak Raporu</h1>
+    <p class="executive-subtitle">Sonlanan oturum tutanağı, kesinleşen kararlar, katılım süreleri ve onaylanmış aksiyonlar</p>
   </div>
-  <div style="display: flex; gap: 0.75rem; align-items: center;">
-    <a href="/" class="btn btn-secondary">
-      <i class="fas fa-arrow-left"></i> Ana Sayfaya Dön
+  <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+    <a href="/meetings" class="btn" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; padding: 0.75rem 1.25rem; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem;">
+      <i class="fas fa-arrow-left"></i> Toplantılara Dön
     </a>
-    <button onclick="Report.printReport()" class="btn btn-primary">
-      <i class="fas fa-print"></i> Raporu Yazdır / PDF İndir
+    <button onclick="Report.printReport()" class="btn-emerald">
+      <i class="fas fa-file-pdf"></i> Raporu Yazdır / PDF İndir
     </button>
   </div>
 </div>

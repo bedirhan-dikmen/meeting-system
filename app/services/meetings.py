@@ -81,8 +81,7 @@ def create_new_meeting(db: Session, meeting_data: MeetingCreate, host_id: UUID) 
                 notif = Notification(
                     user_id=user_id,
                     title="Yeni Toplantı Daveti",
-                    message=f"'{db_meeting.title}' toplantısına davet edildiniz. Tarih: {db_meeting.scheduled_start.strftime('%d.%m.%Y %H:%M')}",
-                    type="invite"
+                    message=f"'{db_meeting.title}' toplantısına davet edildiniz. Tarih: {db_meeting.scheduled_start.strftime('%d.%m.%Y %H:%M')}"
                 )
                 db.add(notif)
 

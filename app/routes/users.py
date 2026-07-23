@@ -219,7 +219,7 @@ def register_user(
 def get_users(
     department_id: Optional[int] = Query(None, description="Filtrelemek istediğiniz departmanın tamsayı ID'si."),
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user)
+    current_user: User = Depends(get_current_user)
 ):
     query = db.query(User)
     

@@ -4,22 +4,22 @@
 
 {% block content %}
 <!-- EXECUTIVE HEADER BAR -->
-<div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #334155 100%); border-radius: var(--radius-lg, 16px); padding: 2rem; margin-bottom: 2rem; color: #ffffff; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem; box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.3); border: 1px solid rgba(255,255,255,0.08);">
+<div class="executive-hero">
   <div style="max-width: 650px;">
-    <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.25); color: #38bdf8; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;">
+    <div class="executive-badge">
       <i class="fas fa-shield-alt"></i> Executive Meeting Portal
     </div>
-    <h1 style="font-size: 1.85rem; font-weight: 800; color: #ffffff; margin: 0 0 0.4rem 0; letter-spacing: -0.5px; line-height: 1.2;">Toplantı Yönetim Merkezi</h1>
-    <p style="color: #94a3b8; font-size: 0.95rem; margin: 0; line-height: 1.5;">Tüm kurumsal oturumlarınızı filtreleyin, canlı toplantılara anında katılın veya yenilerini planlayın.</p>
+    <h1 class="executive-title">Toplantı Yönetim Merkezi</h1>
+    <p class="executive-subtitle">Tüm kurumsal oturumlarınızı filtreleyin, canlı toplantılara anında katılın veya yenilerini planlayın.</p>
   </div>
 
-  <button onclick="Meetings.openCreateModal()" class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; font-weight: 700; padding: 0.85rem 1.6rem; border-radius: 12px; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 0.6rem; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35); transition: all 0.2s ease;">
+  <button onclick="Meetings.openCreateModal()" class="btn-emerald">
     <i class="fas fa-calendar-plus" style="font-size: 1.1rem;"></i> Yeni Toplantı Planla
   </button>
 </div>
 
 <!-- ELITE 7-FIELD FILTER CARD -->
-<div class="filter-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04);">
+<div class="filter-card-executive">
   <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
     <i class="fas fa-sliders-h" style="color: #6366f1;"></i> Gelişmiş Toplantı Filtreleme
   </div>
@@ -250,15 +250,19 @@
       </div>
 
       <div class="form-group" style="margin-bottom: 1.5rem;">
-        <label style="font-weight: 600; color: #334155; font-size: 0.85rem;">Katılımcı Seçimi (Hızlı Davet)</label>
-        <div id="modalInvitedUsersList" style="max-height: 130px; overflow-y: auto; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.5rem 0.85rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+          <label style="font-weight: 600; color: #334155; font-size: 0.85rem; margin: 0;"><i class="fas fa-user-plus" style="color: #6366f1;"></i> Katılımcı Daveti (Arama Destekli)</label>
+          <span id="selectedCountBadge" style="font-size: 0.75rem; background: #e0e7ff; color: #4338ca; padding: 0.15rem 0.5rem; border-radius: 9999px; font-weight: 700;">0 Seçili</span>
+        </div>
+        <input type="text" id="searchInvitedUsers" oninput="Meetings.filterInvitedUsersList()" class="form-control" placeholder="🔍 İsim veya e-posta ile hızlı ara (Örn: Ahmet, Yebsoft...)" style="border-radius: 8px; margin-bottom: 0.5rem; font-size: 0.85rem;">
+        <div id="modalInvitedUsersList" style="max-height: 160px; overflow-y: auto; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.5rem 0.85rem;">
           <p style="font-size: 0.85rem; color: #94a3b8;">Kullanıcılar yükleniyor...</p>
         </div>
       </div>
 
       <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
         <button type="button" onclick="Meetings.closeCreateModal()" class="btn btn-secondary" style="border-radius: 8px; font-weight: 600;">İptal</button>
-        <button type="submit" class="btn" style="background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%); color: #ffffff; border: none; font-weight: 700; border-radius: 8px; padding: 0.65rem 1.4rem; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">
+        <button type="submit" class="btn-emerald" style="padding: 0.65rem 1.4rem; border-radius: 10px;">
           <i class="fas fa-check"></i> Toplantıyı Oluştur ve Başlat
         </button>
       </div>

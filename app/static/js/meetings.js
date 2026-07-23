@@ -41,12 +41,55 @@ const Meetings = {
     }
 
     if (userCheckboxesContainer) {
-      userCheckboxesContainer.innerHTML = this.allUsers.map(u => `
-        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; padding: 0.35rem 0; cursor: pointer; border-bottom: 1px solid #f1f5f9;">
-          <input type="checkbox" name="invitedUsers" value="${u.id}" style="accent-color: #6366f1;">
-          <span style="color: #334155;">${u.first_name} ${u.last_name} <small style="color: #94a3b8;">(${u.email})</small></span>
-        </label>
-      `).join('');
+      this.renderInvitedUsersList(this.allUsers);
+    }
+  },
+
+  renderInvitedUsersList(usersToRender) {
+    const userCheckboxesContainer = document.getElementById('modalInvitedUsersList');
+    if (!userCheckboxesContainer) return;
+
+    if (!usersToRender || usersToRender.length === 0) {
+      userCheckboxesContainer.innerHTML = `<p style="font-size: 0.85rem; color: #94a3b8; padding: 0.5rem 0;">Aramaya uygun kullanıcı bulunamadı.</p>`;
+      return;
+    }
+
+    userCheckboxesContainer.innerHTML = usersToRender.map(u => `
+      <label class="invited-user-row" style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; padding: 0.4rem 0.2rem; cursor: pointer; border-bottom: 1px solid #f1f5f9;">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <input type="checkbox" name="invitedUsers" value="${u.id}" onchange="Meetings.updateSelectedCount()" style="accent-color: #10b981; width: 16px; height: 16px;">
+          <span style="color: #334155; font-weight: 600;">${u.first_name || ''} ${u.last_name || ''}</span>
+          <small style="color: #94a3b8;">(${u.email})</small>
+        </div>
+        <span style="font-size: 0.72rem; color: #6366f1; background: rgba(99, 102, 241, 0.08); padding: 0.1rem 0.4rem; border-radius: 4px;">${u.role || 'Kullanıcı'}</span>
+      </label>
+    `).join('');
+
+    this.updateSelectedCount();
+  },
+
+  filterInvitedUsersList() {
+    const query = document.getElementById('searchInvitedUsers')?.value.toLowerCase().trim() || '';
+    if (!query) {
+      this.renderInvitedUsersList(this.allUsers);
+      return;
+    }
+
+    const filtered = this.allUsers.filter(u => {
+      const name = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      const code = (u.user_code || '').toLowerCase();
+      return name.includes(query) || email.includes(query) || code.includes(query);
+    });
+
+    this.renderInvitedUsersList(filtered);
+  },
+
+  updateSelectedCount() {
+    const selectedBoxes = document.querySelectorAll('#modalInvitedUsersList input[name="invitedUsers"]:checked');
+    const badge = document.getElementById('selectedCountBadge');
+    if (badge) {
+      badge.textContent = `${selectedBoxes.length} Seçili`;
     }
   },
 
@@ -306,8 +349,14 @@ const Meetings = {
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.detail || "Toplantı oluşturulamadı.");
+        let errorMsg = "Toplantı oluşturulamadı.";
+        try {
+          const errData = await response.json();
+          errorMsg = errData.detail || errorMsg;
+        } catch (e) {
+          errorMsg = `Sunucu Hatası (${response.status}): ${response.statusText || 'Bilinmeyen Hata'}`;
+        }
+        throw new Error(errorMsg);
       }
 
       const createdMeeting = await response.json();

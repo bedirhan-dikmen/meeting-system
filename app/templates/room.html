@@ -71,8 +71,8 @@
           </div>
 
           <div style="margin-top: 1rem;">
-            <button id="btnJoinMeetingNow" type="button" class="btn btn-primary"
-              style="width: 100%; padding: 0.9rem; font-size: 1.05rem;">
+            <button id="btnJoinMeetingNow" type="button" class="btn-emerald"
+              style="width: 100%; justify-content: center; padding: 0.95rem; font-size: 1.05rem; border-radius: 12px;">
               <i class="fas fa-door-open"></i> Şimdi Toplantıya Katıl
             </button>
           </div>
@@ -253,8 +253,11 @@
           </button>
         </div>
 
-        <div>
-          <button id="btnLeaveRoom" class="btn btn-danger" style="padding: 0.65rem 1.4rem; font-size: 0.9rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <button id="btnEndMeetingHostBar" type="button" class="btn" style="display: none; padding: 0.65rem 1.25rem; font-size: 0.9rem; background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); color: #fff; border: none; border-radius: 8px; font-weight: 700; gap: 0.4rem; align-items: center;" title="Toplantıyı Herkes İçin Sonlandır">
+            <i class="fas fa-power-off"></i> Toplantıyı Sonlandır
+          </button>
+          <button id="btnLeaveRoom" class="btn" style="padding: 0.65rem 1.25rem; font-size: 0.9rem; background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); border-radius: 8px; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem;">
             <i class="fas fa-phone-slash"></i> Odadan Ayrıl
           </button>
         </div>

@@ -101,6 +101,9 @@ const WebRTC = {
 
         const hostAdminActions = document.getElementById('hostAdminActions');
         if (hostAdminActions) hostAdminActions.style.display = this.isHost ? 'block' : 'none';
+
+        const btnEndBar = document.getElementById('btnEndMeetingHostBar');
+        if (btnEndBar) btnEndBar.style.display = this.isHost ? 'inline-flex' : 'none';
       }
     } catch (e) {
       console.warn("Toplantı detayları alınamadı:", e);
@@ -1042,5 +1045,6 @@ const WebRTC = {
     document.getElementById('btnScreenShare')?.addEventListener('click', () => this.toggleScreenShare());
     document.getElementById('btnLeaveRoom')?.addEventListener('click', () => this.leaveMeeting());
     document.getElementById('btnEndMeetingHost')?.addEventListener('click', () => this.endMeeting());
+    document.getElementById('btnEndMeetingHostBar')?.addEventListener('click', () => this.endMeeting());
   }
 };
