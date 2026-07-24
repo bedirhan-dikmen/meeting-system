@@ -6,6 +6,7 @@ const Meetings = {
   allMeetings: [],
   allUsers: [],
   allDepartments: [],
+  selectedUserIds: [],
 
   async init() {
     await this.loadUsersAndDepartments();
@@ -19,6 +20,7 @@ const Meetings = {
       if (resUsers.ok) {
         this.allUsers = await resUsers.json();
         this.populateUserSelects();
+        this.renderUserInvitationList();
       }
     } catch (e) {
       console.warn("Kullanıcılar yüklenemedi (Admin değil ise sınırlı yetki):", e);
@@ -38,6 +40,99 @@ const Meetings = {
       participantSelect.innerHTML = `<option value="">Tüm Katılımcılar</option>` +
         this.allUsers.map(u => `<option value="${u.id}">${u.first_name} ${u.last_name}</option>`).join('');
     }
+  },
+
+  updateCalculatedEndTime() {
+    const startInput = document.getElementById('createStart');
+    const durationSelect = document.getElementById('createDuration');
+    const displayInput = document.getElementById('createCalculatedEndDisplay');
+
+    if (!startInput || !durationSelect || !displayInput) return;
+
+    if (!startInput.value) {
+      displayInput.value = '-';
+      return;
+    }
+
+    const start = new Date(startInput.value);
+    const durationMins = parseInt(durationSelect.value || '30', 10);
+    const end = new Date(start.getTime() + durationMins * 60 * 1000);
+
+    const day = String(end.getDate()).padStart(2, '0');
+    const month = String(end.getMonth() + 1).padStart(2, '0');
+    const year = end.getFullYear();
+    const hours = String(end.getHours()).padStart(2, '0');
+    const mins = String(end.getMinutes()).padStart(2, '0');
+
+    displayInput.value = `${day}.${month}.${year} ${hours}:${mins}`;
+  },
+
+  generatePasscode() {
+    const passcode = Math.floor(100000 + Math.random() * 900000).toString();
+    const passcodeEl = document.getElementById('createPasscode');
+    if (passcodeEl) passcodeEl.value = passcode;
+  },
+
+  onUserSearchInput(term) {
+    this.renderUserInvitationList(term);
+  },
+
+  toggleUserSelection(userId) {
+    const index = this.selectedUserIds.indexOf(userId);
+    if (index > -1) {
+      this.selectedUserIds.splice(index, 1);
+    } else {
+      this.selectedUserIds.push(userId);
+    }
+    this.updateSelectedUsersBadge();
+  },
+
+  updateSelectedUsersBadge() {
+    const badge = document.getElementById('selectedUsersBadge');
+    if (badge) {
+      badge.textContent = `${this.selectedUserIds.length} Seçili`;
+    }
+  },
+
+  renderUserInvitationList(filterTerm = '') {
+    const container = document.getElementById('invitedUsersContainer');
+    if (!container) return;
+
+    const currentUserId = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser()?.id : null;
+    const term = (filterTerm || '').toLowerCase().trim();
+
+    const filtered = (this.allUsers || []).filter(u => {
+      if (u.id === currentUserId) return false; // Oturumu açan kişiyi davetlilerden hariç tut
+      if (!term) return true;
+      const fullName = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      const username = (u.username || '').toLowerCase();
+      return fullName.includes(term) || email.includes(term) || username.includes(term);
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div style="color: #94a3b8; font-size: 0.85rem; text-align: center; padding: 0.5rem;">Kullanıcı bulunamadı.</div>`;
+      return;
+    }
+
+    container.innerHTML = filtered.map(u => {
+      const isChecked = this.selectedUserIds.includes(u.id);
+      const displayName = `${u.first_name || ''} ${u.last_name || u.username || 'Kullanıcı'}`.trim();
+      return `
+        <label style="display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; border-radius: 6px; background: ${isChecked ? '#f0fdf4' : '#f8fafc'}; border: 1px solid ${isChecked ? '#bbf7d0' : '#f1f5f9'}; cursor: pointer; transition: all 0.15s ease;">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="Meetings.toggleUserSelection('${u.id}')" style="width: 16px; height: 16px; accent-color: #10b981; cursor: pointer;">
+            <div>
+              <span style="font-size: 0.88rem; font-weight: 600; color: #1e293b;">${displayName}</span>
+              <span style="font-size: 0.78rem; color: #64748b; margin-left: 0.4rem;">(${u.email || 'e-posta yok'})</span>
+            </div>
+          </div>
+          <span style="font-size: 0.75rem; color: #64748b; background: #e2e8f0; padding: 0.1rem 0.45rem; border-radius: 4px;">${u.role || 'Kullanıcı'}</span>
+        </label>
+      `;
+    }).join('');
+
+    this.updateSelectedUsersBadge();
   },
 
   async loadMeetings() {
@@ -227,19 +322,16 @@ const Meetings = {
             </button>
 
             <!-- THREE DOTS DROPDOWN MENU -->
-            <div id="${menuId}" class="teams-dropdown-popover card-popover-menu" style="right: 0; top: 100%; width: 190px;">
+            <div id="${menuId}" class="teams-dropdown-popover card-popover-menu" style="right: 0; top: 100%; width: 210px; z-index: 500;">
               <button type="button" class="teams-popover-item" onclick="Meetings.showMeetingInfo('${m.id}')">
-                <i class="fas fa-info-circle" style="color: #0ea5e9;"></i> Bilgiler
+                <i class="fas fa-info-circle" style="color: #0ea5e9;"></i> Toplantı Bilgileri
               </button>
-
-              ${isOrganizer ? `
-                <button type="button" class="teams-popover-item" onclick="Meetings.openEditModal('${m.id}')">
-                  <i class="fas fa-edit" style="color: #6366f1;"></i> Düzenle
-                </button>
-                <button type="button" class="teams-popover-item" onclick="Meetings.cancelMeeting('${m.id}')" style="color: #e11d48;">
-                  <i class="fas fa-ban" style="color: #e11d48;"></i> Toplantıyı İptal Et
-                </button>
-              ` : ''}
+              <button type="button" class="teams-popover-item" onclick="Meetings.openEditModal('${m.id}')">
+                <i class="fas fa-edit" style="color: #6366f1;"></i> Toplantı Düzenleme
+              </button>
+              <button type="button" class="teams-popover-item" onclick="Meetings.cancelMeeting('${m.id}')" style="color: #e11d48;">
+                <i class="fas fa-trash-alt" style="color: #e11d48;"></i> Toplantıyı İptal Et / Sil
+              </button>
             </div>
           </div>
         </div>
@@ -249,6 +341,12 @@ const Meetings = {
   },
 
   bindEvents() {
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.card-popover-menu') && !e.target.closest('button')) {
+        document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
+      }
+    });
+
     const inputs = ['filterSearch', 'filterHost', 'filterType', 'filterStatus', 'filterDateFrom', 'filterDateTo', 'filterParticipant'];
     inputs.forEach(id => {
       const el = document.getElementById(id);
@@ -257,6 +355,16 @@ const Meetings = {
         el.addEventListener('change', () => this.applyFilters());
       }
     });
+
+    const createStartEl = document.getElementById('createStart');
+    const createDurationEl = document.getElementById('createDuration');
+    if (createStartEl) {
+      createStartEl.addEventListener('change', () => this.updateCalculatedEndTime());
+      createStartEl.addEventListener('input', () => this.updateCalculatedEndTime());
+    }
+    if (createDurationEl) {
+      createDurationEl.addEventListener('change', () => this.updateCalculatedEndTime());
+    }
 
     const formCreate = document.getElementById('formCreateMeeting');
     if (formCreate) {
@@ -273,12 +381,17 @@ const Meetings = {
     const modal = document.getElementById('createMeetingModal');
     if (modal) modal.classList.add('active');
 
+    this.selectedUserIds = [];
+
     const startInput = document.getElementById('createStart');
     if (startInput && !startInput.value) {
       const now = new Date();
       now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
       startInput.value = now.toISOString().slice(0, 16);
     }
+
+    this.updateCalculatedEndTime();
+    this.renderUserInvitationList('');
   },
 
   closeCreateModal() {
@@ -286,8 +399,66 @@ const Meetings = {
     if (modal) modal.classList.remove('active');
   },
 
+  toggleCardMenu(e, menuId) {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    const targetPop = document.getElementById(menuId);
+    document.querySelectorAll('.teams-dropdown-popover').forEach(p => {
+      if (p !== targetPop) p.classList.remove('show');
+    });
+    if (targetPop) {
+      targetPop.classList.toggle('show');
+    }
+  },
+
+  showMeetingInfo(meetingId) {
+    document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
+    const m = (this.allMeetings || []).find(item => item.id === meetingId);
+    if (!m) return;
+
+    const hostName = m.creator ? `${m.creator.first_name || ''} ${m.creator.last_name || ''}`.trim() : 'Yeb Soft';
+    const startObj = new Date(m.scheduled_start);
+    const duration = m.duration_minutes || 30;
+    const endObj = m.scheduled_end ? new Date(m.scheduled_end) : new Date(startObj.getTime() + duration * 60000);
+
+    const dateStr = startObj.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const startTimeStr = startObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    const endTimeStr = endObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+    const titleEl = document.getElementById('infoMeetingTitle');
+    const descEl = document.getElementById('infoMeetingDescription');
+    const hostEl = document.getElementById('infoMeetingHost');
+    const dateEl = document.getElementById('infoMeetingDate');
+    const timeRangeEl = document.getElementById('infoMeetingTimeRange');
+    const typeEl = document.getElementById('infoMeetingType');
+    const codeEl = document.getElementById('infoMeetingCodeBadge');
+    const statusEl = document.getElementById('infoMeetingStatusBadge');
+    const joinBtn = document.getElementById('infoMeetingJoinBtn');
+
+    if (titleEl) titleEl.textContent = m.title;
+    if (descEl) descEl.textContent = m.agenda ? `[GÜNDEM]\n${m.agenda}\n\n[AÇIKLAMA]\n${m.description || 'Yok'}` : (m.description || 'Açıklama veya gündem belirtilmedi.');
+    if (hostEl) hostEl.textContent = hostName;
+    if (dateEl) dateEl.textContent = dateStr;
+    if (timeRangeEl) timeRangeEl.textContent = `${startTimeStr} - ${endTimeStr} (${duration} dk)`;
+    if (typeEl) typeEl.textContent = m.meeting_type || 'Genel Toplantı';
+    if (codeEl) codeEl.textContent = `ODA KODU: ${m.meeting_code} | ŞİFRE: ${m.passcode || 'Yok'}`;
+    if (statusEl) statusEl.textContent = (m.status || 'planlandı').toUpperCase();
+    if (joinBtn) joinBtn.href = `/prejoin/${m.meeting_code}`;
+
+    const modal = document.getElementById('meetingDetailsModal');
+    if (modal) modal.classList.add('active');
+  },
+
+  closeDetailsModal() {
+    const modal = document.getElementById('meetingDetailsModal');
+    if (modal) modal.classList.remove('active');
+  },
+
   openEditModal(meetingId) {
-    const meeting = this.allMeetings.find(m => m.id === meetingId);
+    document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
+    const meeting = (this.allMeetings || []).find(m => m.id === meetingId);
     if (!meeting) return;
 
     document.getElementById('editMeetingId').value = meeting.id;
@@ -311,11 +482,18 @@ const Meetings = {
     const scheduledStart = document.getElementById('createStart').value;
     const durationMinutes = parseInt(document.getElementById('createDuration').value || '30', 10);
     const meetingType = document.getElementById('createType').value;
+    const agenda = document.getElementById('createAgenda')?.value.trim() || '';
+    const passcode = document.getElementById('createPasscode')?.value.trim() || null;
+    const lobbyEnabled = document.getElementById('createLobbyEnabled')?.checked || false;
+    const isPrivate = document.getElementById('createIsPrivate')?.checked || false;
 
     if (!title || !scheduledStart) {
       Notifications.show("Lütfen gerekli alanları doldurun.", "warning", "Eksik Bilgi");
       return;
     }
+
+    const startDate = new Date(scheduledStart);
+    const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
 
     try {
       const res = await fetch('/api/v1/meetings/', {
@@ -324,9 +502,15 @@ const Meetings = {
         body: JSON.stringify({
           title,
           description,
-          scheduled_start: new Date(scheduledStart).toISOString(),
+          scheduled_start: startDate.toISOString(),
+          scheduled_end: endDate.toISOString(),
           duration_minutes: durationMinutes,
           meeting_type: meetingType,
+          agenda: agenda || null,
+          passcode: passcode || null,
+          lobby_enabled: lobbyEnabled,
+          is_private: isPrivate,
+          invited_user_ids: this.selectedUserIds,
           status: 'planlandı'
         })
       });
@@ -336,7 +520,7 @@ const Meetings = {
         throw new Error(errData.detail || "Toplantı oluşturulamadı.");
       }
 
-      Notifications.show("Toplantı başarıyla oluşturuldu!", "success", "Başarılı");
+      Notifications.show("Toplantı başarıyla oluşturuldu ve davetler iletildi!", "success", "Başarılı");
       this.closeCreateModal();
       await this.loadMeetings();
     } catch (err) {
@@ -378,7 +562,11 @@ const Meetings = {
   },
 
   async cancelMeeting(meetingId) {
-    if (!confirm("Bu toplantıyı iptal etmek istediğinize emin misiniz?")) return;
+    document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
+    const meeting = (this.allMeetings || []).find(m => m.id === meetingId);
+    const title = meeting ? meeting.title : 'Bu toplantı';
+
+    if (!confirm(`"${title}" toplantısını silmek / iptal etmek istediğinize emin misiniz?`)) return;
 
     try {
       const res = await fetch(`/api/v1/meetings/${meetingId}`, {
@@ -392,10 +580,10 @@ const Meetings = {
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.detail || "Toplantı iptal edilemedi.");
+        throw new Error(errData.detail || "Toplantı silinemedi.");
       }
 
-      Notifications.show("Toplantı iptal edildi.", "info", "İptal Edildi");
+      Notifications.show("Toplantı başarıyla silindi ve iptal edildi.", "info", "Toplantı Silindi");
       await this.loadMeetings();
     } catch (err) {
       console.error(err);

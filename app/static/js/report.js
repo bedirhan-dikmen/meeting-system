@@ -44,7 +44,7 @@ const Report = {
 
     if (elTitle) elTitle.textContent = r.meeting_title || 'Toplantı Raporu';
     if (elCode) elCode.textContent = r.meeting_code || '-';
-    
+
     const startDate = r.scheduled_start ? new Date(r.scheduled_start).toLocaleString('tr-TR') : '-';
     if (elStart) elStart.textContent = startDate;
     if (elCreatedDate) elCreatedDate.textContent = new Date().toLocaleDateString('tr-TR');

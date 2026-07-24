@@ -10,10 +10,12 @@
       <i class="fas fa-file-contract"></i> Executive Report Portal
     </div>
     <h1 class="executive-title">Toplantı Katılım & Resmi Tutanak Raporu</h1>
-    <p class="executive-subtitle">Sonlanan oturum tutanağı, kesinleşen kararlar, katılım süreleri ve onaylanmış aksiyonlar</p>
+    <p class="executive-subtitle">Sonlanan oturum tutanağı, kesinleşen kararlar, katılım süreleri ve onaylanmış
+      aksiyonlar</p>
   </div>
   <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-    <a href="/meetings" class="btn" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; padding: 0.75rem 1.25rem; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem;">
+    <a href="/meetings" class="btn"
+      style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; padding: 0.75rem 1.25rem; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem;">
       <i class="fas fa-arrow-left"></i> Toplantılara Dön
     </a>
     <button onclick="Report.printReport()" class="btn-emerald">
@@ -23,15 +25,19 @@
 </div>
 
 <!-- FORMAL REPORT DOCUMENT CARD -->
-<div id="reportDocumentCard" class="report-document" style="background: #ffffff; color: #1e293b; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem; box-shadow: var(--shadow-md); margin-bottom: 2rem;">
-  
+<div id="reportDocumentCard" class="report-document"
+  style="background: #ffffff; color: #1e293b; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem; box-shadow: var(--shadow-md); margin-bottom: 2rem;">
+
   <!-- OFFICIAL HEADER BAR -->
-  <div style="border-bottom: 2px solid #0f172a; padding-bottom: 1.25rem; margin-bottom: 1.75rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+  <div
+    style="border-bottom: 2px solid #0f172a; padding-bottom: 1.25rem; margin-bottom: 1.75rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
     <div>
-      <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #475569; margin-bottom: 0.25rem;">
+      <div
+        style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #475569; margin-bottom: 0.25rem;">
         T.C. KURUMSAL TOPLANTI VE KATILIM TUTANAĞI
       </div>
-      <h1 id="repTitle" style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.2;">Toplantı Raporu Yükleniyor...</h1>
+      <h1 id="repTitle" style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.2;">
+        Toplantı Raporu Yükleniyor...</h1>
       <div style="margin-top: 0.4rem; font-size: 0.85rem; color: #64748b;">
         Belge Kodu: <strong id="repCode" style="font-family: monospace; color: #0284c7;">-</strong>
       </div>
@@ -39,33 +45,44 @@
 
     <div style="text-align: right; font-size: 0.85rem; color: #475569;">
       <div>Düzenlenme Tarihi: <strong id="repCreatedDate" style="color: #0f172a;">-</strong></div>
-      <div style="margin-top: 0.2rem;">Planlanan Başlangıç: <strong id="repStart" style="color: #0f172a;">-</strong></div>
+      <div style="margin-top: 0.2rem;">Planlanan Başlangıç: <strong id="repStart" style="color: #0f172a;">-</strong>
+      </div>
     </div>
   </div>
 
   <!-- SUMMARY METRICS TABLE -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.25rem;">
+  <div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.25rem;">
     <div>
-      <span style="font-size: 0.75rem; font-weight: 600; color: #64748b; display: block; text-transform: uppercase;">Gerçekleşen Süre</span>
+      <span
+        style="font-size: 0.75rem; font-weight: 600; color: #64748b; display: block; text-transform: uppercase;">Gerçekleşen
+        Süre</span>
       <strong id="repDuration" style="font-size: 1.25rem; color: #0f172a;">0 dk</strong>
     </div>
     <div>
-      <span style="font-size: 0.75rem; font-weight: 600; color: #64748b; display: block; text-transform: uppercase;">Toplam Katılımcı</span>
+      <span
+        style="font-size: 0.75rem; font-weight: 600; color: #64748b; display: block; text-transform: uppercase;">Toplam
+        Katılımcı</span>
       <strong id="repParticipantsCount" style="font-size: 1.25rem; color: #0f172a;">0 Personel</strong>
     </div>
     <div>
-      <span style="font-size: 0.75rem; font-weight: 600; color: #64748b; display: block; text-transform: uppercase;">Alınan Not Sayısı</span>
+      <span
+        style="font-size: 0.75rem; font-weight: 600; color: #64748b; display: block; text-transform: uppercase;">Alınan
+        Not Sayısı</span>
       <strong id="repNotesCount" style="font-size: 1.25rem; color: #0f172a;">0 Not</strong>
     </div>
     <div>
-      <span style="font-size: 0.75rem; font-weight: 600; color: #64748b; display: block; text-transform: uppercase;">Aksiyon / Karar Sayısı</span>
+      <span
+        style="font-size: 0.75rem; font-weight: 600; color: #64748b; display: block; text-transform: uppercase;">Aksiyon
+        / Karar Sayısı</span>
       <strong id="repActionsCount" style="font-size: 1.25rem; color: #0f172a;">0 Karar</strong>
     </div>
   </div>
 
   <!-- SECTION 1: PARTICIPANT ATTENDANCE -->
   <div style="margin-bottom: 2.25rem;">
-    <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.5rem; margin-bottom: 1rem;">
+    <h3
+      style="font-size: 1.05rem; font-weight: 700; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.5rem; margin-bottom: 1rem;">
       1. Katılımcı Oturum ve Süre Cetveli
     </h3>
     <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; color: #1e293b;">
@@ -85,7 +102,8 @@
 
   <!-- SECTION 2: MEETING NOTES & DECISIONS -->
   <div style="margin-bottom: 2.25rem;">
-    <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.5rem; margin-bottom: 1rem;">
+    <h3
+      style="font-size: 1.05rem; font-weight: 700; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.5rem; margin-bottom: 1rem;">
       2. Toplantı Notları ve Kararlar
     </h3>
     <div id="repNotesList" style="display: flex; flex-direction: column; gap: 0.75rem;">
@@ -95,7 +113,8 @@
 
   <!-- SECTION 3: ACTION ITEMS -->
   <div style="margin-bottom: 2.5rem;">
-    <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.5rem; margin-bottom: 1rem;">
+    <h3
+      style="font-size: 1.05rem; font-weight: 700; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.5rem; margin-bottom: 1rem;">
       3. Görev ve Aksiyon Maddeleri
     </h3>
     <div id="repActionsList" style="display: flex; flex-direction: column; gap: 0.75rem;">
@@ -104,7 +123,8 @@
   </div>
 
   <!-- OFFICIAL FOOTER & SIGNATURE STAMP -->
-  <div style="border-top: 1px solid #e2e8f0; padding-top: 1.5rem; margin-top: 2rem; font-size: 0.78rem; color: #64748b; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+  <div
+    style="border-top: 1px solid #e2e8f0; padding-top: 1.5rem; margin-top: 2rem; font-size: 0.78rem; color: #64748b; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
     <div>
       İşbu belge Kurumsal Toplantı Yönetim Sistemi (YebMeeting) tarafından otomatik olarak oluşturulmuştur.
     </div>

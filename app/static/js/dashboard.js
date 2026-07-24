@@ -59,31 +59,49 @@ const Dashboard = {
     section.style.display = 'block';
     container.innerHTML = meetings.map(m => {
       const hostName = m.creator ? `${m.creator.first_name || ''} ${m.creator.last_name || ''}`.trim() : 'Yeb Soft';
+      const menuId = `dashCardPopover_${m.id}`;
+
       return `
-        <div class="meeting-card" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease;">
+        <div class="meeting-card" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease; position: relative;">
           
-          <!-- TOP ROW: ROUND ICON & THREE DOTS -->
+          <!-- TOP ROW: ROUND ICON & THREE DOTS POPOVER -->
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem;">
-            <div style="width: 44px; height: 44px; border-radius: 50%; background: #e0e7ff; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; flex-shrink: 0;">
-              <i class="fas fa-search"></i>
+            <div style="width: 44px; height: 44px; border-radius: 50%; background: #ecfdf5; color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; flex-shrink: 0;">
+              <i class="fas fa-video"></i>
             </div>
-            <button type="button" style="background: none; border: none; color: #64748b; font-size: 1.2rem; cursor: pointer; padding: 0.2rem 0.5rem; border-radius: 6px;" title="Seçenekler">
-              <i class="fas fa-ellipsis-h"></i>
-            </button>
+            
+            <div style="position: relative; display: flex; align-items: center;">
+              <button type="button" onclick="Dashboard.toggleCardMenu(event, '${menuId}')" style="background: none; border: none; color: #64748b; font-size: 1.2rem; cursor: pointer; padding: 0.2rem 0.5rem; border-radius: 6px;" title="Seçenekler">
+                <i class="fas fa-ellipsis-h"></i>
+              </button>
+
+              <!-- THREE DOTS DROPDOWN MENU -->
+              <div id="${menuId}" class="teams-dropdown-popover card-popover-menu" style="right: 0; top: 100%; width: 210px; z-index: 500;">
+                <button type="button" class="teams-popover-item" onclick="Dashboard.showMeetingInfo('${m.id}')">
+                  <i class="fas fa-info-circle" style="color: #0ea5e9;"></i> Toplantı Bilgileri
+                </button>
+                <button type="button" class="teams-popover-item" onclick="Dashboard.openEditModal('${m.id}')">
+                  <i class="fas fa-edit" style="color: #6366f1;"></i> Toplantı Düzenleme
+                </button>
+                <button type="button" class="teams-popover-item" onclick="Dashboard.cancelMeeting('${m.id}')" style="color: #e11d48;">
+                  <i class="fas fa-trash-alt" style="color: #e11d48;"></i> Toplantıyı İptal Et / Sil
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- TITLE & CREATOR SUBTITLE -->
           <h4 style="font-size: 1.05rem; font-weight: 800; color: #1e1e1e; margin: 0 0 0.25rem 0; line-height: 1.3;">${m.title}</h4>
           <p style="font-size: 0.82rem; color: #64748b; margin: 0 0 1.25rem 0; font-weight: 500;">
-            Oluşturan: <strong style="color: #334155;">${hostName}</strong> • Az önce oluşturuldu
+            Oluşturan: <strong style="color: #334155;">${hostName}</strong> • Canlı Oturum
           </p>
 
           <!-- DUAL ACTION BUTTONS -->
           <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: auto;">
-            <a href="/prejoin/${m.meeting_code}" style="background: #f1f5f9; color: #1e1e1e; border-radius: 8px; font-weight: 700; font-size: 0.88rem; padding: 0.6rem 1rem; border: none; flex: 1; text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">
-              Katıl
+            <a href="/prejoin/${m.meeting_code}" style="background: #059669; color: #ffffff; border-radius: 8px; font-weight: 700; font-size: 0.88rem; padding: 0.6rem 1rem; border: none; flex: 1; text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+              <i class="fas fa-video"></i> Katıl
             </a>
-            <button type="button" onclick="copyMeetingLink('${m.meeting_code}')" style="background: #f1f5f9; color: #1e1e1e; border-radius: 8px; font-weight: 700; font-size: 0.88rem; padding: 0.6rem 1rem; border: none; flex: 1; text-align: center; cursor: pointer;">
+            <button type="button" onclick="copyMeetingLink('${m.meeting_code}')" style="background: #f1f5f9; color: #1e1e1e; border-radius: 8px; font-weight: 700; font-size: 0.88rem; padding: 0.6rem 1rem; border: 1px solid #cbd5e1; flex: 1; text-align: center; cursor: pointer;">
               Bağlantıyı paylaş
             </button>
           </div>
@@ -91,6 +109,90 @@ const Dashboard = {
         </div>
       `;
     }).join('');
+  },
+
+  toggleCardMenu(e, menuId) {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    const targetPop = document.getElementById(menuId);
+    document.querySelectorAll('.teams-dropdown-popover').forEach(p => {
+      if (p !== targetPop) p.classList.remove('show');
+    });
+    if (targetPop) {
+      targetPop.classList.toggle('show');
+    }
+  },
+
+  showMeetingInfo(meetingId) {
+    document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
+    const m = (this.liveMeetingsList || []).find(item => item.id === meetingId);
+    if (!m) return;
+    const hostName = m.creator ? `${m.creator.first_name || ''} ${m.creator.last_name || ''}`.trim() : 'Yeb Soft';
+    const startStr = new Date(m.scheduled_start).toLocaleString('tr-TR');
+    const msg = `📍 Tür: ${m.meeting_type || 'Canlı Toplantı'}\n🔑 Oda Kodu: ${m.meeting_code}\n👤 Yöneticisi: ${hostName}\n📅 Başlangıç: ${startStr}\n🔒 Şifre: ${m.passcode || 'Yok'}\n📝 Gündem: ${m.agenda || m.description || 'Yok'}`;
+
+    if (window.Notifications) {
+      Notifications.show(msg, 'info', `Toplantı Detayı: ${m.title}`);
+    } else {
+      alert(msg);
+    }
+  },
+
+  openEditModal(meetingId) {
+    document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
+    const m = (this.liveMeetingsList || []).find(item => item.id === meetingId);
+    if (!m) return;
+    const newTitle = prompt("Toplantı Başlığını Düzenleyin:", m.title);
+    if (newTitle === null) return;
+    const newDesc = prompt("Toplantı Açıklamasını Düzenleyin:", m.description || '');
+
+    fetch(`/api/v1/meetings/${meetingId}`, {
+      method: 'PUT',
+      headers: Auth.getAuthHeaders(),
+      body: JSON.stringify({
+        title: newTitle.trim() || m.title,
+        description: newDesc ? newDesc.trim() : m.description
+      })
+    }).then(res => {
+      if (res.ok) {
+        Notifications.show("Toplantı bilgileri güncellendi!", "success", "Başarılı");
+        this.loadLiveMeetings();
+      } else {
+        alert("Toplantı güncellenirken hata oluştu.");
+      }
+    }).catch(err => console.error(err));
+  },
+
+  async cancelMeeting(meetingId) {
+    document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
+    const m = (this.liveMeetingsList || []).find(item => item.id === meetingId);
+    const title = m ? m.title : 'Bu toplantı';
+
+    if (!confirm(`"${title}" toplantısını silmek / iptal etmek istediğinize emin misiniz?`)) return;
+
+    try {
+      const res = await fetch(`/api/v1/meetings/${meetingId}`, {
+        method: 'PUT',
+        headers: Auth.getAuthHeaders(),
+        body: JSON.stringify({
+          status: 'iptal edildi',
+          is_active: false
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || "Toplantı silinemedi.");
+      }
+
+      Notifications.show("Toplantı başarıyla silindi ve iptal edildi.", "info", "Toplantı Silindi");
+      await this.loadLiveMeetings();
+    } catch (err) {
+      console.error(err);
+      Notifications.show(err.message, "danger", "Hata");
+    }
   },
 
   renderMetrics(stats) {

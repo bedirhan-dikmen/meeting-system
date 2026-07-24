@@ -108,11 +108,21 @@ def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict
     if scheduled_start_val is None:
         scheduled_start_val = getattr(meeting, 'created_at', datetime.now(timezone.utc))
 
+    host_name = "Bilinmeyen Düzenleyici"
+    if getattr(meeting, 'created_by', None):
+        host_user = db.get(User, meeting.created_by)
+        if host_user:
+            host_name = f"{host_user.first_name or ''} {host_user.last_name or ''}".strip() or host_user.email
+
     report_data = {
         "meeting_id": meeting.id,
         "meeting_title": meeting.title,
         "meeting_code": meeting.meeting_code,
-        "scheduled_start": scheduled_start_val,  # Güvenli dinamik eşleme tamam!
+        "meeting_description": getattr(meeting, 'description', None),
+        "agenda": getattr(meeting, 'agenda', None),
+        "meeting_type": getattr(meeting, 'meeting_type', 'Genel Toplantı'),
+        "host_name": host_name,
+        "scheduled_start": scheduled_start_val,
         "actual_duration_minutes": round(total_meeting_seconds / 60.0, 2),
         "total_participants_count": len(participants_summary),
         "total_notes_count": len(notes_summary),

@@ -1,3 +1,4 @@
+from datetime import timezone
 from fastapi import APIRouter, Depends, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
@@ -15,7 +16,8 @@ def subscribe_to_events(
     current_user: User = Depends(get_current_user)
 ):
     """Harici bir sistemi sistem event akışına (Webhook) abone eder."""
-    from datetime import datetime, timezone
+    # Veritabanına kayıt işlemi simüle edilir veya eklenir
+    from datetime import datetime
     import uuid
     return {
         "id": uuid.uuid4(),

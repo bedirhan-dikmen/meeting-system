@@ -338,4 +338,3 @@ document.addEventListener('DOMContentLoaded', () => {
   Auth.checkActiveLiveMeeting();
   setInterval(() => Auth.checkActiveLiveMeeting(), 15000);
 });
-

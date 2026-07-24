@@ -1,8 +1,9 @@
-from datetime import datetime, timezone
-from typing import List, Optional
-from uuid import UUID
+from datetime import timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from uuid import UUID
+from datetime import datetime
+from typing import List, Optional
 from app.models.participant_session import ParticipantSession
 
 def create_session(db: Session, meeting_id: UUID, user_id: UUID) -> ParticipantSession:
@@ -18,7 +19,7 @@ def create_session(db: Session, meeting_id: UUID, user_id: UUID) -> ParticipantS
     return db_session
 
 def close_session(db: Session, session_id: UUID) -> Optional[ParticipantSession]:
-    """Katılımcı odadan ayrıldığında oturumu kapatır ve aktif kaldığı süreyi saniye cinsinden hesaplar."""
+    """Katılımcı odadan ayrıldığında oturumu kapatır ve aktif kaldığı süreyi dakika cinsinden hesaplar."""
     db_session = db.get(ParticipantSession, session_id)
     if not db_session:
         return None
@@ -28,9 +29,11 @@ def close_session(db: Session, session_id: UUID) -> Optional[ParticipantSession]
     
     # Süre hesaplama (Saniye bazında)
     joined_at = db_session.joined_at
-    if isinstance(joined_at, datetime):
-        start_time = joined_at.replace(tzinfo=timezone.utc) if joined_at.tzinfo is None else joined_at
-        duration = left_at - start_time
+    if joined_at is not None:
+        if joined_at.tzinfo is None:
+            joined_at = joined_at.replace(tzinfo=timezone.utc)
+        
+        duration = left_at - joined_at
         db_session.duration_seconds = max(0, int(duration.total_seconds()))
         
     db.commit()

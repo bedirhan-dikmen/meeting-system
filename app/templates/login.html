@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,9 +13,10 @@
       align-items: center;
       justify-content: center;
       background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.15), transparent 40%),
-                  radial-gradient(circle at bottom left, rgba(6, 182, 212, 0.15), transparent 40%),
-                  var(--bg-primary);
+        radial-gradient(circle at bottom left, rgba(6, 182, 212, 0.15), transparent 40%),
+        var(--bg-primary);
     }
+
     .login-card {
       background: var(--bg-secondary);
       border: 1px solid var(--border-color);
@@ -27,20 +29,27 @@
     }
   </style>
 </head>
+
 <body>
   <div class="login-card">
     <div style="text-align: center; margin-bottom: 2rem;">
-      <div style="width: 60px; height: 60px; border-radius: var(--radius-md); background: linear-gradient(135deg, var(--accent-primary), var(--accent-cyan)); display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; color: #fff; margin-bottom: 1rem;">
+      <div
+        style="width: 60px; height: 60px; border-radius: var(--radius-md); background: linear-gradient(135deg, var(--accent-primary), var(--accent-cyan)); display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; color: #fff; margin-bottom: 1rem;">
         <i class="fas fa-video"></i>
       </div>
       <h2 style="font-size: 1.6rem; font-weight: 800;">Hoş Geldiniz</h2>
-      <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.25rem;">Toplantı Portalına Giriş Yapın</p>
+      <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.25rem;">Toplantı Portalına Giriş Yapın
+      </p>
     </div>
 
     <!-- Tab Switcher (Form Data vs User Code) -->
-    <div style="display: flex; background: var(--bg-primary); padding: 4px; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
-      <button id="tabEmail" type="button" class="btn btn-secondary" style="flex: 1; border: none; font-size: 0.85rem;" onclick="switchLoginTab('email')">E-Posta İle</button>
-      <button id="tabCode" type="button" class="btn btn-secondary" style="flex: 1; border: none; font-size: 0.85rem; background: transparent;" onclick="switchLoginTab('code')">Personel Kodu İle</button>
+    <div
+      style="display: flex; background: var(--bg-primary); padding: 4px; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+      <button id="tabEmail" type="button" class="btn btn-secondary" style="flex: 1; border: none; font-size: 0.85rem;"
+        onclick="switchLoginTab('email')">E-Posta İle</button>
+      <button id="tabCode" type="button" class="btn btn-secondary"
+        style="flex: 1; border: none; font-size: 0.85rem; background: transparent;"
+        onclick="switchLoginTab('code')">Personel Kodu İle</button>
     </div>
 
     <form id="formLogin">
@@ -54,7 +63,8 @@
         <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
       </div>
 
-      <button type="submit" class="btn-emerald" style="width: 100%; justify-content: center; padding: 0.95rem; font-size: 1rem; border-radius: 12px;">
+      <button type="submit" class="btn-emerald"
+        style="width: 100%; justify-content: center; padding: 0.95rem; font-size: 1rem; border-radius: 12px;">
         <i class="fas fa-sign-in-alt"></i> Giriş Yap
       </button>
     </form>
@@ -122,7 +132,7 @@
         }
 
         const data = await response.json();
-        
+
         // Fetch current user details if needed or store token
         Auth.saveAuth(data.access_token, data.user || { first_name: 'Kullanıcı', email: username });
         Notifications.show('Başarıyla giriş yapıldı. Yönlendiriliyorsunuz...', 'success', 'Giriş Başarılı');
@@ -137,4 +147,5 @@
     });
   </script>
 </body>
+
 </html>

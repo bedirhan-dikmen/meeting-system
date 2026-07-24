@@ -93,8 +93,8 @@ def update_meeting(
     user_id = getattr(current_user, "id", None)
     user_role = getattr(current_user, "role", None)
     
-    # Sadece toplantıyı oluşturan (created_by) veya admin güncelleyebilir
-    if meeting.created_by != user_id and user_role != "admin":
+    # Sadece toplantıyı oluşturan (created_by) veya admin/manager/host güncelleyebilir
+    if meeting.created_by != user_id and user_role not in ["admin", "manager", "host"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Bu toplantıyı güncelleme yetkiniz bulunmuyor."
