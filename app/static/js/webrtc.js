@@ -44,13 +44,32 @@ const WebRTC = {
       this.localStream = existingStream;
     } else {
       try {
+        const camId = sessionStorage.getItem('meeting_cam_id');
+        const micId = sessionStorage.getItem('meeting_mic_id');
+
+        const videoConstraints = camId ? { deviceId: { exact: camId } } : true;
+        const audioConstraints = micId ? { deviceId: { exact: micId } } : true;
+
         this.localStream = await navigator.mediaDevices.getUserMedia({
-          video: !this.isCameraOff,
-          audio: !this.isMicMuted
+          video: videoConstraints,
+          audio: audioConstraints
         });
       } catch (err) {
-        console.warn("Medya akışı alınamadı, sessiz/görüntüsüz bağlanılıyor:", err);
+        console.warn("Spesifik medya cihazı akışı alınamadı, varsayılan deneniyor:", err);
+        try {
+          this.localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+          });
+        } catch (err2) {
+          console.warn("Medya akışı alınamadı, kameranız veya mikrofonunuz kapalı kalacak:", err2);
+        }
       }
+    }
+
+    if (this.localStream) {
+      this.localStream.getVideoTracks().forEach(t => t.enabled = !this.isCameraOff);
+      this.localStream.getAudioTracks().forEach(t => t.enabled = !this.isMicMuted);
     }
 
     this.renderLocalTile();
@@ -799,11 +818,52 @@ const WebRTC = {
     if (tile) tile.remove();
   },
 
-  toggleMic() {
+  async toggleMic() {
     this.isMicMuted = !this.isMicMuted;
-    if (this.localStream) {
-      this.localStream.getAudioTracks().forEach(t => t.enabled = !this.isMicMuted);
+
+    if (!this.isMicMuted) {
+      let audioTrack = this.localStream ? this.localStream.getAudioTracks()[0] : null;
+      if (!audioTrack || audioTrack.readyState === 'ended') {
+        try {
+          const micId = sessionStorage.getItem('meeting_mic_id');
+          const audioConstraint = micId ? { deviceId: { exact: micId } } : true;
+          const micStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint });
+          const newTrack = micStream.getAudioTracks()[0];
+
+          if (newTrack) {
+            if (!this.localStream) {
+              this.localStream = new MediaStream();
+            }
+            if (audioTrack) {
+              this.localStream.removeTrack(audioTrack);
+            }
+            this.localStream.addTrack(newTrack);
+
+            Object.values(this.peers).forEach(pc => {
+              const sender = pc.getSenders().find(s => s.track?.kind === 'audio' || s.kind === 'audio');
+              if (sender) {
+                sender.replaceTrack(newTrack).catch(e => console.warn("replaceTrack uyarısı:", e));
+              } else {
+                pc.addTrack(newTrack, this.localStream);
+              }
+            });
+          }
+        } catch (err) {
+          console.warn("Mikrofon akışı başlatılamadı:", err);
+          if (typeof Notifications !== 'undefined') {
+            Notifications.show("Mikrofonunuza erişilemedi veya izin verilmedi.", "warning", "Mikrofon Hatası");
+          }
+          this.isMicMuted = true;
+        }
+      } else {
+        audioTrack.enabled = true;
+      }
+    } else {
+      if (this.localStream) {
+        this.localStream.getAudioTracks().forEach(t => t.enabled = false);
+      }
     }
+
     const mainBtn = document.getElementById('btnRoomMicMain') || document.getElementById('btnRoomMic');
     const mainIcon = document.getElementById('btnRoomMicIcon');
     const micIcon = document.getElementById('localMicStatusIcon');
@@ -827,11 +887,52 @@ const WebRTC = {
     });
   },
 
-  toggleCamera() {
+  async toggleCamera() {
     this.isCameraOff = !this.isCameraOff;
-    if (this.localStream) {
-      this.localStream.getVideoTracks().forEach(t => t.enabled = !this.isCameraOff);
+
+    if (!this.isCameraOff) {
+      let videoTrack = this.localStream ? this.localStream.getVideoTracks()[0] : null;
+      if (!videoTrack || videoTrack.readyState === 'ended') {
+        try {
+          const camId = sessionStorage.getItem('meeting_cam_id');
+          const videoConstraint = camId ? { deviceId: { exact: camId } } : true;
+          const camStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraint });
+          const newTrack = camStream.getVideoTracks()[0];
+
+          if (newTrack) {
+            if (!this.localStream) {
+              this.localStream = new MediaStream();
+            }
+            if (videoTrack) {
+              this.localStream.removeTrack(videoTrack);
+            }
+            this.localStream.addTrack(newTrack);
+
+            Object.values(this.peers).forEach(pc => {
+              const sender = pc.getSenders().find(s => s.track?.kind === 'video' || s.kind === 'video');
+              if (sender) {
+                sender.replaceTrack(newTrack).catch(e => console.warn("replaceTrack uyarısı:", e));
+              } else {
+                pc.addTrack(newTrack, this.localStream);
+              }
+            });
+          }
+        } catch (err) {
+          console.warn("Kamera akışı başlatılamadı:", err);
+          if (typeof Notifications !== 'undefined') {
+            Notifications.show("Kameranıza erişilemedi veya başka bir uygulama tarafından kullanılıyor.", "warning", "Kamera Hatası");
+          }
+          this.isCameraOff = true;
+        }
+      } else {
+        videoTrack.enabled = true;
+      }
+    } else {
+      if (this.localStream) {
+        this.localStream.getVideoTracks().forEach(t => t.enabled = false);
+      }
     }
+
     const mainBtn = document.getElementById('btnRoomCamMain') || document.getElementById('btnRoomCam');
     const mainIcon = document.getElementById('btnRoomCamIcon');
     const videoEl = document.getElementById('localVideo');
@@ -839,7 +940,17 @@ const WebRTC = {
 
     if (mainBtn) mainBtn.classList.toggle('muted-off', this.isCameraOff);
     if (mainIcon) mainIcon.className = `fas ${this.isCameraOff ? 'fa-video-slash' : 'fa-video'}`;
-    if (videoEl) videoEl.style.display = this.isCameraOff ? 'none' : 'block';
+
+    if (videoEl) {
+      if (this.localStream && videoEl.srcObject !== this.localStream) {
+        videoEl.srcObject = this.localStream;
+      }
+      videoEl.style.display = this.isCameraOff ? 'none' : 'block';
+      if (!this.isCameraOff) {
+        videoEl.play().catch(e => console.warn("Lokal video oynatılamadı:", e));
+      }
+    }
+
     if (avatarEl) avatarEl.style.display = this.isCameraOff ? 'flex' : 'none';
 
     if (this.currentUser?.id && this.participantsMap[this.currentUser.id]) {
@@ -854,6 +965,102 @@ const WebRTC = {
       isMicMuted: this.isMicMuted,
       isCameraOff: this.isCameraOff
     });
+  },
+
+  async switchVideoDevice(deviceId) {
+    if (!deviceId) return;
+    sessionStorage.setItem('meeting_cam_id', deviceId);
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId } }
+      });
+      const newTrack = newStream.getVideoTracks()[0];
+      if (!newTrack) return;
+
+      if (this.localStream) {
+        this.localStream.getVideoTracks().forEach(t => {
+          this.localStream.removeTrack(t);
+          t.stop();
+        });
+        this.localStream.addTrack(newTrack);
+      } else {
+        this.localStream = newStream;
+      }
+
+      newTrack.enabled = !this.isCameraOff;
+
+      Object.values(this.peers).forEach(pc => {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video' || s.kind === 'video');
+        if (sender) {
+          sender.replaceTrack(newTrack);
+        }
+      });
+
+      const videoEl = document.getElementById('localVideo');
+      if (videoEl) {
+        videoEl.srcObject = this.localStream;
+        if (!this.isCameraOff) videoEl.play().catch(console.warn);
+      }
+      if (typeof Notifications !== 'undefined') {
+        Notifications.show("Kamera cihazı değiştirildi.", "success", "Kamera");
+      }
+    } catch (e) {
+      console.warn("Kamera değiştirilemedi:", e);
+    }
+  },
+
+  async switchAudioInput(deviceId) {
+    if (!deviceId) return;
+    sessionStorage.setItem('meeting_mic_id', deviceId);
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: deviceId } }
+      });
+      const newTrack = newStream.getAudioTracks()[0];
+      if (!newTrack) return;
+
+      if (this.localStream) {
+        this.localStream.getAudioTracks().forEach(t => {
+          this.localStream.removeTrack(t);
+          t.stop();
+        });
+        this.localStream.addTrack(newTrack);
+      } else {
+        this.localStream = newStream;
+      }
+
+      newTrack.enabled = !this.isMicMuted;
+
+      Object.values(this.peers).forEach(pc => {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'audio' || s.kind === 'audio');
+        if (sender) {
+          sender.replaceTrack(newTrack);
+        }
+      });
+
+      if (typeof Notifications !== 'undefined') {
+        Notifications.show("Mikrofon cihazı değiştirildi.", "success", "Mikrofon");
+      }
+    } catch (e) {
+      console.warn("Mikrofon değiştirilemedi:", e);
+    }
+  },
+
+  async switchAudioOutput(deviceId) {
+    if (!deviceId) return;
+    try {
+      const mediaElements = document.querySelectorAll('video, audio');
+      for (const el of mediaElements) {
+        if (typeof el.setSinkId === 'function') {
+          await el.setSinkId(deviceId);
+        }
+      }
+      if (typeof Notifications !== 'undefined') {
+        Notifications.show("Hoparlör çıkışı değiştirildi.", "success", "Hoparlör");
+      }
+    } catch (e) {
+      console.warn("Hoparlör değiştirilemedi:", e);
+    }
   },
 
   async toggleScreenShare() {

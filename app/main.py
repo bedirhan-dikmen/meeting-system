@@ -69,11 +69,28 @@ def page_meetings(request: Request):
 
 @app.get("/prejoin/{meeting_code}", tags=["Frontend Sayfaları"])
 def page_prejoin(request: Request, meeting_code: str):
+    from app.core.database import SessionLocal
+    from app.models.meeting import Meeting
+    db = SessionLocal()
+    meeting = db.query(Meeting).filter(Meeting.meeting_code == meeting_code).first()
+    db.close()
+    if meeting and meeting.status == "tamamlandı":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"/reports/{meeting.id}")
     return templates.TemplateResponse("prejoin.html", {"request": request, "meeting_code": meeting_code})
 
 @app.get("/room/{meeting_code}", tags=["Frontend Sayfaları"])
 def page_room(request: Request, meeting_code: str):
+    from app.core.database import SessionLocal
+    from app.models.meeting import Meeting
+    db = SessionLocal()
+    meeting = db.query(Meeting).filter(Meeting.meeting_code == meeting_code).first()
+    db.close()
+    if meeting and meeting.status == "tamamlandı":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"/reports/{meeting.id}")
     return templates.TemplateResponse("room.html", {"request": request, "meeting_code": meeting_code})
+
 
 @app.get("/reports/{meeting_id}", tags=["Frontend Sayfaları"])
 def page_report(request: Request, meeting_id: str):

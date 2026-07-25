@@ -465,11 +465,17 @@
       renderPersonalNotesList();
       populateDevicePopovers();
 
+      const savedCamOff = sessionStorage.getItem('meeting_cam_off');
+      const savedMicMuted = sessionStorage.getItem('meeting_mic_muted');
+
+      const isCamOff = savedCamOff !== null ? (savedCamOff === '1') : false;
+      const isMicMuted = savedMicMuted !== null ? (savedMicMuted === '1') : false;
+
       await WebRTC.joinRoom(
         MEETING_CODE,
         null,
-        true,
-        true
+        isMicMuted,
+        isCamOff
       );
 
       if (WebRTC.isHost) {

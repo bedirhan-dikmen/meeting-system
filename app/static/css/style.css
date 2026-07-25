@@ -1825,3 +1825,85 @@ body {
   color: #0f172a;
   z-index: 100;
 }
+
+/* ==========================================================================
+   YAZDIRMA / PDF ÇIKTISI — KURUMSAL RAPOR STİLİ
+   ========================================================================== */
+
+@media print {
+
+  /* Genel sayfa ayarları */
+  @page {
+    size: A4 portrait;
+    margin: 18mm 15mm 18mm 15mm;
+  }
+
+  /* Yazdırmada gizlenecek tüm UI öğeleri */
+  .no-print,
+  .sidebar,
+  aside.sidebar,
+  .top-header,
+  header.top-header,
+  nav,
+  .navbar,
+  .nav-rail,
+  .executive-hero,
+  .toast-container,
+  #toastContainer,
+  button,
+  a[href="/meetings"] {
+    display: none !important;
+  }
+
+  /* Rapor meta bloğu (Düzenlenme Tarihi + Raporlayan) sadece PDF'de görünsün */
+  #repPrintMeta {
+    display: flex !important;
+  }
+
+  /* App container düzenini sıfırla — sadece rapor içeriği görünsün */
+  .app-container {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Ana içerik sarmalayıcıyı tam genişliğe al */
+  .main-wrapper,
+  .main-content,
+  .content-area,
+  .page-content,
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+  }
+
+  /* Rapor belge kartını tam sayfa yap */
+  #reportDocumentCard,
+  .report-document {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Tablo sayfa kesmesini iyileştir */
+  table {
+    page-break-inside: avoid;
+    width: 100% !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Başlıkların sayfa kesmesi */
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+}
+

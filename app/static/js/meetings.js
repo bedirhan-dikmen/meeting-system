@@ -190,8 +190,10 @@ const Meetings = {
   renderMeetingsList(meetings) {
     const liveContainer = document.getElementById('liveMeetingsContainer');
     const scheduledContainer = document.getElementById('scheduledMeetingsContainer');
+    const completedContainer = document.getElementById('completedMeetingsContainer');
     const liveBadge = document.getElementById('liveCountBadge');
     const scheduledBadge = document.getElementById('scheduledCountBadge');
+    const completedBadge = document.getElementById('completedCountBadge');
 
     if (!liveContainer || !scheduledContainer) return;
 
@@ -202,13 +204,19 @@ const Meetings = {
       return s === 'canlı' || s === 'başladı' || s === 'active';
     });
 
+    const completedMeetings = list.filter(m => {
+      const s = (m.status || '').toLowerCase();
+      return s === 'tamamlandı' || s === 'completed' || s === 'iptal edildi';
+    });
+
     const scheduledMeetings = list.filter(m => {
       const s = (m.status || '').toLowerCase();
-      return s !== 'canlı' && s !== 'başladı' && s !== 'active';
+      return s !== 'canlı' && s !== 'başladı' && s !== 'active' && s !== 'tamamlandı' && s !== 'completed' && s !== 'iptal edildi';
     });
 
     if (liveBadge) liveBadge.textContent = liveMeetings.length;
     if (scheduledBadge) scheduledBadge.textContent = scheduledMeetings.length;
+    if (completedBadge) completedBadge.textContent = completedMeetings.length;
 
     if (liveMeetings.length === 0) {
       liveContainer.innerHTML = `
@@ -218,7 +226,7 @@ const Meetings = {
         </div>
       `;
     } else {
-      liveContainer.innerHTML = liveMeetings.map(m => this.createMeetingCardHTML(m, true)).join('');
+      liveContainer.innerHTML = liveMeetings.map(m => this.createMeetingCardHTML(m, 'live')).join('');
     }
 
     if (scheduledMeetings.length === 0) {
@@ -229,11 +237,24 @@ const Meetings = {
         </div>
       `;
     } else {
-      scheduledContainer.innerHTML = scheduledMeetings.map(m => this.createMeetingCardHTML(m, false)).join('');
+      scheduledContainer.innerHTML = scheduledMeetings.map(m => this.createMeetingCardHTML(m, 'scheduled')).join('');
+    }
+
+    if (completedContainer) {
+      if (completedMeetings.length === 0) {
+        completedContainer.innerHTML = `
+          <div style="padding: 1.5rem; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 12px; color: #64748b; font-size: 0.88rem; text-align: center;">
+            <i class="fas fa-folder-open" style="font-size: 1.3rem; margin-bottom: 0.4rem; display: block; color: #94a3b8;"></i>
+            Tamamlanan veya arşivlenen toplantı kaydı bulunmuyor.
+          </div>
+        `;
+      } else {
+        completedContainer.innerHTML = completedMeetings.map(m => this.createMeetingCardHTML(m, 'completed')).join('');
+      }
     }
   },
 
-  createMeetingCardHTML(m, isLive) {
+  createMeetingCardHTML(m, meetingCategory) {
     const currentUser = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
     const isOrganizer = (currentUser && (currentUser.id === m.created_by || currentUser.role === 'admin'));
 
@@ -251,11 +272,13 @@ const Meetings = {
 
     // STATUS BADGE
     let statusBadgeHTML = '';
-    const status = (m.status || (isLive ? 'canlı' : 'planlandı')).toLowerCase();
+    const status = (m.status || '').toLowerCase();
+    const isLive = meetingCategory === 'live' || status === 'canlı' || status === 'başladı' || status === 'active';
+    const isCompleted = meetingCategory === 'completed' || status === 'tamamlandı' || status === 'completed';
 
-    if (status === 'canlı' || status === 'başladı' || isLive) {
+    if (isLive) {
       statusBadgeHTML = `<span style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; font-size: 0.76rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 0.3rem;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; display: inline-block;"></span>Başladı (Canlı)</span>`;
-    } else if (status === 'tamamlandı') {
+    } else if (isCompleted) {
       statusBadgeHTML = `<span style="background: #d1fae5; border: 1px solid #a7f3d0; color: #065f46; font-size: 0.76rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 9999px;"><i class="fas fa-check-circle"></i> Tamamlandı</span>`;
     } else if (status === 'iptal edildi') {
       statusBadgeHTML = `<span style="background: #ffe4e6; border: 1px solid #fecdd3; color: #be123c; font-size: 0.76rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 9999px;"><i class="fas fa-ban"></i> İptal Edildi</span>`;
@@ -265,20 +288,34 @@ const Meetings = {
       statusBadgeHTML = `<span style="background: #e0f2fe; border: 1px solid #bae6fd; color: #0369a1; font-size: 0.76rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 9999px;"><i class="far fa-calendar-alt"></i> Planlandı</span>`;
     }
 
-    const buttonStyle = (isLive || status === 'canlı' || status === 'başladı')
-      ? 'background: linear-gradient(135deg, #5b5fc7 0%, #4f46e5 100%); color: #ffffff; box-shadow: 0 4px 14px rgba(91, 95, 199, 0.35);'
-      : 'background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;';
+    let buttonActionHTML = '';
+    if (isCompleted) {
+      buttonActionHTML = `
+        <a href="/reports/${m.id}" style="background: #0284c7; color: #ffffff; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25); border-radius: 9px; font-weight: 800; font-size: 0.88rem; padding: 0.6rem 1.1rem; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s ease;">
+          <i class="fas fa-file-contract"></i> Raporu Görüntüle
+        </a>
+      `;
+    } else {
+      const buttonStyle = isLive
+        ? 'background: linear-gradient(135deg, #5b5fc7 0%, #4f46e5 100%); color: #ffffff; box-shadow: 0 4px 14px rgba(91, 95, 199, 0.35);'
+        : 'background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;';
+      const buttonText = isLive ? 'Toplantıya Katıl' : 'Toplantıyı Başlat';
+      const buttonIcon = isLive ? 'fa-door-open' : 'fa-play';
 
-    const buttonText = (isLive || status === 'canlı' || status === 'başladı') ? 'Toplantıya Katıl' : 'Toplantıyı Başlat';
-    const buttonIcon = (isLive || status === 'canlı' || status === 'başladı') ? 'fa-door-open' : 'fa-play';
+      buttonActionHTML = `
+        <a href="/prejoin/${m.meeting_code}" style="${buttonStyle} border-radius: 9px; font-weight: 800; font-size: 0.88rem; padding: 0.6rem 1.1rem; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s ease;">
+          <i class="fas ${buttonIcon}"></i> ${buttonText}
+        </a>
+      `;
+    }
 
     return `
       <div class="meeting-card-horizontal" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.1rem 1.4rem; display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: all 0.2s ease; position: relative;">
         
         <!-- LEFT COLUMN: ICON, TITLE, HOST & DESCRIPTION PREVIEW -->
         <div style="display: flex; align-items: center; gap: 1rem; min-width: 0; flex: 1.2;">
-          <div style="width: 44px; height: 44px; border-radius: 50%; background: ${isLive ? '#d1fae5' : '#e0e7ff'}; color: ${isLive ? '#10b981' : '#5b5fc7'}; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; flex-shrink: 0;">
-            <i class="fas ${isLive ? 'fa-video' : 'fa-calendar-day'}"></i>
+          <div style="width: 44px; height: 44px; border-radius: 50%; background: ${isLive ? '#d1fae5' : (isCompleted ? '#f0fdf4' : '#e0e7ff')}; color: ${isLive ? '#10b981' : (isCompleted ? '#059669' : '#5b5fc7')}; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; flex-shrink: 0;">
+            <i class="fas ${isLive ? 'fa-video' : (isCompleted ? 'fa-file-check' : 'fa-calendar-day')}"></i>
           </div>
 
           <div style="min-width: 0; flex: 1;">
@@ -303,7 +340,7 @@ const Meetings = {
           </div>
 
           <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <span style="font-size: 0.76rem; font-weight: 700; color: #5b5fc7; background: #e0e7ff; padding: 0.15rem 0.55rem; border-radius: 6px;">
+            <span style="font-size: 0.76rem; font-weight: 700; color: #5b5fc7; background: #e0e0ff; padding: 0.15rem 0.55rem; border-radius: 6px;">
               ${m.meeting_type || 'Genel Toplantı'}
             </span>
             ${statusBadgeHTML}
@@ -312,9 +349,7 @@ const Meetings = {
 
         <!-- RIGHT COLUMN: ACTION BUTTON & THREE DOTS POPOVER -->
         <div style="display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0;">
-          <a href="/prejoin/${m.meeting_code}" style="${buttonStyle} border-radius: 9px; font-weight: 800; font-size: 0.88rem; padding: 0.6rem 1.1rem; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s ease;">
-            <i class="fas ${buttonIcon}"></i> ${buttonText}
-          </a>
+          ${buttonActionHTML}
 
           <div style="position: relative; display: flex; align-items: center;">
             <button type="button" onclick="Meetings.toggleCardMenu(event, '${menuId}')" style="background: none; border: none; color: #64748b; font-size: 1.2rem; cursor: pointer; padding: 0.3rem 0.6rem; border-radius: 6px;" title="Seçenekler">
@@ -326,12 +361,17 @@ const Meetings = {
               <button type="button" class="teams-popover-item" onclick="Meetings.showMeetingInfo('${m.id}')">
                 <i class="fas fa-info-circle" style="color: #0ea5e9;"></i> Toplantı Bilgileri
               </button>
+              <a href="/reports/${m.id}" class="teams-popover-item" style="text-decoration: none; color: inherit;">
+                <i class="fas fa-file-contract" style="color: #10b981;"></i> Toplantı Raporu
+              </a>
+              ${!isCompleted ? `
               <button type="button" class="teams-popover-item" onclick="Meetings.openEditModal('${m.id}')">
                 <i class="fas fa-edit" style="color: #6366f1;"></i> Toplantı Düzenleme
               </button>
               <button type="button" class="teams-popover-item" onclick="Meetings.cancelMeeting('${m.id}')" style="color: #e11d48;">
                 <i class="fas fa-trash-alt" style="color: #e11d48;"></i> Toplantıyı İptal Et / Sil
               </button>
+              ` : ''}
             </div>
           </div>
         </div>
@@ -339,6 +379,7 @@ const Meetings = {
       </div>
     `;
   },
+
 
   bindEvents() {
     document.addEventListener('click', (e) => {

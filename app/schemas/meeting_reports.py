@@ -11,14 +11,6 @@ class ParticipantTimeSummary(BaseModel):
     total_active_minutes: float
     total_sessions: int
 
-class ReportActionOut(BaseModel):
-    id: UUID
-    title: str
-    description: Optional[str] = None
-    assigned_to_name: Optional[str] = None
-    due_date: Optional[date] = None
-    is_completed: bool
-
 class ReportNoteOut(BaseModel):
     id: UUID
     author_name: str
@@ -30,13 +22,14 @@ class MeetingReportOut(BaseModel):
     meeting_title: str
     meeting_code: str
     scheduled_start: datetime
-    actual_duration_minutes: float  # Toplantının toplam veya ilk oturumdan son oturuma geçen süresi
+    actual_start: Optional[datetime] = None
+    actual_end: Optional[datetime] = None
+    actual_duration_minutes: float
     total_participants_count: int
     total_notes_count: int
-    total_actions_count: int
-    
+    agenda: Optional[str] = None
+
     participants_summary: List[ParticipantTimeSummary]
     notes: List[ReportNoteOut]
-    actions: List[ReportActionOut]
 
     model_config = ConfigDict(from_attributes=True)

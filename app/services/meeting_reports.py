@@ -5,11 +5,9 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import Optional, List
-from app.models import meeting
 from app.models.meeting import Meeting
 from app.models.participant_session import ParticipantSession
 from app.models.meeting_note import MeetingNote
-from app.models.meeting_action import MeetingAction
 from app.models.user import User
 
 def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict]:
@@ -19,7 +17,7 @@ def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict
     if not meeting:
         return None
 
-    # 2. Katılımcı Oturum Sürelerini Hesapla (duration_seconds kolonu üzerinden)
+    # 2. Katılımcı Oturum Sürelerini Hesapla
     stmt_sessions = (
         select(
             User.id,
@@ -40,9 +38,7 @@ def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict
     
     for row in session_rows:
         seconds = int(row[4])
-        # Saniyeyi dakika formatına (float) dönüştürüyoruz
         active_minutes = round(seconds / 60.0, 2)
-        
         participants_summary.append({
             "user_id": row[0],
             "first_name": row[1],
@@ -53,7 +49,7 @@ def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict
         })
         total_meeting_seconds += seconds
 
-    # 3. Toplantı Notlarını Getir (content kolonunuza göre senkronize)
+    # 3. Toplantı Notlarını Getir
     stmt_notes = (
         select(MeetingNote)
         .where(MeetingNote.meeting_id == meeting_id)
@@ -70,36 +66,11 @@ def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict
         notes_summary.append({
             "id": note.id,
             "author_name": author_name,
-            "content": note.content,  # Sizin modelinizdeki "content" kolonu
+            "content": note.content,
             "created_at": note.created_at
         })
 
-    # 4. Toplantı Aksiyon Kararlarını Getir
-    stmt_actions = (
-        select(MeetingAction)
-        .where(MeetingAction.meeting_id == meeting_id)
-        .order_by(MeetingAction.created_at.asc())
-    )
-    actions_list = db.scalars(stmt_actions).all()
-    actions_summary = []
-    for action in actions_list:
-        assignee_name = None
-        if action.assigned_to:
-            assignee = db.get(User, action.assigned_to)
-            if assignee:
-                assignee_name = f"{assignee.first_name} {assignee.last_name}"
-        actions_summary.append({
-            "id": action.id,
-            "title": action.title,
-            "description": action.description,
-            "assigned_to_name": assignee_name,
-            "due_date": action.due_date,
-            "is_completed": action.is_completed
-        })
-
-    # 5. Rapor Sözlüğünü Birleştir
-    # Modelinizde start_time yoksa hasattr ile güvenli kontrol yapıyoruz, 
-    # start_time yoksa sırasıyla scheduled_start, start_date veya created_at alanını arayacaktır.
+    # 4. Başlangıç zamanını belirle
     scheduled_start_val = getattr(meeting, 'start_time', None)
     if scheduled_start_val is None:
         scheduled_start_val = getattr(meeting, 'scheduled_start', None)
@@ -123,12 +94,13 @@ def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict
         "meeting_type": getattr(meeting, 'meeting_type', 'Genel Toplantı'),
         "host_name": host_name,
         "scheduled_start": scheduled_start_val,
+        "actual_start": getattr(meeting, 'actual_start', None),
+        "actual_end": getattr(meeting, 'actual_end', None),
         "actual_duration_minutes": round(total_meeting_seconds / 60.0, 2),
         "total_participants_count": len(participants_summary),
         "total_notes_count": len(notes_summary),
-        "total_actions_count": len(actions_summary),
         "participants_summary": participants_summary,
         "notes": notes_summary,
-        "actions": actions_summary
     }
     return report_data
+

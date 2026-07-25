@@ -132,6 +132,9 @@
       await Prejoin.init();
 
       document.getElementById('btnProceedToRoom').addEventListener('click', () => {
+        if (typeof Prejoin !== 'undefined' && Prejoin.savePrejoinState) {
+          Prejoin.savePrejoinState();
+        }
         // Show waiting lobby transition or directly redirect to live room
         document.getElementById('prejoinSetupContainer').style.display = 'none';
         document.getElementById('waitingLobbyContainer').style.display = 'flex';

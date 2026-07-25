@@ -184,5 +184,13 @@ const Prejoin = {
         this.selectedSpeakerId = speakerSelect.value;
       });
     }
+  },
+
+  savePrejoinState() {
+    sessionStorage.setItem('meeting_cam_off', this.isCameraOff ? '1' : '0');
+    sessionStorage.setItem('meeting_mic_muted', this.isMicMuted ? '1' : '0');
+    if (this.selectedCamId) sessionStorage.setItem('meeting_cam_id', this.selectedCamId);
+    if (this.selectedMicId) sessionStorage.setItem('meeting_mic_id', this.selectedMicId);
   }
 };
+

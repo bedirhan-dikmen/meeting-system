@@ -160,6 +160,27 @@
   </div>
 </div>
 
+<!-- SECTION 3: COMPLETED / ARCHIVED MEETINGS SECTION -->
+<div style="margin-bottom: 2.5rem;">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+    <h2
+      style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.6rem;">
+      <span
+        style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: #d1fae5; color: #059669;">
+        <i class="fas fa-archive" style="font-size: 0.95rem;"></i>
+      </span>
+      Tamamlanan / Arşivlenen Toplantılar
+      <span id="completedCountBadge"
+        style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; font-size: 0.78rem; font-weight: 800; padding: 0.15rem 0.65rem; border-radius: 9999px;">0</span>
+    </h2>
+  </div>
+
+  <div id="completedMeetingsContainer" style="display: flex; flex-direction: column; gap: 0.85rem;">
+    <!-- Populated horizontally by JS -->
+  </div>
+</div>
+
+
 <!-- CREATE MEETING MODAL -->
 <div id="createMeetingModal" class="modal-backdrop">
   <div class="modal-card"

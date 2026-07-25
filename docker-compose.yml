@@ -12,19 +12,20 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U yebsoft_user -d meeting_system_prod"]
+      test: [ "CMD-SHELL", "pg_isready -U yebsoft_user -d meeting_system_prod" ]
       interval: 5s
       timeout: 5s
       retries: 5
 
   web:
+    image: meeting_system_api:latest
     build: .
     container_name: meeting_system_api
     restart: always
     ports:
       - "8000:8000"
     volumes:
-      - .:/workspace  # Lokal kod degisikliklerinin Docker icinde anlik yansımasını saglar
+      - .:/workspace # Lokal kod degisikliklerinin Docker icinde anlik yansımasını saglar
     environment:
       - DATABASE_URL=postgresql://yebsoft_user:YebsoftSecretPassword2026!@db:5432/meeting_system_prod
       - SECRET_KEY=yebsoft_super_secure_crypto_secret_key_2026_jwt
@@ -39,7 +40,6 @@ services:
       db:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload # Canli hot-reload aktif!
-
 
 volumes:
   postgres_data:
