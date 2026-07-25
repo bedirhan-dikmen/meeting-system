@@ -24,13 +24,25 @@ const Auth = {
   logout() {
     localStorage.removeItem('access_token');
     localStorage.removeItem('user_info');
-    window.location.href = '/login';
+    window.location.replace('/login');
   },
 
   requireAuth() {
+    const path = window.location.pathname;
+    const urlParams = new URLSearchParams(window.location.search);
+    const guestToken = urlParams.get('guest_token') || sessionStorage.getItem('guest_token');
+
+    // Misafir rotaları veya geçerli misafir token'ı var ise login'e yönlendirme yapma
+    if (path.startsWith('/guest/')) {
+      return;
+    }
+    if (guestToken && path.startsWith('/room/')) {
+      return;
+    }
+
     const token = this.getToken();
-    if (!token && window.location.pathname !== '/login') {
-      window.location.href = '/login';
+    if (!token && path !== '/login') {
+      window.location.replace('/login');
     }
   },
 
@@ -40,6 +52,27 @@ const Auth = {
       'Content-Type': 'application/json',
       'Authorization': token ? `Bearer ${token}` : ''
     };
+  },
+
+  async fetchWithAuth(url, options = {}) {
+    options.headers = options.headers || this.getAuthHeaders();
+    if (!options.headers['Authorization']) {
+      const token = this.getToken();
+      if (token) options.headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(url, options);
+    if (response.status === 401 && window.location.pathname !== '/login') {
+      const path = window.location.pathname;
+      const urlParams = new URLSearchParams(window.location.search);
+      const guestToken = urlParams.get('guest_token') || sessionStorage.getItem('guest_token');
+      if (path.startsWith('/guest/') || path.startsWith('/room/') || guestToken) {
+        return response;
+      }
+      console.warn("Oturum süresi doldu veya yetkisiz erişim (401). Giriş sayfasına yönlendiriliyor.");
+      this.logout();
+      throw new Error("Oturum süreniz doldu. Lütfen tekrar giriş yapın.");
+    }
+    return response;
   },
 
   initTheme() {

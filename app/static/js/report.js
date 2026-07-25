@@ -12,9 +12,7 @@ const Report = {
 
   async loadReport() {
     try {
-      const response = await fetch(`/api/v1/reports/meeting/${this.meetingId}`, {
-        headers: Auth.getAuthHeaders()
-      });
+      const response = await Auth.fetchWithAuth(`/api/v1/reports/meeting/${this.meetingId}`);
 
       if (!response.ok) {
         throw new Error("Toplantı katılım raporu yüklenemedi.");

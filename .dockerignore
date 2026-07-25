@@ -14,4 +14,3 @@ __pycache__/
 uploads/
 app/static/avatars/*
 !app/static/avatars/.gitkeep
-

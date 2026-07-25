@@ -80,6 +80,7 @@ const WebRTC = {
 
   async loadExistingNotes() {
     if (!this.meetingInfo?.id) return;
+    if (typeof Auth === 'undefined' || !Auth.getToken()) return;
     try {
       const res = await fetch(`/api/v1/notes/meeting/${this.meetingInfo.id}`, {
         headers: Auth.getAuthHeaders()
@@ -101,23 +102,70 @@ const WebRTC = {
 
   async fetchMeetingInfo() {
     try {
-      const response = await fetch(`/api/v1/meetings/code/${this.meetingCode}`, {
-        headers: Auth.getAuthHeaders()
-      });
-      if (response.ok) {
-        this.meetingInfo = await response.json();
+      const urlParams = new URLSearchParams(window.location.search);
+      const guestToken = urlParams.get('guest_token') || sessionStorage.getItem('guest_token');
 
-        if (typeof Auth !== 'undefined' && Auth.getCurrentUser) {
-          this.currentUser = Auth.getCurrentUser();
-        } else if (typeof Auth !== 'undefined' && Auth.getUser) {
-          this.currentUser = Auth.getUser();
+      let response;
+      if (guestToken) {
+        // Misafir jetonunu backend API üzerinden doğrula
+        const valRes = await fetch(`/api/v1/guest/validate?token=${encodeURIComponent(guestToken)}`);
+        if (!valRes.ok) {
+          console.warn("Misafir jetonu geçersiz veya süresi dolmuş.");
+          sessionStorage.removeItem('guest_token');
+          if (window.Notifications) {
+            Notifications.show("Misafir katılım jetonunuzun süresi dolmuş veya geçersiz.", "danger", "Yetkisiz Erişim");
+          }
+          setTimeout(() => {
+            window.location.replace(`/guest/${this.meetingCode}`);
+          }, 1000);
+          return;
         }
 
-        const isCreator = (this.currentUser && this.meetingInfo && String(this.meetingInfo.created_by) === String(this.currentUser.id));
-        const isAdmin = (this.currentUser && (this.currentUser.role === 'admin' || this.currentUser.is_superuser));
+        const payloadData = await valRes.json();
+        sessionStorage.setItem('guest_token', guestToken);
 
-        this.isHost = Boolean(isCreator || isAdmin);
+        response = await fetch(`/api/v1/guest/meeting/${this.meetingCode}`);
+        if (response.ok) {
+          this.meetingInfo = await response.json();
+          this.currentUser = {
+            id: payloadData.guest_id,
+            first_name: payloadData.guest_name,
+            last_name: '(Misafir)',
+            role: 'guest'
+          };
+          this.isHost = false;
+        }
+      } else {
+        const token = Auth.getToken();
+        if (!token) {
+          // Token veya misafir jetonu bulunmadığı için doğrudan misafir giriş sayfasına yönlendir
+          window.location.replace(`/guest/${this.meetingCode}`);
+          return;
+        }
 
+        response = await fetch(`/api/v1/meetings/code/${this.meetingCode}`, {
+          headers: Auth.getAuthHeaders()
+        });
+        if (response.ok) {
+          this.meetingInfo = await response.json();
+
+          if (typeof Auth !== 'undefined' && Auth.getCurrentUser) {
+            this.currentUser = Auth.getCurrentUser();
+          } else if (typeof Auth !== 'undefined' && Auth.getUser) {
+            this.currentUser = Auth.getUser();
+          }
+
+          const isCreator = (this.currentUser && this.meetingInfo && String(this.meetingInfo.created_by) === String(this.currentUser.id));
+          const isAdmin = (this.currentUser && (this.currentUser.role === 'admin' || this.currentUser.is_superuser));
+
+          this.isHost = Boolean(isCreator || isAdmin);
+        } else if (response.status === 401 || response.status === 403) {
+          window.location.replace('/login');
+          return;
+        }
+      }
+
+      if (this.meetingInfo) {
         const titleEl = document.getElementById('roomTitle');
         if (titleEl) titleEl.textContent = this.meetingInfo.title;
 
@@ -145,9 +193,18 @@ const WebRTC = {
   participantsMap: {}, // { userId: { id, name, avatar_url, role, isMicMuted, isCameraOff } }
 
   connectWebSocket() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const guestToken = urlParams.get('guest_token') || sessionStorage.getItem('guest_token');
     const token = Auth.getToken();
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/api/v1/signaling/ws/${this.meetingCode}?token=${token}`;
+    let wsUrl = '';
+
+    if (guestToken) {
+      wsUrl = `${protocol}//${window.location.host}/api/v1/signaling/ws/${this.meetingCode}?guest_token=${encodeURIComponent(guestToken)}`;
+    } else {
+      wsUrl = `${protocol}//${window.location.host}/api/v1/signaling/ws/${this.meetingCode}?token=${token}`;
+    }
 
     this.socket = new WebSocket(wsUrl);
 
@@ -172,7 +229,7 @@ const WebRTC = {
           id: this.currentUser?.id,
           name: myName,
           avatar_url: this.currentUser?.avatar_url,
-          role: this.isHost ? 'admin' : 'user'
+          role: this.isHost ? 'admin' : (this.currentUser?.role || 'user')
         }
       });
     };
@@ -190,8 +247,22 @@ const WebRTC = {
       this.updateConnectionBadge('reconnecting', 'Yeniden Bağlanıyor...');
     };
 
-    this.socket.onclose = () => {
+    this.socket.onclose = (event) => {
       this.updateConnectionBadge('offline', 'Bağlantı Kesildi');
+      if (event && (event.code === 1008 || event.code === 4001)) {
+        if (window.Notifications) {
+          Notifications.show("Toplantı oda erişim yetkiniz doğrulanamadı.", "danger", "Erişim Reddedildi");
+        }
+        setTimeout(() => {
+          const guestToken = sessionStorage.getItem('guest_token');
+          if (guestToken) {
+            sessionStorage.removeItem('guest_token');
+            window.location.replace(`/guest/${this.meetingCode}`);
+          } else {
+            window.location.replace('/login');
+          }
+        }, 1000);
+      }
     };
   },
 
@@ -376,6 +447,12 @@ const WebRTC = {
         }
         break;
 
+      case 'guest-join-request':
+        if (this.isHost && data.guest_id) {
+          this.showGuestApprovalDialog(data.guest_id, data.guest_name || 'Misafir Katılımcı');
+        }
+        break;
+
       case 'screen-share-request-response':
         if (data.target_id === this.currentUser?.id) {
           if (data.approved) {
@@ -437,6 +514,91 @@ const WebRTC = {
         window.location.href = `/reports/${this.meetingInfo?.id || ''}`;
         break;
     }
+  },
+
+  showGuestApprovalDialog(guestId, guestName) {
+    const existing = document.getElementById(`guestModal_${guestId}`);
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = `guestModal_${guestId}`;
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center; z-index: 99999;
+    `;
+    modal.innerHTML = `
+      <div style="background: #ffffff; border-radius: 20px; padding: 2rem; max-width: 440px; width: 90%; text-align: center; box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25); border: 1px solid #e2e8f0;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: #e0e7ff; color: #4f46e5; display: inline-flex; align-items: center; justify-content: center; font-size: 1.75rem; margin-bottom: 1.25rem; box-shadow: 0 8px 20px rgba(79, 70, 229, 0.25);">
+          <i class="fas fa-user-clock"></i>
+        </div>
+        <h3 style="margin: 0 0 0.5rem 0; font-size: 1.25rem; font-weight: 800; color: #0f172a;">Misafir Katılım Talebi</h3>
+        <p style="margin: 0 0 1.5rem 0; color: #64748b; font-size: 0.92rem; line-height: 1.5;">
+          <strong style="color: #4f46e5; font-weight: 800;">${guestName}</strong> adlı misafir kullanıcı toplantınıza katılmak için bekleme odasında onayınızı bekliyor.
+        </p>
+        <div style="display: flex; gap: 0.75rem; justify-content: center;">
+          <button onclick="WebRTC.respondToGuestRequest('${guestId}', false)" style="padding: 0.7rem 1.4rem; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 12px; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: all 0.2s;">Reddet</button>
+          <button onclick="WebRTC.respondToGuestRequest('${guestId}', true)" style="padding: 0.7rem 1.6rem; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; border-radius: 12px; font-weight: 700; font-size: 0.88rem; cursor: pointer; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35); transition: all 0.2s;">Kabul Et</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    if (window.Notifications) {
+      Notifications.show(`${guestName} katılım onayı bekliyor.`, 'info', 'Misafir Talebi');
+    }
+  },
+
+  respondToGuestRequest(guestId, approved) {
+    const modal = document.getElementById(`guestModal_${guestId}`);
+    if (modal) modal.remove();
+    this.sendSignal({
+      type: 'guest-join-response',
+      guest_id: guestId,
+      approved: approved
+    });
+    if (window.Notifications) {
+      Notifications.show(approved ? 'Misafir talebi kabul edildi.' : 'Misafir talebi reddedildi.', approved ? 'success' : 'warning');
+    }
+  },
+
+  showScreenShareApprovalDialog(requesterId, requesterName) {
+    const existing = document.getElementById(`screenShareModal_${requesterId}`);
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = `screenShareModal_${requesterId}`;
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center; z-index: 99999;
+    `;
+    modal.innerHTML = `
+      <div style="background: #ffffff; border-radius: 20px; padding: 2rem; max-width: 440px; width: 90%; text-align: center; box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25); border: 1px solid #e2e8f0;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: inline-flex; align-items: center; justify-content: center; font-size: 1.75rem; margin-bottom: 1.25rem;">
+          <i class="fas fa-desktop"></i>
+        </div>
+        <h3 style="margin: 0 0 0.5rem 0; font-size: 1.25rem; font-weight: 800; color: #0f172a;">Ekran Paylaşımı Talebi</h3>
+        <p style="margin: 0 0 1.5rem 0; color: #64748b; font-size: 0.92rem; line-height: 1.5;">
+          <strong style="color: #0284c7; font-weight: 800;">${requesterName}</strong> ekranını sunum yapmak üzere paylaşmak istiyor.
+        </p>
+        <div style="display: flex; gap: 0.75rem; justify-content: center;">
+          <button onclick="WebRTC.respondToScreenShareRequest('${requesterId}', false)" style="padding: 0.7rem 1.4rem; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 12px; font-weight: 700; font-size: 0.88rem; cursor: pointer;">Reddet</button>
+          <button onclick="WebRTC.respondToScreenShareRequest('${requesterId}', true)" style="padding: 0.7rem 1.6rem; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; border-radius: 12px; font-weight: 700; font-size: 0.88rem; cursor: pointer; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);">İzin Ver</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  respondToScreenShareRequest(requesterId, approved) {
+    const modal = document.getElementById(`screenShareModal_${requesterId}`);
+    if (modal) modal.remove();
+    this.sendSignal({
+      type: 'screen-share-request-response',
+      target_id: requesterId,
+      approved: approved
+    });
   },
 
   async processPendingCandidates(remoteUserId) {
@@ -1159,25 +1321,24 @@ const WebRTC = {
     }
     dialog.style.display = 'flex';
     dialog.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(6, 182, 212, 0.15); display: flex; align-items: center; justify-content: center; color: var(--accent-cyan);">
-          <i class="fas fa-desktop" style="font-size: 1.1rem;"></i>
-        </div>
-        <div>
-          <strong style="display: block; font-size: 0.9rem; color: #fff;">Ekran Paylaşımı İzin Talebi</strong>
-          <span style="font-size: 0.8rem; color: var(--text-secondary);">${requesterName} ekranını tüm katılımcılarla paylaşmak istiyor.</span>
-        </div>
+      <div class="approval-icon">
+        <i class="fas fa-desktop"></i>
       </div>
-      <div style="display: flex; gap: 0.5rem; margin-left: auto;">
-        <button onclick="WebRTC.respondToScreenShareRequest('${requesterId}', true)" class="btn btn-primary" style="padding: 0.45rem 0.9rem; font-size: 0.8rem; background: var(--accent-emerald); border: none;">
-          <i class="fas fa-check"></i> Onayla & İzin Ver
+      <div class="approval-body">
+        <strong>Ekran Paylaşımı İzin Talebi</strong>
+        <span>${requesterName} ekranını tüm katılımcılarla paylaşmak istiyor.</span>
+      </div>
+      <div class="approval-actions">
+        <button class="btn-approve" onclick="WebRTC.respondToScreenShareRequest('${requesterId}', true)">
+          <i class="fas fa-check"></i> Onayla
         </button>
-        <button onclick="WebRTC.respondToScreenShareRequest('${requesterId}', false)" class="btn btn-secondary" style="padding: 0.45rem 0.9rem; font-size: 0.8rem; background: rgba(255,255,255,0.1);">
+        <button class="btn-reject" onclick="WebRTC.respondToScreenShareRequest('${requesterId}', false)">
           <i class="fas fa-times"></i> Reddet
         </button>
       </div>
     `;
   },
+
 
   respondToScreenShareRequest(requesterId, approved) {
     const dialog = document.getElementById('screenShareApprovalToast');
@@ -1186,6 +1347,46 @@ const WebRTC = {
     this.sendSignal({
       type: 'screen-share-request-response',
       target_id: requesterId,
+      approved: approved
+    });
+  },
+
+  showGuestApprovalDialog(guestId, guestName) {
+    let dialog = document.getElementById('guestApprovalToast');
+    if (!dialog) {
+      dialog = document.createElement('div');
+      dialog.id = 'guestApprovalToast';
+      dialog.className = 'host-approval-toast';
+      document.body.appendChild(dialog);
+    }
+    dialog.style.display = 'flex';
+    dialog.innerHTML = `
+      <div class="approval-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+        <i class="fas fa-user-plus"></i>
+      </div>
+      <div class="approval-body">
+        <strong>Misafir Katılım Talebi</strong>
+        <span><b>${guestName}</b> toplantı odasına katılmak için onay bekliyor.</span>
+      </div>
+      <div class="approval-actions">
+        <button class="btn-approve" onclick="WebRTC.respondToGuestRequest('${guestId}', true)">
+          <i class="fas fa-check"></i> Kabul Et
+        </button>
+        <button class="btn-reject" onclick="WebRTC.respondToGuestRequest('${guestId}', false)">
+          <i class="fas fa-times"></i> Reddet
+        </button>
+      </div>
+    `;
+  },
+
+  respondToGuestRequest(guestId, approved) {
+    const dialog = document.getElementById('guestApprovalToast');
+    if (dialog) dialog.style.display = 'none';
+
+    this.sendSignal({
+      type: 'guest-join-response',
+      target_id: guestId,
+      guest_id: guestId,
       approved: approved
     });
   },

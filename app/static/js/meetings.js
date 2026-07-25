@@ -16,7 +16,7 @@ const Meetings = {
 
   async loadUsersAndDepartments() {
     try {
-      const resUsers = await fetch('/api/v1/users/', { headers: Auth.getAuthHeaders() });
+      const resUsers = await Auth.fetchWithAuth('/api/v1/users/');
       if (resUsers.ok) {
         this.allUsers = await resUsers.json();
         this.populateUserSelects();
@@ -102,7 +102,7 @@ const Meetings = {
     const term = (filterTerm || '').toLowerCase().trim();
 
     const filtered = (this.allUsers || []).filter(u => {
-      if (u.id === currentUserId) return false; // Oturumu açan kişiyi davetlilerden hariç tut
+      if (u.id === currentUserId) return false;
       if (!term) return true;
       const fullName = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
       const email = (u.email || '').toLowerCase();
@@ -137,9 +137,7 @@ const Meetings = {
 
   async loadMeetings() {
     try {
-      const response = await fetch('/api/v1/meetings/', {
-        headers: Auth.getAuthHeaders()
-      });
+      const response = await Auth.fetchWithAuth('/api/v1/meetings/');
 
       if (!response.ok) {
         throw new Error("Toplantılar yüklenemedi.");
@@ -149,9 +147,10 @@ const Meetings = {
       this.applyFilters();
     } catch (err) {
       console.error(err);
-      Notifications.show(err.message, 'danger', 'Hata');
+      if (Notifications) Notifications.show(err.message, 'danger', 'Hata');
     }
   },
+
 
   applyFilters() {
     const searchTitle = document.getElementById('filterSearch')?.value.toLowerCase().trim() || '';

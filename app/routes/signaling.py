@@ -4,6 +4,7 @@ import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends, status
 from sqlalchemy.orm import Session
 from uuid import UUID
+from typing import Optional
 from app.core.database import SessionLocal
 # Sizin security dosyanızda kesinlikle var olan get_current_user fonksiyonunu çağırıyoruz
 from app.core.security import get_current_user
@@ -23,25 +24,63 @@ def get_db():
 async def websocket_endpoint(
     websocket: WebSocket,
     meeting_code: str,
-    token: str = Query(..., description="Doğrulama için JWT access_token")
+    token: Optional[str] = Query(None, description="Kayıtlı kullanıcı JWT token'ı"),
+    guest_token: Optional[str] = Query(None, description="Misafir erişim token'ı")
 ):
-    # 1. Güvenlik Kontrolü: get_current_user fonksiyonunu veritabanı oturumu ve token ile tetikliyoruz
-    db = SessionLocal()
-    try:
-        # Mevcut security mimarinize doğrudan token string'ini geçiriyoruz
-        current_user = get_current_user(db=db, token=token)
-        if not current_user:
+    # ── Auth: JWT veya guest_token ───────────────────────────────────────────
+    is_guest = False
+    user_id_str = None
+    user_info = {}
+
+    if guest_token:
+        # Misafir yolu: HMAC token doğrula
+        from app.routes.guest import validate_guest_token
+        payload = validate_guest_token(guest_token)
+        if not payload or payload.get("meeting_code") != meeting_code:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
-    except Exception:
+        is_guest = True
+        user_id_str = payload["guest_id"]
+        guest_name = payload.get("guest_name", "Misafir")
+        user_info = {
+            "id": user_id_str,
+            "name": guest_name,
+            "email": "",
+            "role": "guest",
+            "avatar_url": None,
+            "isMicMuted": True,
+            "isCameraOff": True,
+            "is_guest": True,
+        }
+    elif token:
+        # Kayıtlı kullanıcı yolu: mevcut JWT doğrulama
+        db = SessionLocal()
+        try:
+            current_user = get_current_user(db=db, token=token)
+            if not current_user:
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                return
+        except Exception:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+        finally:
+            db.close()
+
+        user_id_str = str(current_user.id)
+        user_info = {
+            "id": user_id_str,
+            "name": f"{current_user.first_name or ''} {current_user.last_name or ''}".strip() or "Kullanıcı",
+            "email": current_user.email,
+            "role": current_user.role,
+            "avatar_url": getattr(current_user, 'avatar_url', None),
+            "isMicMuted": True,
+            "isCameraOff": True,
+        }
+    else:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
-    finally:
-        db.close()
 
-    user_id_str = str(current_user.id)
-
-    # 2. Toplantı Odası Kontrolü & Otomatik Başlatma Logu
+    # ── Toplantı kontrolü ────────────────────────────────────────────────────
     db = SessionLocal()
     meeting = db.query(Meeting).filter(Meeting.meeting_code == meeting_code).first()
 
@@ -50,57 +89,65 @@ async def websocket_endpoint(
         await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
         return
 
-    # Otomatik Başlatma: Statüyü ACTIVE yap
-    if meeting.status in ["planlandı", "taslak"]:
-        meeting.status = "ACTIVE"
-        if not meeting.actual_start:
-            meeting.actual_start = datetime.now(timezone.utc)
-        db.commit()
+    session_id = None
 
-    # Katılımcı Oturumu (ParticipantSession) ve Katılımcı Kaydı Başlat
-    from app.models.participant_session import ParticipantSession
-    from app.models.meeting_participant import MeetingParticipant
+    if not is_guest:
+        # Kayıtlı kullanıcı: oturum ve katılımcı kaydı
+        if meeting.status in ["planlandı", "taslak"]:
+            meeting.status = "ACTIVE"
+            if not meeting.actual_start:
+                meeting.actual_start = datetime.now(timezone.utc)
+            db.commit()
 
-    session_entry = ParticipantSession(
-        meeting_id=meeting.id,
-        user_id=current_user.id,
-        joined_at=datetime.now(timezone.utc)
-    )
-    db.add(session_entry)
+        from app.models.participant_session import ParticipantSession
+        from app.models.meeting_participant import MeetingParticipant
 
-    existing_p = db.query(MeetingParticipant).filter(
-        MeetingParticipant.meeting_id == meeting.id,
-        MeetingParticipant.user_id == current_user.id
-    ).first()
-    if not existing_p:
-        db.add(MeetingParticipant(
+        session_entry = ParticipantSession(
             meeting_id=meeting.id,
-            user_id=current_user.id,
-            role="host" if meeting.created_by == current_user.id else "participant",
-            status="joined"
-        ))
+            user_id=UUID(user_id_str),
+            joined_at=datetime.now(timezone.utc)
+        )
+        db.add(session_entry)
 
-    db.commit()
-    session_id = session_entry.id
+        existing_p = db.query(MeetingParticipant).filter(
+            MeetingParticipant.meeting_id == meeting.id,
+            MeetingParticipant.user_id == UUID(user_id_str)
+        ).first()
+        if not existing_p:
+            db.add(MeetingParticipant(
+                meeting_id=meeting.id,
+                user_id=UUID(user_id_str),
+                role="host" if meeting.created_by == UUID(user_id_str) else "participant",
+                status="joined"
+            ))
+
+        db.commit()
+        session_id = session_entry.id
+
     db.close()
 
-    user_info = {
-        "id": user_id_str,
-        "name": f"{current_user.first_name or ''} {current_user.last_name or ''}".strip() or "Kullanıcı",
-        "email": current_user.email,
-        "role": current_user.role,
-        "avatar_url": getattr(current_user, 'avatar_url', None),
-        "isMicMuted": True,
-        "isCameraOff": True
-    }
-
-    # 3. Bağlantıyı Kabul Et ve Odaya Kaydet
+    # ── WebSocket bağlantısını kur ───────────────────────────────────────────
     await signaling_manager.connect(
         meeting_code=meeting_code,
         user_id=user_id_str,
         websocket=websocket,
         user_info=user_info
     )
+
+    # Misafir: lobby_enabled varsa hemen host'a bildirim gönder
+    if is_guest and meeting.lobby_enabled:
+        # Sadece lobi bekleyicisine özel bir WS channel kurulacak —
+        # host'a bildirim gitmesi için broadcast yapılacak
+        await signaling_manager.broadcast_to_room(
+            meeting_code=meeting_code,
+            message={
+                "type": "guest-join-request",
+                "sender_id": user_id_str,
+                "guest_id": user_id_str,
+                "guest_name": user_info["name"],
+            },
+            exclude_user=user_id_str
+        )
 
     try:
         while True:

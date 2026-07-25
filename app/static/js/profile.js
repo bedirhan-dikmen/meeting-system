@@ -16,9 +16,7 @@ const ProfilePage = {
 
     try {
       try {
-        const res = await fetch('/api/v1/users/me/profile-overview', {
-          headers: Auth.getAuthHeaders()
-        });
+        const res = await Auth.fetchWithAuth('/api/v1/users/me/profile-overview');
 
         if (res.ok) {
           const data = await res.json();

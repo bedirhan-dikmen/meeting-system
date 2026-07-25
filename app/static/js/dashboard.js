@@ -13,9 +13,7 @@ const Dashboard = {
 
   async loadStats() {
     try {
-      const response = await fetch('/api/v1/dashboard/stats', {
-        headers: Auth.getAuthHeaders()
-      });
+      const response = await Auth.fetchWithAuth('/api/v1/dashboard/stats');
 
       if (!response.ok) {
         throw new Error("Dashboard istatistikleri çekilemedi.");
@@ -27,15 +25,13 @@ const Dashboard = {
       this.renderTopParticipants(stats.top_participants);
     } catch (err) {
       console.error(err);
-      Notifications.show(err.message, 'danger', 'Hata');
+      if (Notifications) Notifications.show(err.message, 'danger', 'Hata');
     }
   },
 
   async loadLiveMeetings() {
     try {
-      const res = await fetch('/api/v1/meetings/active/live', {
-        headers: Auth.getAuthHeaders()
-      });
+      const res = await Auth.fetchWithAuth('/api/v1/meetings/active/live');
       if (res.ok) {
         const meetings = await res.json();
         this.renderLiveMeetings(meetings);
@@ -44,6 +40,7 @@ const Dashboard = {
       console.warn("Canlı toplantılar çekilemedi:", e);
     }
   },
+
 
   renderLiveMeetings(meetings) {
     const section = document.getElementById('dashboardLiveMeetingsSection');

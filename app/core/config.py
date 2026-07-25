@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # Güvenlik Ayarları
     SECRET_KEY: str = "SecretKey123!?"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 Gün
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 Gün (1440 Dakika)
 
     model_config = SettingsConfigDict(
         env_file=".env",            # Proje kök dizinindeki .env dosyasını okur

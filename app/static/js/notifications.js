@@ -46,17 +46,29 @@ const Notifications = {
   },
 
   async fetchNotifications() {
+    // Oturum açmış kayıtlı bir kullanıcı token'ı yoksa (misafir vs.) bildirim çekme
+    if (typeof Auth === 'undefined' || !Auth.getToken()) {
+      return;
+    }
     try {
-      const response = await fetch('/api/v1/notifications/', {
-        headers: Auth.getAuthHeaders()
-      });
-      if (!response.ok) return;
+      const response = await Auth.fetchWithAuth('/api/v1/notifications/');
 
-      this.allNotifs = data;
-      const unreadCount = data.filter(n => !n.is_read).length;
-      
-      const badge = document.getElementById('notifBadgeCount');
-      if (badge) {
+      if (!response.ok) {
+        throw new Error("Bildirimler yüklenemedi.");
+      }
+
+      this.notifications = await response.json();
+      this.updateBadge();
+      this.renderDropdownList(this.notifications);
+    } catch (err) {
+      console.warn("Bildirimler yüklenirken hata oluştu:", err);
+    }
+  },
+
+  updateBadge() {
+    const unreadCount = this.notifications.filter(n => !n.is_read).length;
+    const badge = document.getElementById('notifBadgeCount');
+    if (badge) {
         if (unreadCount > 0) {
           badge.textContent = unreadCount;
           badge.style.display = 'flex';
@@ -64,11 +76,6 @@ const Notifications = {
           badge.style.display = 'none';
         }
       }
-
-      this.renderDropdownList(data);
-    } catch (err) {
-      console.warn("Bildirimler yüklenemedi:", err);
-    }
   },
 
   renderDropdownList(data) {
