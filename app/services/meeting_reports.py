@@ -10,6 +10,8 @@ from app.models.participant_session import ParticipantSession
 from app.models.meeting_note import MeetingNote
 from app.models.user import User
 
+from app.core.tz import get_tr_now
+
 def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict]:
     """Toplantıya ait tüm analitik verileri toplayıp rapor sözlüğü üretir."""
     # 1. Toplantıyı getir
@@ -77,7 +79,7 @@ def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict
     if scheduled_start_val is None:
         scheduled_start_val = getattr(meeting, 'start_date', None)
     if scheduled_start_val is None:
-        scheduled_start_val = getattr(meeting, 'created_at', datetime.now(timezone.utc))
+        scheduled_start_val = getattr(meeting, 'created_at', get_tr_now())
 
     host_name = "Bilinmeyen Düzenleyici"
     if getattr(meeting, 'created_by', None):

@@ -30,6 +30,19 @@ const Report = {
     }
   },
 
+  parseDate(dateStr) {
+    if (!dateStr) return new Date();
+    if (dateStr instanceof Date) return dateStr;
+    if (typeof dateStr === 'string') {
+      const cleanStr = dateStr.split('.')[0].replace('Z', '').replace(/[\+\-]\d{2}:\d{2}$/, '');
+      const parts = cleanStr.split(/[-T :]/).map(Number);
+      if (parts.length >= 5) {
+        return new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5] || 0);
+      }
+    }
+    return new Date(dateStr);
+  },
+
   renderReport(r) {
     const elTitle = document.getElementById('repTitle');
     const elCode = document.getElementById('repCode');
@@ -70,18 +83,18 @@ const Report = {
     const durationEl = document.getElementById('repMeetingDuration');
 
     if (r.actual_start) {
-      const start = new Date(r.actual_start);
+      const start = this.parseDate(r.actual_start);
       const startStr = start.toLocaleString('tr-TR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
       let rangeStr = startStr;
       if (r.actual_end) {
-        const end = new Date(r.actual_end);
+        const end = this.parseDate(r.actual_end);
         const endStr = end.toLocaleTimeString('tr-TR', { hour:'2-digit', minute:'2-digit' });
         rangeStr = `${startStr} – ${endStr}`;
       }
       if (timeRow) timeRow.style.display = 'block';
       if (timeRange) timeRange.textContent = rangeStr;
     } else if (r.scheduled_start) {
-      const start = new Date(r.scheduled_start);
+      const start = this.parseDate(r.scheduled_start);
       const startStr = start.toLocaleString('tr-TR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
       if (timeRow) timeRow.style.display = 'block';
       if (timeRange) timeRange.textContent = startStr + ' (Planlanan)';
@@ -102,7 +115,7 @@ const Report = {
         tableBody.innerHTML = r.participants_summary.map(p => `
           <tr style="border-bottom: 1px solid #e2e8f0;">
             <td style="padding: 0.75rem 1rem;"><strong>${p.first_name} ${p.last_name}</strong></td>
-            <td style="padding: 0.75rem 1rem; font-family: monospace; color: #0284c7;">${p.user_code || '-'}</td>
+            <td style="padding: 0.75rem 1rem; font-family: monospace; color: #5b5fc7;">${p.user_code || '-'}</td>
             <td style="padding: 0.75rem 1rem; font-weight: 600; color: #1e293b;">${p.total_active_minutes} Dakika</td>
           </tr>
         `).join('');
@@ -117,8 +130,8 @@ const Report = {
       } else {
         notesContainer.innerHTML = r.notes.map(n => `
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.85rem 1rem; border-radius: 6px;">
-            <div style="font-size: 0.78rem; font-weight: 700; color: #0284c7; margin-bottom: 0.25rem;">
-              Yayınlayan: ${n.author_name} • ${new Date(n.created_at).toLocaleTimeString('tr-TR')}
+            <div style="font-size: 0.78rem; font-weight: 700; color: #5b5fc7; margin-bottom: 0.25rem;">
+              Yayınlayan: ${n.author_name} • ${this.parseDate(n.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
             </div>
             <div style="font-size: 0.9rem; color: #1e293b; line-height: 1.4;">${n.content}</div>
           </div>

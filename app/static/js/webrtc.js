@@ -23,8 +23,19 @@ const WebRTC = {
   iceServers: {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' }
-    ]
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
+      { urls: 'stun:stun.cloudflare.com:3478' }
+    ],
+    iceCandidatePoolSize: 10
+  },
+
+  optimizeSDP(sdp) {
+    if (!sdp) return sdp;
+    // Low latency & high bitrate Opus HD audio setup (128 kbps, 48kHz, stereo hint)
+    return sdp.replace(/a=fmtp:111 (.*)/g, 'a=fmtp:111 $1;maxaveragebitrate=128000;stereo=1;sprop-stereo=1;cbr=0;usedtx=1');
   },
 
   pendingCandidates: {}, // { userId: [candidates] }
@@ -73,6 +84,8 @@ const WebRTC = {
     }
 
     this.renderLocalTile();
+    this.updateMicUI();
+    this.updateCameraUI();
     this.connectWebSocket();
     this.startTimer();
     this.bindRoomControls();
@@ -401,12 +414,16 @@ const WebRTC = {
           await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
           await this.processPendingCandidates(senderId);
           const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
+          const optAnswer = new RTCSessionDescription({
+            type: answer.type,
+            sdp: this.optimizeSDP(answer.sdp)
+          });
+          await pc.setLocalDescription(optAnswer);
 
           this.sendSignal({
             type: 'video-answer',
             target_id: senderId,
-            sdp: answer
+            sdp: optAnswer
           });
         }
         break;
@@ -454,10 +471,16 @@ const WebRTC = {
         break;
 
       case 'screen-share-request-response':
-        if (data.target_id === this.currentUser?.id) {
+        if (String(data.target_id) === String(this.currentUser?.id)) {
           if (data.approved) {
-            Notifications.show("Yönetici ekran paylaşımı talebinizi onayladı!", "success", "Ekran Paylaşımı İzni");
-            this.startScreenShareFlow();
+            this.approvedScreenShare = true;
+            Notifications.showAction(
+              "Yönetici ekran paylaşımı talebinizi onayladı! Ekranınızı seçip yayını başlatmak için butona tıklayın.",
+              "Ekranı Paylaş",
+              () => this.startScreenShareFlow(),
+              "success",
+              "Ekran Paylaşımı İzni"
+            );
           } else {
             Notifications.show("Yönetici ekran paylaşımı talebinizi reddetti.", "error", "Ekran Paylaşımı İzni");
           }
@@ -622,11 +645,15 @@ const WebRTC = {
     if (!pc) return;
     try {
       const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+      const optOffer = new RTCSessionDescription({
+        type: offer.type,
+        sdp: this.optimizeSDP(offer.sdp)
+      });
+      await pc.setLocalDescription(optOffer);
       this.sendSignal({
         type: 'video-offer',
         target_id: remoteUserId,
-        sdp: offer
+        sdp: optOffer
       });
     } catch (e) {
       console.warn(`[WebRTC] Yeniden müzakere (renegotiate) hatası (${remoteUserId}):`, e);
@@ -641,13 +668,11 @@ const WebRTC = {
 
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => {
-        if (track.kind === 'video' && this.isScreenSharing && this.screenTrack) {
-          pc.addTrack(this.screenTrack, this.localStream);
-        } else {
-          pc.addTrack(track, this.localStream);
-        }
+        pc.addTrack(track, this.localStream);
       });
-    } else if (this.isScreenSharing && this.screenTrack) {
+    }
+
+    if (this.isScreenSharing && this.screenTrack) {
       pc.addTrack(this.screenTrack);
     }
 
@@ -662,14 +687,6 @@ const WebRTC = {
       }
     }
 
-    // Eğer şu an ekran paylaşılıyorsa, video sender'ı ekran track'i ile güncelle
-    if (this.isScreenSharing && this.screenTrack) {
-      const videoSender = pc.getSenders().find(s => s.track?.kind === 'video' || s.kind === 'video');
-      if (videoSender) {
-        videoSender.replaceTrack(this.screenTrack).catch(e => console.warn("Ekran track yerleştirme uyarısı:", e));
-      }
-    }
-
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         this.sendSignal({
@@ -681,24 +698,50 @@ const WebRTC = {
     };
 
     pc.ontrack = (event) => {
-      console.log(`[WebRTC] Track alındı (${remoteUserId}):`, event.track.kind);
+      console.log(`[WebRTC] Track alındı (${remoteUserId}):`, event.track.kind, event.track.label);
       const remoteStream = event.streams[0] || new MediaStream([event.track]);
+
+      if (event.track.kind !== 'video') {
+        // Ses kanalı
+        this.peerStreams[remoteUserId] = remoteStream;
+        return;
+      }
+
+      const streamId = (event.streams[0]?.id || '').toLowerCase();
+      const trackLabel = (event.track?.label || '').toLowerCase();
+
+      // Ekran paylaşımı tespiti (Etikette/ID'de anahtar kelimeler veya aktif paylaşım yapan kullanıcı olması)
+      const isExplicitScreen = streamId.includes('screen') || streamId.includes('display') || 
+                               trackLabel.includes('screen') || trackLabel.includes('display') || 
+                               trackLabel.includes('window') || trackLabel.includes('monitor') || 
+                               trackLabel.includes('desktop') || trackLabel.includes('entire');
+
+      const isPresenter = (String(this.screenSharePresenterId) === String(remoteUserId));
+      const existingWebcamStream = this.peerStreams[remoteUserId];
+      const isSecondVideoStream = existingWebcamStream && existingWebcamStream.id !== remoteStream.id;
+
+      if (isPresenter || isExplicitScreen || isSecondVideoStream) {
+        console.log(`[WebRTC] Ekran paylaşımı akışı bağlandı (${remoteUserId})`);
+        const shareVid = document.getElementById('screenShareVideo');
+        if (shareVid) {
+          shareVid.srcObject = remoteStream;
+          shareVid.muted = (String(remoteUserId) === String(this.currentUser?.id));
+          shareVid.play().catch(e => console.warn('[WebRTC] Ekran paylaşımı oynatma hatası:', e));
+        }
+
+        const presenterName = this.participantsMap[remoteUserId]?.name || 'Katılımcı';
+        this.enableScreenShareLayout(presenterName, remoteStream);
+        return;
+      }
+
+      // Kamera/Mikrofon akışını katılımcı kartına bağla
       this.peerStreams[remoteUserId] = remoteStream;
 
-      if (event.track.kind === 'video' && this.participantsMap[remoteUserId]) {
+      if (this.participantsMap[remoteUserId]) {
         this.participantsMap[remoteUserId].isCameraOff = false;
       }
 
       this.renderRemoteTile(remoteUserId, remoteStream);
-
-      // Ekran paylaşımı sunucusu bu katılımcı ise paylaşım alanındaki videoyu güncelle
-      if (this.screenSharePresenterId === remoteUserId) {
-        const shareVid = document.getElementById('screenShareVideo');
-        if (shareVid) {
-          shareVid.srcObject = remoteStream;
-          shareVid.play().catch(e => console.warn('Ekran paylaşımı video oynatılamadı:', e));
-        }
-      }
     };
 
     // Connection state log
@@ -980,6 +1023,38 @@ const WebRTC = {
     if (tile) tile.remove();
   },
 
+  updateMicUI() {
+    const mainBtn = document.getElementById('btnRoomMicMain') || document.getElementById('btnRoomMic');
+    const mainIcon = document.getElementById('btnRoomMicIcon');
+    const micIcon = document.getElementById('localMicStatusIcon');
+
+    if (mainBtn) {
+      if (this.isMicMuted) {
+        mainBtn.classList.add('muted-off');
+      } else {
+        mainBtn.classList.remove('muted-off');
+      }
+    }
+    if (mainIcon) {
+      mainIcon.className = `fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}`;
+    }
+    if (micIcon) {
+      micIcon.className = `fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}`;
+      micIcon.style.color = this.isMicMuted ? 'var(--accent-rose)' : 'var(--accent-emerald)';
+    }
+
+    if (this.currentUser?.id && this.participantsMap[this.currentUser.id]) {
+      this.participantsMap[this.currentUser.id].isMicMuted = this.isMicMuted;
+      this.renderParticipantsList();
+    }
+
+    this.sendSignal({
+      type: 'user-state-update',
+      isMicMuted: this.isMicMuted,
+      isCameraOff: this.isCameraOff
+    });
+  },
+
   async toggleMic() {
     this.isMicMuted = !this.isMicMuted;
 
@@ -1026,21 +1101,44 @@ const WebRTC = {
       }
     }
 
-    const mainBtn = document.getElementById('btnRoomMicMain') || document.getElementById('btnRoomMic');
-    const mainIcon = document.getElementById('btnRoomMicIcon');
-    const micIcon = document.getElementById('localMicStatusIcon');
+    this.updateMicUI();
+  },
 
-    if (mainBtn) mainBtn.classList.toggle('muted-off', this.isMicMuted);
-    if (mainIcon) mainIcon.className = `fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}`;
-    if (micIcon) {
-      micIcon.className = `fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}`;
-      micIcon.style.color = this.isMicMuted ? 'var(--accent-rose)' : 'var(--accent-emerald)';
+  updateCameraUI() {
+    const mainBtn = document.getElementById('btnRoomCamMain') || document.getElementById('btnRoomCam');
+    const mainIcon = document.getElementById('btnRoomCamIcon');
+    const videoEl = document.getElementById('localVideo');
+    const avatarEl = document.getElementById('localAvatar');
+
+    if (mainBtn) {
+      if (this.isCameraOff) {
+        mainBtn.classList.add('muted-off');
+      } else {
+        mainBtn.classList.remove('muted-off');
+      }
     }
+    if (mainIcon) {
+      mainIcon.className = `fas ${this.isCameraOff ? 'fa-video-slash' : 'fa-video'}`;
+    }
+
+    if (videoEl) {
+      if (this.localStream && videoEl.srcObject !== this.localStream) {
+        videoEl.srcObject = this.localStream;
+      }
+      videoEl.style.display = this.isCameraOff ? 'none' : 'block';
+      if (!this.isCameraOff) {
+        videoEl.play().catch(e => console.warn("Lokal video oynatılamadı:", e));
+      }
+    }
+
+    if (avatarEl) avatarEl.style.display = this.isCameraOff ? 'flex' : 'none';
 
     if (this.currentUser?.id && this.participantsMap[this.currentUser.id]) {
-      this.participantsMap[this.currentUser.id].isMicMuted = this.isMicMuted;
+      this.participantsMap[this.currentUser.id].isCameraOff = this.isCameraOff;
       this.renderParticipantsList();
     }
+
+    this.reflowVideoGrid();
 
     this.sendSignal({
       type: 'user-state-update',
@@ -1095,38 +1193,7 @@ const WebRTC = {
       }
     }
 
-    const mainBtn = document.getElementById('btnRoomCamMain') || document.getElementById('btnRoomCam');
-    const mainIcon = document.getElementById('btnRoomCamIcon');
-    const videoEl = document.getElementById('localVideo');
-    const avatarEl = document.getElementById('localAvatar');
-
-    if (mainBtn) mainBtn.classList.toggle('muted-off', this.isCameraOff);
-    if (mainIcon) mainIcon.className = `fas ${this.isCameraOff ? 'fa-video-slash' : 'fa-video'}`;
-
-    if (videoEl) {
-      if (this.localStream && videoEl.srcObject !== this.localStream) {
-        videoEl.srcObject = this.localStream;
-      }
-      videoEl.style.display = this.isCameraOff ? 'none' : 'block';
-      if (!this.isCameraOff) {
-        videoEl.play().catch(e => console.warn("Lokal video oynatılamadı:", e));
-      }
-    }
-
-    if (avatarEl) avatarEl.style.display = this.isCameraOff ? 'flex' : 'none';
-
-    if (this.currentUser?.id && this.participantsMap[this.currentUser.id]) {
-      this.participantsMap[this.currentUser.id].isCameraOff = this.isCameraOff;
-      this.renderParticipantsList();
-    }
-
-    this.reflowVideoGrid();
-
-    this.sendSignal({
-      type: 'user-state-update',
-      isMicMuted: this.isMicMuted,
-      isCameraOff: this.isCameraOff
-    });
+    this.updateCameraUI();
   },
 
   async switchVideoDevice(deviceId) {
@@ -1227,20 +1294,20 @@ const WebRTC = {
 
   async toggleScreenShare() {
     if (this.isScreenSharing) {
-      this.stopScreenShare();
+      await this.stopScreenShare();
       return;
     }
 
     const fullName = `${this.currentUser?.first_name || ''} ${this.currentUser?.last_name || ''}`.trim() || 'Katılımcı';
 
     // 1. Eğer halihazırda başkası ekran paylaşıyorsa bilgi ver
-    if (this.screenSharePresenterId && this.screenSharePresenterId !== this.currentUser?.id) {
+    if (this.screenSharePresenterId && String(this.screenSharePresenterId) !== String(this.currentUser?.id)) {
       Notifications.show("Toplantıda aktif bir ekran paylaşımı bulunuyor. Aynı anda yalnızca tek bir paylaşım yapılabilir.", "warning", "Ekran Paylaşımı");
       return;
     }
 
-    // 2. Eğer kullanıcı Yönetici (Host) ise doğrudan paylaşımı başlatır
-    if (this.isHost) {
+    // 2. Eğer kullanıcı Yönetici (Host) ise VEYA izin onaylandıysa doğrudan paylaşımı başlatır
+    if (this.isHost || this.approvedScreenShare) {
       await this.startScreenShareFlow();
       return;
     }
@@ -1253,13 +1320,57 @@ const WebRTC = {
     Notifications.show("Toplantı yöneticisine ekran paylaşımı izin talebi gönderildi. Onay bekleniyor...", "info", "İzin İsteği Gönderildi");
   },
 
+  updateScreenShareButtonState(isSharing) {
+    const shareBtn = document.getElementById('btnScreenShare');
+    const shareText = document.getElementById('btnScreenShareText');
+    const shareIcon = document.getElementById('btnScreenShareIcon');
+
+    if (shareBtn) {
+      if (isSharing) {
+        shareBtn.style.background = '#fff1f2';
+        shareBtn.style.borderColor = '#fecdd3';
+        shareBtn.style.color = '#e11d48';
+      } else {
+        shareBtn.style.background = '';
+        shareBtn.style.borderColor = '';
+        shareBtn.style.color = '';
+      }
+    }
+    if (shareText) shareText.textContent = isSharing ? 'Paylaşımı Durdur' : 'Paylaş';
+    if (shareIcon) shareIcon.className = isSharing ? 'fas fa-circle-stop' : 'fas fa-arrow-up-from-bracket';
+  },
+
   async startScreenShareFlow() {
+    let screenStream = null;
     try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { cursor: 'always' },
-        audio: true
-      });
+      // 1. Ekran medya alımı denemesi (Standart W3C uyumlu getDisplayMedia)
+      try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true
+        });
+      } catch (audioErr) {
+        if (audioErr.name !== 'NotAllowedError' && audioErr.name !== 'AbortError') {
+          console.warn("[WebRTC] Sesli ekran paylaşımı alınamadı, sadece video ile deneniyor:", audioErr);
+          screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: true
+          });
+        } else {
+          throw audioErr;
+        }
+      }
+
+      if (!screenStream) return;
+
       this.screenTrack = screenStream.getVideoTracks()[0];
+      if (!this.screenTrack) {
+        throw new Error("Ekran video kanalı bulunamadı.");
+      }
+
+      // 60 FPS akıcılığı için hareket ipucu ekle
+      if ('contentHint' in this.screenTrack) {
+        this.screenTrack.contentHint = 'motion';
+      }
 
       const fullName = `${this.currentUser?.first_name || ''} ${this.currentUser?.last_name || ''}`.trim() || 'Siz';
       this.screenSharePresenterId = this.currentUser?.id;
@@ -1267,18 +1378,25 @@ const WebRTC = {
       // Önce yerel ekran düzenini aktif et
       this.enableScreenShareLayout(fullName, screenStream);
 
-      // Tüm akran bağlantılarında (peers) video track'ini ekran track'i ile değiştir veya ekle
+      // Tüm akran bağlantılarına (peers) kamera akışını bozmadan bağımsız ekran track'i ekle
       for (const [remoteUserId, pc] of Object.entries(this.peers)) {
         const senders = pc.getSenders();
-        let videoSender = senders.find(s => s.track?.kind === 'video');
-        if (!videoSender) {
-          videoSender = senders.find(s => !s.track || s.kind === 'video');
+        let screenSender = senders.find(s => s.track === this.screenTrack);
+        if (!screenSender) {
+          screenSender = pc.addTrack(this.screenTrack, screenStream);
         }
 
-        if (videoSender) {
-          await videoSender.replaceTrack(this.screenTrack);
-        } else {
-          pc.addTrack(this.screenTrack, screenStream);
+        if (screenSender) {
+          try {
+            const params = screenSender.getParameters() || {};
+            if (!params.encodings) params.encodings = [{}];
+            params.encodings[0].maxBitrate = 8000000; // 8 Mbps max bitrate for ultra-crisp 60 FPS 1080p/1440p
+            params.encodings[0].maxFramerate = 60;
+            params.degradationPreference = 'maintain-framerate'; // Maintain 60 FPS framerate over resolution drop
+            await screenSender.setParameters(params);
+          } catch (paramErr) {
+            console.warn("[WebRTC] Screen sender parametre ayarlama uyarısı:", paramErr);
+          }
         }
 
         // Bağlantı kararlıysa (stable) SDP yeniden müzakere et
@@ -1293,21 +1411,19 @@ const WebRTC = {
       });
 
       this.isScreenSharing = true;
-      const shareBtn = document.getElementById('btnScreenShare');
-      const shareText = document.getElementById('btnScreenShareText');
-      const shareIcon = document.getElementById('btnScreenShareIcon');
+      this.updateScreenShareButtonState(true);
 
-      if (shareBtn) {
-        shareBtn.style.background = '#fff1f2';
-        shareBtn.style.borderColor = '#fecdd3';
-        shareBtn.style.color = '#e11d48';
-      }
-      if (shareText) shareText.textContent = 'Paylaşımı Durdur';
-      if (shareIcon) shareIcon.className = 'fas fa-circle-stop';
-
+      // Tarayıcının üst menüsündeki "Paylaşımı Durdur" butonuna tıklandığında tetiklenir
       this.screenTrack.onended = () => this.stopScreenShare();
+
+      Notifications.show("Ekran paylaşımı başlatıldı.", "success", "Ekran Paylaşımı");
     } catch (e) {
-      console.warn("Ekran paylaşımı iptal edildi veya hata:", e);
+      if (e.name === 'NotAllowedError' || e.name === 'AbortError') {
+        Notifications.show("Ekran paylaşımı iptal edildi.", "info", "Ekran Paylaşımı");
+      } else {
+        console.error("Ekran paylaşımı hatası:", e);
+        Notifications.show(`Ekran paylaşımı başlatılamadı: ${e.message || 'Erişim reddedildi'}`, "error", "Ekran Paylaşımı Hatası");
+      }
     }
   },
 
@@ -1392,18 +1508,21 @@ const WebRTC = {
   },
 
   async stopScreenShare() {
-    if (this.screenTrack) {
-      this.screenTrack.stop();
+    const oldScreenTrack = this.screenTrack;
+    if (oldScreenTrack) {
+      oldScreenTrack.stop();
       this.screenTrack = null;
     }
 
-    const cameraTrack = (this.localStream && !this.isCameraOff) ? this.localStream.getVideoTracks()[0] : null;
-
     for (const [remoteUserId, pc] of Object.entries(this.peers)) {
       const senders = pc.getSenders();
-      const videoSender = senders.find(s => s.track?.kind === 'video' || s.kind === 'video');
-      if (videoSender) {
-        await videoSender.replaceTrack(cameraTrack || null);
+      const screenSender = senders.find(s => s.track === oldScreenTrack || (s.track && s.track.label.toLowerCase().includes('screen')));
+      if (screenSender) {
+        try {
+          pc.removeTrack(screenSender);
+        } catch (e) {
+          console.warn("Screen sender kaldırma uyarısı:", e);
+        }
       }
       if (pc.signalingState === 'stable') {
         await this.renegotiatePeer(remoteUserId);
@@ -1418,18 +1537,8 @@ const WebRTC = {
     this.sendSignal({ type: 'screen-share-stop' });
 
     this.isScreenSharing = false;
-
-    const shareBtn = document.getElementById('btnScreenShare');
-    const shareText = document.getElementById('btnScreenShareText');
-    const shareIcon = document.getElementById('btnScreenShareIcon');
-
-    if (shareBtn) {
-      shareBtn.style.background = '';
-      shareBtn.style.borderColor = '';
-      shareBtn.style.color = '';
-    }
-    if (shareText) shareText.textContent = 'Paylaş';
-    if (shareIcon) shareIcon.className = 'fas fa-arrow-up-from-bracket';
+    this.updateScreenShareButtonState(false);
+    Notifications.show("Ekran paylaşımı sonlandırıldı.", "info", "Ekran Paylaşımı");
   },
 
   toggleScreenShareFullscreen() {
@@ -1519,12 +1628,26 @@ const WebRTC = {
   },
 
   bindRoomControls() {
-    document.getElementById('btnRoomMic')?.addEventListener('click', () => this.toggleMic());
-    document.getElementById('btnRoomCam')?.addEventListener('click', () => this.toggleCamera());
-    document.getElementById('btnScreenShare')?.addEventListener('click', () => this.toggleScreenShare());
-    document.getElementById('btnLeaveRoom')?.addEventListener('click', () => this.leaveMeeting());
-    document.getElementById('btnEndMeetingHost')?.addEventListener('click', () => this.endMeeting());
-    document.getElementById('btnEndMeetingHostBar')?.addEventListener('click', () => this.endMeeting());
+    const micBtn = document.getElementById('btnRoomMicMain') || document.getElementById('btnRoomMic');
+    if (micBtn) {
+      micBtn.onclick = () => this.toggleMic();
+    }
+    const camBtn = document.getElementById('btnRoomCamMain') || document.getElementById('btnRoomCam');
+    if (camBtn) {
+      camBtn.onclick = () => this.toggleCamera();
+    }
+    const shareBtn = document.getElementById('btnScreenShare');
+    if (shareBtn) {
+      shareBtn.onclick = () => this.toggleScreenShare();
+    }
+    const leaveBtn = document.getElementById('btnLeaveRoom');
+    if (leaveBtn) {
+      leaveBtn.onclick = () => this.leaveMeeting();
+    }
+    const endHostBtn = document.getElementById('btnEndMeetingHost');
+    if (endHostBtn) {
+      endHostBtn.onclick = () => this.endMeeting();
+    }
   },
 
   reflowVideoGrid() {

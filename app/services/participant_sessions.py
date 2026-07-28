@@ -5,13 +5,14 @@ from uuid import UUID
 from datetime import datetime
 from typing import List, Optional
 from app.models.participant_session import ParticipantSession
+from app.core.tz import get_tr_now
 
 def create_session(db: Session, meeting_id: UUID, user_id: UUID) -> ParticipantSession:
     """Katılımcı odaya bağlandığında yeni bir canlı oturum (giriş logu) başlatır."""
     db_session = ParticipantSession(
         meeting_id=meeting_id,
         user_id=user_id,
-        joined_at=datetime.now(timezone.utc)
+        joined_at=get_tr_now()
     )
     db.add(db_session)
     db.commit()
@@ -24,7 +25,7 @@ def close_session(db: Session, session_id: UUID) -> Optional[ParticipantSession]
     if not db_session:
         return None
     
-    left_at = datetime.now(timezone.utc)
+    left_at = get_tr_now()
     db_session.left_at = left_at
     
     # Süre hesaplama (Saniye bazında)

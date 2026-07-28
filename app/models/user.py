@@ -5,6 +5,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.core.database import Base
 
+from app.core.tz import get_tr_now
+
 class User(Base):
     __tablename__ = "users"
 
@@ -17,7 +19,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), default="user", nullable=False) # Çift alan teke düşürüldü
     avatar_url: Mapped[str | None] = mapped_column(String, nullable=True) # Profil fotoğrafı static URL
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_tr_now, nullable=False)
 
 
 

@@ -6,9 +6,12 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import Optional
 from app.core.database import SessionLocal
+from app.core.tz import get_tr_now
 # Sizin security dosyanızda kesinlikle var olan get_current_user fonksiyonunu çağırıyoruz
 from app.core.security import get_current_user
 from app.models.meeting import Meeting
+from app.models.participant_session import ParticipantSession
+from app.models.meeting_participant import MeetingParticipant
 from app.services.signaling import signaling_manager
 
 router = APIRouter()
@@ -95,17 +98,14 @@ async def websocket_endpoint(
         # Kayıtlı kullanıcı: oturum ve katılımcı kaydı
         if meeting.status in ["planlandı", "taslak"]:
             meeting.status = "ACTIVE"
-            if not meeting.actual_start:
-                meeting.actual_start = datetime.now(timezone.utc)
+            if meeting.actual_start is None:
+                meeting.actual_start = get_tr_now()
             db.commit()
-
-        from app.models.participant_session import ParticipantSession
-        from app.models.meeting_participant import MeetingParticipant
 
         session_entry = ParticipantSession(
             meeting_id=meeting.id,
             user_id=UUID(user_id_str),
-            joined_at=datetime.now(timezone.utc)
+            joined_at=get_tr_now()
         )
         db.add(session_entry)
 
@@ -179,7 +179,7 @@ async def websocket_endpoint(
                 m_end = db_end.query(Meeting).filter(Meeting.meeting_code == meeting_code).first()
                 if m_end:
                     m_end.status = "tamamlandı"
-                    m_end.actual_end = datetime.now(timezone.utc)
+                    m_end.actual_end = get_tr_now()
                     db_end.commit()
                 db_end.close()
 
@@ -199,18 +199,17 @@ async def websocket_endpoint(
     except WebSocketDisconnect:
         await signaling_manager.disconnect(meeting_code=meeting_code, user_id=user_id_str)
         # Katılımcı Oturum Bitiş Logu
-        db_disc = SessionLocal()
-        s_entry = db_disc.query(ParticipantSession).filter(ParticipantSession.id == session_id).first()
-        if s_entry and not s_entry.left_at:
-            now_utc = datetime.now(timezone.utc)
-            s_entry.left_at = now_utc
-            joined = s_entry.joined_at
-            if joined:
-                if joined.tzinfo is None:
-                    joined = joined.replace(tzinfo=timezone.utc)
-                s_entry.duration_seconds = max(0, int((now_utc - joined).total_seconds()))
-            db_disc.commit()
-        db_disc.close()
+        if session_id:
+            db_disc = SessionLocal()
+            s_entry = db_disc.query(ParticipantSession).filter(ParticipantSession.id == session_id).first()
+            if s_entry and not s_entry.left_at:
+                now_tr = get_tr_now()
+                s_entry.left_at = now_tr
+                joined = s_entry.joined_at
+                if joined:
+                    s_entry.duration_seconds = max(0, int((now_tr - joined).total_seconds()))
+                db_disc.commit()
+            db_disc.close()
 
 
 @router.get("/ws-info", tags=["Canlı Sinyalleşme"])

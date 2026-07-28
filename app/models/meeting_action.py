@@ -6,6 +6,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.core.database import Base
 
+from app.core.tz import get_tr_now
+
 class MeetingAction(Base):
     __tablename__ = "meeting_actions"
 
@@ -15,7 +17,7 @@ class MeetingAction(Base):
     due_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_tr_now, nullable=False)
 
     title: Mapped[str] = mapped_column(String, nullable=False, index=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

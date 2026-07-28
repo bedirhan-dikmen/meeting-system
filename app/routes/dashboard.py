@@ -12,6 +12,8 @@ from app.models.meeting import Meeting
 from app.models.meeting_participant import MeetingParticipant
 from app.models.participant_session import ParticipantSession
 
+from app.core.tz import get_tr_now
+
 router = APIRouter(prefix="/dashboard", tags=["Dashboard Analitik"])
 
 @router.get("/stats")
@@ -22,7 +24,7 @@ def get_dashboard_stats(
     """
     Ana yönetim paneli (Dashboard) için 8 özet metrik ve 2 grafik verisini döndürür.
     """
-    now = datetime.now(timezone.utc)
+    now = get_tr_now()
     today_start = datetime(now.year, now.month, now.day)
     today_end = today_start + timedelta(days=1)
     month_start = datetime(now.year, now.month, 1)

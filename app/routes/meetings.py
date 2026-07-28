@@ -53,6 +53,63 @@ def read_active_live_meetings(
     ).all()
     return active_meetings
 
+@router.get("/past/history")
+def read_meeting_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Tüm geçmiş toplantı kayıtlarını detaylı analitik metrikleri ile döndürür."""
+    from app.models.meeting import Meeting
+    from app.models.participant_session import ParticipantSession
+    from app.models.meeting_note import MeetingNote
+    from app.models.meeting_action import MeetingAction
+    from app.models.user import User
+    from sqlalchemy import func
+
+    meetings = db.query(Meeting).filter(Meeting.status.in_(["tamamlandı", "completed"])).order_by(Meeting.created_at.desc()).all()
+    history_data = []
+
+    for m in meetings:
+        creator_name = "Yeb Soft"
+        if m.created_by:
+            creator = db.get(User, m.created_by)
+            if creator:
+                creator_name = f"{creator.first_name or ''} {creator.last_name or ''}".strip() or creator.email
+
+        sessions_count = db.query(func.count(ParticipantSession.id)).filter(ParticipantSession.meeting_id == m.id).scalar() or 0
+        notes_count = db.query(func.count(MeetingNote.id)).filter(MeetingNote.meeting_id == m.id).scalar() or 0
+        actions_count = db.query(func.count(MeetingAction.id)).filter(MeetingAction.meeting_id == m.id).scalar() or 0
+        
+        duration_minutes = 30
+        if m.actual_start and m.actual_end:
+            duration_minutes = max(1, int((m.actual_end - m.actual_start).total_seconds() / 60))
+        elif m.scheduled_start and m.scheduled_end:
+            duration_minutes = max(1, int((m.scheduled_end - m.scheduled_start).total_seconds() / 60))
+
+        history_data.append({
+            "id": str(m.id),
+            "meeting_code": m.meeting_code,
+            "title": m.title,
+            "description": m.description,
+            "meeting_type": m.meeting_type or "Genel Toplantı",
+            "status": m.status or "planlandı",
+            "scheduled_start": m.scheduled_start.isoformat() if m.scheduled_start else None,
+            "scheduled_end": m.scheduled_end.isoformat() if m.scheduled_end else None,
+            "actual_start": m.actual_start.isoformat() if m.actual_start else None,
+            "actual_end": m.actual_end.isoformat() if m.actual_end else None,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+            "created_by": str(m.created_by) if m.created_by else None,
+            "creator_name": creator_name,
+            "duration_minutes": duration_minutes,
+            "sessions_count": sessions_count,
+            "notes_count": notes_count,
+            "actions_count": actions_count,
+            "passcode": m.passcode,
+            "agenda": m.agenda
+        })
+
+    return history_data
+
 
 @router.get("/{meeting_id}", response_model=MeetingOut)
 def read_meeting(

@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Toplantı Geçmişi ve Arşivi | Yönetici Paneli{% endblock %}
+
+{% block content %}
+<div class="history-page-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+  
+  <!-- PAGE HEADER -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <h1 style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 0.6rem;">
+        <i class="fas fa-history" style="color: #6366f1;"></i> Toplantı Geçmişi & Arşivi
+      </h1>
+      <p style="font-size: 0.88rem; color: var(--text-muted); margin: 0.3rem 0 0 0;">
+        Sistem genelinde gerçekleştirilen ve tamamlanan tüm kurumsal toplantıların geçmiş kayıtlarını ve detaylı analitik verilerini inceleyin.
+      </p>
+    </div>
+    <div style="display: flex; gap: 0.6rem;">
+      <button onclick="History.refresh()" class="btn btn-secondary" style="border-radius: 9px; font-weight: 600;">
+        <i class="fas fa-sync-alt"></i> Yenile
+      </button>
+    </div>
+  </div>
+
+  <!-- STATS CARDS GRID -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+    <!-- Card 1: Toplam Tamamlanan -->
+    <div style="background: var(--bg-secondary, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 12px; padding: 1.1rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+      <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(16, 185, 129, 0.12); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+        <i class="fas fa-check-circle"></i>
+      </div>
+      <div>
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Tamamlanan Toplantı</div>
+        <div id="statCompletedCount" style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary);">0</div>
+      </div>
+    </div>
+
+    <!-- Card 2: Toplam Katılım Kaydı -->
+    <div style="background: var(--bg-secondary, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 12px; padding: 1.1rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+      <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(99, 102, 241, 0.12); color: #6366f1; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+        <i class="fas fa-users"></i>
+      </div>
+      <div>
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Toplam Katılım Kaydı</div>
+        <div id="statSessionsCount" style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary);">0</div>
+      </div>
+    </div>
+
+    <!-- Card 3: Toplam Toplantı Süresi -->
+    <div style="background: var(--bg-secondary, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 12px; padding: 1.1rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+      <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(245, 158, 11, 0.12); color: #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+        <i class="fas fa-hourglass-half"></i>
+      </div>
+      <div>
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Toplam Toplantı Süresi</div>
+        <div id="statTotalDuration" style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary);">0 dk</div>
+      </div>
+    </div>
+
+    <!-- Card 4: Toplam Not ve Aksiyon -->
+    <div style="background: var(--bg-secondary, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 12px; padding: 1.1rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+      <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(91, 95, 199, 0.12); color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+        <i class="fas fa-sticky-note"></i>
+      </div>
+      <div>
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Alınan Not / Aksiyon</div>
+        <div id="statNotesActionsCount" style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary);">0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILTER & SEARCH BAR -->
+  <div style="background: var(--bg-secondary, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 14px; padding: 1.1rem 1.4rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.03);">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: end;">
+      
+      <!-- Arama Input -->
+      <div>
+        <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Toplantı Ara</label>
+        <div style="position: relative;">
+          <i class="fas fa-search" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+          <input type="text" id="histSearchInput" oninput="History.applyFilters()" placeholder="Başlık veya kod ile ara..." class="form-control" style="padding-left: 2.2rem; border-radius: 8px;">
+        </div>
+      </div>
+
+      <!-- Başlangıç Tarihi -->
+      <div>
+        <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Başlangıç Tarihi</label>
+        <input type="date" id="histDateFrom" onchange="History.applyFilters()" class="form-control" style="border-radius: 8px;">
+      </div>
+
+      <!-- Bitiş Tarihi -->
+      <div>
+        <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Bitiş Tarihi</label>
+        <input type="date" id="histDateTo" onchange="History.applyFilters()" class="form-control" style="border-radius: 8px;">
+      </div>
+
+      <!-- Toplantı Türü -->
+      <div>
+        <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Toplantı Türü</label>
+        <select id="histTypeFilter" onchange="History.applyFilters()" class="form-control" style="border-radius: 8px;">
+          <option value="">Tümü</option>
+          <option value="Genel Toplantı">Genel Toplantı</option>
+          <option value="Günlük Toplantı">Günlük Toplantı</option>
+          <option value="Proje Toplantısı">Proje Toplantısı</option>
+          <option value="Eğitim">Eğitim</option>
+        </select>
+      </div>
+
+      <!-- Durum Filtresi -->
+      <div>
+        <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Toplantı Durumu</label>
+        <select id="histStatusFilter" onchange="History.applyFilters()" class="form-control" style="border-radius: 8px;">
+          <option value="">Tüm Geçmiş</option>
+          <option value="tamamlandı">Tamamlandı</option>
+        </select>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TABLE CONTAINER -->
+  <div style="background: var(--bg-secondary, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 14px; overflow: hidden; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+        <thead>
+          <tr style="background: var(--bg-tertiary, #f8fafc); border-bottom: 1px solid var(--border-color, #e2e8f0); color: var(--text-muted); font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+            <th style="padding: 1rem 1.25rem;">Oda Kodu</th>
+            <th style="padding: 1rem 1.25rem;">Toplantı Başlığı & Türü</th>
+            <th style="padding: 1rem 1.25rem;">Düzenleyici</th>
+            <th style="padding: 1rem 1.25rem;">Tarih & Saat (TSİ)</th>
+            <th style="padding: 1rem 1.25rem;">Süre</th>
+            <th style="padding: 1rem 1.25rem;">Katılım & Notlar</th>
+            <th style="padding: 1rem 1.25rem;">Durum</th>
+            <th style="padding: 1rem 1.25rem; text-align: right;">İşlemler</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBody">
+          <tr>
+            <td colspan="8" style="padding: 3rem; text-align: center; color: var(--text-muted);">
+              <i class="fas fa-spinner fa-spin" style="font-size: 1.8rem; color: #6366f1; margin-bottom: 0.5rem; display: block;"></i>
+              Geçmiş toplantı kayıtları yükleniyor...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- DETAY HIZLI İNCELEME MODALI -->
+<div id="historyDetailsModal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 1rem;">
+  <div style="background: var(--bg-secondary, #ffffff); border-radius: 16px; max-width: 580px; width: 100%; padding: 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.25); border: 1px solid var(--border-color, #e2e8f0);">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.85rem; margin-bottom: 1rem;">
+      <h3 id="histModalTitle" style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">Toplantı Detayı</h3>
+      <button onclick="History.closeModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+    </div>
+    
+    <div id="histModalBody" style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.9rem;">
+      <!-- İçerik JS tarafında dinamik doldurulur -->
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 1.2rem;">
+      <button onclick="History.closeModal()" class="btn btn-secondary" style="border-radius: 8px;">Kapat</button>
+      <a id="histModalReportBtn" href="#" class="btn btn-primary" style="border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem;">
+        <i class="fas fa-file-contract"></i> Tam Raporu Gör
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/history.js"></script>
+{% endblock %}

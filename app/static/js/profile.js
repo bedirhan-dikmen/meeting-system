@@ -83,8 +83,8 @@ const ProfilePage = {
       tbody.innerHTML = `
         <tr>
           <td colspan="7" style="padding: 2.5rem; text-align: center; color: var(--text-muted);">
-            <i class="fas fa-calendar-times" style="font-size: 2rem; margin-bottom: 0.5rem; display: block; opacity: 0.5;"></i>
-            Henüz katıldığınız veya oluşturduğunuz bir toplantı kaydı bulunmuyor.
+            <i class="fas fa-calendar-check" style="font-size: 2rem; margin-bottom: 0.5rem; display: block; opacity: 0.5; color: #5b5fc7;"></i>
+            Henüz katıldığınız ve tamamlanmış bir toplantı kaydı bulunmuyor.
           </td>
         </tr>
       `;
@@ -93,7 +93,19 @@ const ProfilePage = {
 
     tbody.innerHTML = meetings.map(m => {
       const dateStr = m.scheduled_start || m.created_at;
-      const formattedDate = dateStr ? new Date(dateStr).toLocaleString('tr-TR', {
+      let parsedDate = null;
+      if (dateStr && typeof dateStr === 'string') {
+        const cleanStr = dateStr.split('.')[0].replace('Z', '').replace(/[\+\-]\d{2}:\d{2}$/, '');
+        const parts = cleanStr.split(/[-T :]/).map(Number);
+        if (parts.length >= 5) {
+          parsedDate = new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5] || 0);
+        } else {
+          parsedDate = new Date(dateStr);
+        }
+      } else if (dateStr) {
+        parsedDate = new Date(dateStr);
+      }
+      const formattedDate = parsedDate ? parsedDate.toLocaleString('tr-TR', {
         day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
       }) : '-';
 
@@ -122,7 +134,7 @@ const ProfilePage = {
           <td style="padding: 1rem;">
             <strong style="color: var(--text-primary); font-size: 0.92rem;">${m.title}</strong>
           </td>
-          <td style="padding: 1rem; font-family: monospace; color: var(--accent-cyan); font-weight: 600;">
+          <td style="padding: 1rem; font-family: monospace; color: #5b5fc7; font-weight: 700;">
             ${m.meeting_code}
           </td>
           <td style="padding: 1rem; color: var(--text-secondary);">

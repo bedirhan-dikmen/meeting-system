@@ -1,4 +1,3 @@
-from datetime import timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -6,15 +5,17 @@ from datetime import datetime
 from typing import List, Optional
 from app.models.meeting_note import MeetingNote
 from app.schemas.meeting_notes import MeetingNoteCreate
+from app.core.tz import get_tr_now
 
 def create_note(db: Session, note_data: MeetingNoteCreate, author_id: UUID) -> MeetingNote:
     """Toplantı esnasında yeni bir anlık not kaydeder."""
+    now_tr = get_tr_now()
     db_note = MeetingNote(
         meeting_id=note_data.meeting_id,
         author_id=author_id,
         content=note_data.content,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc)
+        created_at=now_tr,
+        updated_at=now_tr
     )
     db.add(db_note)
     db.commit()

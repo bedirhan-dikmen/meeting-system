@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"
     crossorigin="anonymous">
   <!-- Main CSS -->
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/style.css?v=2.0">
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -29,7 +29,7 @@
       </div>
 
       <ul class="nav-menu">
-        <li id="navItemDashboard" style="display: none;">
+        <li id="navItemDashboard">
           <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">
             <i class="fas fa-chart-pie"></i>
             <span>Dashboard / Panel</span>
@@ -39,6 +39,12 @@
           <a href="/meetings" class="nav-link {% if request.url.path == '/meetings' %}active{% endif %}">
             <i class="fas fa-calendar-alt"></i>
             <span>Toplantılar</span>
+          </a>
+        </li>
+        <li id="navItemHistory">
+          <a href="/history" class="nav-link {% if request.url.path == '/history' %}active{% endif %}">
+            <i class="fas fa-history"></i>
+            <span>Toplantı Geçmişi</span>
           </a>
         </li>
         <li id="navItemProfile">
@@ -69,6 +75,12 @@
         </div>
 
         <div class="header-actions">
+          <!-- Türkiye Canlı Saat Rozeti (UTC+3) -->
+          <div id="trLiveClock" style="display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.85rem; background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.05) 100%); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 20px; font-size: 0.82rem; font-weight: 700; color: #6366f1; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);" title="Canlı Saat">
+            <i class="far fa-clock" style="color: #4f46e5; font-size: 0.9rem;"></i>
+            <span id="trLiveClockText">--:--:--</span>
+          </div>
+
           <!-- Notification Bell & Dropdown -->
           <div style="position: relative;">
             <button onclick="Notifications.toggleDropdown()" class="icon-btn" title="Bildirimler">
@@ -209,6 +221,23 @@
   <!-- Core Scripts -->
   <script src="/static/js/auth.js"></script>
   <script src="/static/js/notifications.js"></script>
+  <script>
+    function startTRLiveClock() {
+      function updateClock() {
+        const now = new Date();
+        const trNow = new Date(now.getTime() + (3 * 60 + now.getTimezoneOffset()) * 60 * 1000);
+        const pad = (n) => String(n).padStart(2, '0');
+        const timeStr = `${pad(trNow.getHours())}:${pad(trNow.getMinutes())}:${pad(trNow.getSeconds())}`;
+        const clockEl = document.getElementById('trLiveClockText');
+        if (clockEl) {
+          clockEl.textContent = timeStr;
+        }
+      }
+      updateClock();
+      setInterval(updateClock, 1000);
+    }
+    document.addEventListener('DOMContentLoaded', startTRLiveClock);
+  </script>
 
   {% block scripts %}{% endblock %}
 </body>

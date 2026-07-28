@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy import Column, String, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+from app.core.tz import get_tr_now
 
 class MeetingParticipant(Base):
     __tablename__ = "meeting_participants"
@@ -14,7 +15,7 @@ class MeetingParticipant(Base):
     role = Column(String, default="participant", nullable=False)  # moderator, participant
     status = Column(String, default="pending", nullable=False)  # pending, accepted, declined
     joined_at = Column(DateTime, nullable=True)
-    invited_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    invited_at = Column(DateTime, default=get_tr_now, nullable=False)
 
 
     # İlişkiler

@@ -54,7 +54,7 @@ const Meetings = {
       return;
     }
 
-    const start = new Date(startInput.value);
+    const start = this.parseDate(startInput.value);
     const durationMins = parseInt(durationSelect.value || '30', 10);
     const end = new Date(start.getTime() + durationMins * 60 * 1000);
 
@@ -253,20 +253,33 @@ const Meetings = {
     }
   },
 
+  parseDate(dateStr) {
+    if (!dateStr) return new Date();
+    if (dateStr instanceof Date) return dateStr;
+    if (typeof dateStr === 'string') {
+      const cleanStr = dateStr.split('.')[0].replace('Z', '').replace(/[\+\-]\d{2}:\d{2}$/, '');
+      const parts = cleanStr.split(/[-T :]/).map(Number);
+      if (parts.length >= 5) {
+        return new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5] || 0);
+      }
+    }
+    return new Date(dateStr);
+  },
+
   createMeetingCardHTML(m, meetingCategory) {
     const currentUser = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
     const isOrganizer = (currentUser && (currentUser.id === m.created_by || currentUser.role === 'admin'));
 
-    const startObj = new Date(m.scheduled_start);
+    const startObj = this.parseDate(m.scheduled_start);
     const duration = m.duration_minutes || 30;
-    const endObj = new Date(startObj.getTime() + duration * 60 * 1000);
+    const endObj = m.scheduled_end ? this.parseDate(m.scheduled_end) : new Date(startObj.getTime() + duration * 60 * 1000);
 
     const startTimeStr = startObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
     const endTimeStr = endObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
     const dateStr = startObj.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const timeRangeStr = `${startTimeStr} - ${endTimeStr} (${duration} dk)`;
 
-    const hostDisplayName = m.creator ? `${m.creator.first_name || ''} ${m.creator.last_name || ''}`.trim() : 'Yeb Soft';
+    const hostDisplayName = m.creator ? `${m.creator.first_name || ''} ${m.creator.last_name || ''}`.trim() : (m.creator_name || 'Yeb Soft');
     const menuId = `cardPopover_${m.id}`;
 
     // STATUS BADGE
@@ -276,7 +289,7 @@ const Meetings = {
     const isCompleted = meetingCategory === 'completed' || status === 'tamamlandı' || status === 'completed';
 
     if (isLive) {
-      statusBadgeHTML = `<span style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; font-size: 0.76rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 0.3rem;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; display: inline-block;"></span>Başladı (Canlı)</span>`;
+      statusBadgeHTML = `<span class="badge-status-live-pill"><span class="live-pulse-dot"></span> Başladı (Canlı)</span>`;
     } else if (isCompleted) {
       statusBadgeHTML = `<span style="background: #d1fae5; border: 1px solid #a7f3d0; color: #065f46; font-size: 0.76rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 9999px;"><i class="fas fa-check-circle"></i> Tamamlandı</span>`;
     } else if (status === 'iptal edildi') {
@@ -287,88 +300,142 @@ const Meetings = {
       statusBadgeHTML = `<span style="background: #e0f2fe; border: 1px solid #bae6fd; color: #0369a1; font-size: 0.76rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 9999px;"><i class="far fa-calendar-alt"></i> Planlandı</span>`;
     }
 
-    let buttonActionHTML = '';
-    if (isCompleted) {
-      buttonActionHTML = `
-        <a href="/reports/${m.id}" style="background: #0284c7; color: #ffffff; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25); border-radius: 9px; font-weight: 800; font-size: 0.88rem; padding: 0.6rem 1.1rem; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s ease;">
-          <i class="fas fa-file-contract"></i> Raporu Görüntüle
-        </a>
-      `;
-    } else {
-      const buttonStyle = isLive
-        ? 'background: linear-gradient(135deg, #5b5fc7 0%, #4f46e5 100%); color: #ffffff; box-shadow: 0 4px 14px rgba(91, 95, 199, 0.35);'
-        : 'background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;';
-      const buttonText = isLive ? 'Toplantıya Katıl' : 'Toplantıyı Başlat';
-      const buttonIcon = isLive ? 'fa-door-open' : 'fa-play';
+    const dayNum = startObj.getDate();
+    const monthNamesTr = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Ekim', 'Kas', 'Ara'];
+    const dayNamesTr = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+    const monthStr = monthNamesTr[startObj.getMonth()];
+    const dayNameTr = dayNamesTr[startObj.getDay()];
+    const teamsTimeStr = `${startTimeStr} - ${endTimeStr}, ${dayNameTr}`;
 
-      buttonActionHTML = `
-        <a href="/prejoin/${m.meeting_code}" style="${buttonStyle} border-radius: 9px; font-weight: 800; font-size: 0.88rem; padding: 0.6rem 1.1rem; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s ease;">
-          <i class="fas ${buttonIcon}"></i> ${buttonText}
-        </a>
+    // Helper: Toplantı türüne göre grafiklerle uyumlu dinamik badge üretme
+    const getTypeBadgeHTML = (meetingType) => {
+      const typeStr = meetingType || 'Genel Toplantı';
+      const t = typeStr.toLowerCase();
+      let badgeClass = 'badge-type-general';
+      
+      if (t.includes('planlı') || t.includes('planlanan')) badgeClass = 'badge-type-planned';
+      else if (t.includes('proje')) badgeClass = 'badge-type-project';
+      else if (t.includes('günlük') || t.includes('daily') || t.includes('standup')) badgeClass = 'badge-type-daily';
+      else if (t.includes('acil') || t.includes('özel') || t.includes('yönetim')) badgeClass = 'badge-type-urgent';
+
+      return `<span class="${badgeClass}"><i class="fas fa-tag"></i> ${typeStr}</span>`;
+    };
+
+    // 1. CANLI / AKTİF TOPLANTI KARTI (Microsoft Teams Birebir Düzen)
+    if (isLive) {
+      const activeCount = m.sessions_count || m.active_participants_count || m.current_participants || 1;
+      return `
+        <div class="meeting-card-teams">
+          
+          <!-- FAR LEFT: DATE BOX & VERTICAL DIVIDER BAR -->
+          <div class="teams-card-left-section">
+            <div class="teams-date-box">
+              <span class="teams-date-day">${dayNum}</span>
+              <span class="teams-date-month">${monthStr}</span>
+            </div>
+            <div class="teams-vertical-divider teams-divider-live"></div>
+
+            <!-- TITLE & INFO STACK -->
+            <div class="teams-card-info-stack">
+              <h4 class="teams-card-title teams-card-title-live" title="${m.title}">${m.title}</h4>
+              <p class="teams-card-time">${teamsTimeStr}</p>
+              <p class="teams-card-host">Yöneticisi: <strong>${hostDisplayName}</strong></p>
+            </div>
+          </div>
+
+          <!-- MIDDLE BADGES ROW -->
+          <div class="teams-card-middle-badges">
+            ${getTypeBadgeHTML(m.meeting_type)}
+            <span class="badge-status-live-pill"><span class="live-pulse-dot"></span> Başladı (Canlı)</span>
+            <span class="participant-instant-badge" title="Anlık Katılımcı Sayısı"><i class="fas fa-users"></i> ${activeCount}</span>
+          </div>
+
+          <!-- FAR RIGHT ACTIONS & MENU -->
+          <div class="teams-card-actions">
+            <a href="/prejoin/${m.meeting_code}" class="btn-teams-primary">
+              Katıl
+            </a>
+
+            <div style="position: relative; display: flex; align-items: center;">
+              <button type="button" onclick="Meetings.toggleCardMenu(event, '${menuId}')" class="card-menu-btn" title="Seçenekler">
+                <i class="fas fa-ellipsis-v"></i>
+              </button>
+
+              <!-- THREE DOTS DROPDOWN MENU -->
+              <div id="${menuId}" class="teams-dropdown-popover card-popover-menu" style="right: 0; top: 100%; width: 200px; z-index: 500;">
+                <button type="button" class="teams-popover-item" onclick="Meetings.showMeetingInfo('${m.id}')">
+                  <i class="fas fa-info-circle" style="color: #0f6cbd;"></i> Toplantı Bilgileri
+                </button>
+                <button type="button" class="teams-popover-item" onclick="Meetings.openEditModal('${m.id}')">
+                  <i class="fas fa-edit" style="color: #5b5fc7;"></i> Toplantı Düzenleme
+                </button>
+                <button type="button" class="teams-popover-item" onclick="Meetings.cancelMeeting('${m.id}')" style="color: #c4314b;">
+                  <i class="fas fa-trash-alt" style="color: #c4314b;"></i> Toplantıyı İptal Et / Sil
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
       `;
     }
 
+    // 2. PLANLANAN / PLANLI TOPLANTI KARTI (Microsoft Teams Birebir Düzen)
     return `
-      <div class="meeting-card-horizontal" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.1rem 1.4rem; display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: all 0.2s ease; position: relative;">
+      <div class="meeting-card-teams">
         
-        <!-- LEFT COLUMN: ICON, TITLE, HOST & DESCRIPTION PREVIEW -->
-        <div style="display: flex; align-items: center; gap: 1rem; min-width: 0; flex: 1.2;">
-          <div style="width: 44px; height: 44px; border-radius: 50%; background: ${isLive ? '#d1fae5' : (isCompleted ? '#f0fdf4' : '#e0e7ff')}; color: ${isLive ? '#10b981' : (isCompleted ? '#059669' : '#5b5fc7')}; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; flex-shrink: 0;">
-            <i class="fas ${isLive ? 'fa-video' : (isCompleted ? 'fa-file-check' : 'fa-calendar-day')}"></i>
+        <!-- FAR LEFT: DATE BOX & VERTICAL DIVIDER BAR -->
+        <div class="teams-card-left-section">
+          <div class="teams-date-box">
+            <span class="teams-date-day">${dayNum}</span>
+            <span class="teams-date-month">${monthStr}</span>
           </div>
+          <div class="teams-vertical-divider teams-divider-planned"></div>
 
-          <div style="min-width: 0; flex: 1;">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.2rem;">
-              <h4 style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${m.title}">${m.title}</h4>
-            </div>
-
-            <p style="font-size: 0.82rem; color: #64748b; margin: 0 0 0.2rem 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-              Yöneticisi: <strong style="color: #334155;">${hostDisplayName}</strong>
-            </p>
-
-            <p style="font-size: 0.8rem; color: #94a3b8; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${m.description || ''}">
-              ${m.description || 'Açıklama belirtilmedi.'}
-            </p>
+          <!-- TITLE & INFO STACK -->
+          <div class="teams-card-info-stack">
+            <h4 class="teams-card-title" title="${m.title}">${m.title}</h4>
+            <p class="teams-card-time">${teamsTimeStr}</p>
+            <p class="teams-card-host">Yöneticisi: <strong>${hostDisplayName}</strong></p>
           </div>
         </div>
 
-        <!-- MIDDLE COLUMN: TIMING, TYPE & STATUS BADGES -->
-        <div style="display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; flex: 1; min-width: 0;">
-          <div style="font-size: 0.84rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 0.4rem;">
-            <i class="far fa-clock" style="color: #5b5fc7;"></i> ${dateStr} • ${timeRangeStr}
-          </div>
-
-          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <span style="font-size: 0.76rem; font-weight: 700; color: #5b5fc7; background: #e0e0ff; padding: 0.15rem 0.55rem; border-radius: 6px;">
-              ${m.meeting_type || 'Genel Toplantı'}
-            </span>
-            ${statusBadgeHTML}
-          </div>
+        <!-- MIDDLE BADGES ROW -->
+        <div class="teams-card-middle-badges">
+          ${getTypeBadgeHTML(m.meeting_type)}
+          ${isCompleted 
+            ? `<span class="badge-status-completed-pill"><i class="fas fa-check-circle"></i> Tamamlandı</span>`
+            : `<span class="badge-status-planned-pill"><i class="far fa-calendar"></i> Planlandı</span>`}
         </div>
 
-        <!-- RIGHT COLUMN: ACTION BUTTON & THREE DOTS POPOVER -->
-        <div style="display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0;">
-          ${buttonActionHTML}
+        <!-- FAR RIGHT ACTIONS & MENU -->
+        <div class="teams-card-actions">
+          ${isCompleted ? `
+            <button type="button" onclick="Meetings.showMeetingInfo('${m.id}')" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 700; font-size: 0.82rem; padding: 0.5rem 0.95rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem;">
+              <i class="fas fa-info-circle"></i> Detaylar
+            </button>
+          ` : `
+            <a href="/prejoin/${m.meeting_code}" class="btn-teams-primary">
+              Katıl
+            </a>
+          `}
 
           <div style="position: relative; display: flex; align-items: center;">
-            <button type="button" onclick="Meetings.toggleCardMenu(event, '${menuId}')" style="background: none; border: none; color: #64748b; font-size: 1.2rem; cursor: pointer; padding: 0.3rem 0.6rem; border-radius: 6px;" title="Seçenekler">
+            <button type="button" onclick="Meetings.toggleCardMenu(event, '${menuId}')" class="card-menu-btn" title="Seçenekler">
               <i class="fas fa-ellipsis-v"></i>
             </button>
 
             <!-- THREE DOTS DROPDOWN MENU -->
-            <div id="${menuId}" class="teams-dropdown-popover card-popover-menu" style="right: 0; top: 100%; width: 210px; z-index: 500;">
+            <div id="${menuId}" class="teams-dropdown-popover card-popover-menu" style="right: 0; top: 100%; width: 200px; z-index: 500;">
               <button type="button" class="teams-popover-item" onclick="Meetings.showMeetingInfo('${m.id}')">
-                <i class="fas fa-info-circle" style="color: #0ea5e9;"></i> Toplantı Bilgileri
+                <i class="fas fa-info-circle" style="color: #0f6cbd;"></i> Toplantı Bilgileri
               </button>
-              <a href="/reports/${m.id}" class="teams-popover-item" style="text-decoration: none; color: inherit;">
-                <i class="fas fa-file-contract" style="color: #10b981;"></i> Toplantı Raporu
-              </a>
               ${!isCompleted ? `
               <button type="button" class="teams-popover-item" onclick="Meetings.openEditModal('${m.id}')">
-                <i class="fas fa-edit" style="color: #6366f1;"></i> Toplantı Düzenleme
+                <i class="fas fa-edit" style="color: #5b5fc7;"></i> Toplantı Düzenleme
               </button>
-              <button type="button" class="teams-popover-item" onclick="Meetings.cancelMeeting('${m.id}')" style="color: #e11d48;">
-                <i class="fas fa-trash-alt" style="color: #e11d48;"></i> Toplantıyı İptal Et / Sil
+              <button type="button" class="teams-popover-item" onclick="Meetings.cancelMeeting('${m.id}')" style="color: #c4314b;">
+                <i class="fas fa-trash-alt" style="color: #c4314b;"></i> Toplantıyı İptal Et / Sil
               </button>
               ` : ''}
             </div>
@@ -424,10 +491,10 @@ const Meetings = {
     this.selectedUserIds = [];
 
     const startInput = document.getElementById('createStart');
-    if (startInput && !startInput.value) {
+    if (startInput) {
       const now = new Date();
-      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-      startInput.value = now.toISOString().slice(0, 16);
+      const pad = (n) => String(n).padStart(2, '0');
+      startInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
     }
 
     this.updateCalculatedEndTime();
@@ -459,9 +526,9 @@ const Meetings = {
     if (!m) return;
 
     const hostName = m.creator ? `${m.creator.first_name || ''} ${m.creator.last_name || ''}`.trim() : 'Yeb Soft';
-    const startObj = new Date(m.scheduled_start);
+    const startObj = this.parseDate(m.scheduled_start);
     const duration = m.duration_minutes || 30;
-    const endObj = m.scheduled_end ? new Date(m.scheduled_end) : new Date(startObj.getTime() + duration * 60000);
+    const endObj = m.scheduled_end ? this.parseDate(m.scheduled_end) : new Date(startObj.getTime() + duration * 60000);
 
     const dateStr = startObj.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const startTimeStr = startObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -532,8 +599,13 @@ const Meetings = {
       return;
     }
 
-    const startDate = new Date(scheduledStart);
+    const pad = (n) => String(n).padStart(2, '0');
+    const parts = scheduledStart.split(/[-T :]/).map(Number);
+    const startDate = new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], 0);
     const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
+
+    const startISO = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}T${pad(startDate.getHours())}:${pad(startDate.getMinutes())}:00`;
+    const endISO = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}:00`;
 
     try {
       const res = await fetch('/api/v1/meetings/', {
@@ -542,8 +614,8 @@ const Meetings = {
         body: JSON.stringify({
           title,
           description,
-          scheduled_start: startDate.toISOString(),
-          scheduled_end: endDate.toISOString(),
+          scheduled_start: startISO,
+          scheduled_end: endISO,
           duration_minutes: durationMinutes,
           meeting_type: meetingType,
           agenda: agenda || null,

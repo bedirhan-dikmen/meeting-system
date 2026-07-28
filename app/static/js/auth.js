@@ -127,16 +127,14 @@ const Auth = {
     const user = this.getUser();
     if (!user) return;
 
-    const isAdmin = (user.role === 'admin' || user.role === 'manager' || user.role === 'host');
     const dashNavItem = document.getElementById('navItemDashboard');
+    const historyNavItem = document.getElementById('navItemHistory');
 
     if (dashNavItem) {
-      dashNavItem.style.display = isAdmin ? 'block' : 'none';
+      dashNavItem.style.display = 'block';
     }
-
-    // Sıradan katılımcılar ana sayfaya (Dashboard) girmek isterse doğrudan Toplantılarım sayfasına yönlendir
-    if (!isAdmin && window.location.pathname === '/') {
-      window.location.href = '/meetings';
+    if (historyNavItem) {
+      historyNavItem.style.display = 'block';
     }
   },
 

@@ -45,6 +45,48 @@ const Notifications = {
     }, 4000);
   },
 
+  showAction(message, buttonText, onButtonClick, type = 'success', title = 'İzin Onaylandı') {
+    if (!this.container) this.init();
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.style.cssText = 'display: flex; flex-direction: column; gap: 0.6rem; padding: 1rem; width: 320px; z-index: 9999; box-shadow: 0 10px 25px rgba(0,0,0,0.15); border-left: 4px solid #107c41;';
+
+    toast.innerHTML = `
+      <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+        <i class="fas fa-check-circle" style="font-size: 1.4rem; color: #107c41; margin-top: 0.15rem;"></i>
+        <div>
+          <strong style="display: block; font-size: 0.92rem; color: #0f172a;">${title}</strong>
+          <span style="font-size: 0.84rem; color: #475569; line-height: 1.3; display: block;">${message}</span>
+        </div>
+      </div>
+      <button id="toastActionBtn" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 6px; padding: 0.55rem 1rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem; transition: background 0.15s ease;">
+        <i class="fas fa-desktop"></i> ${buttonText}
+      </button>
+    `;
+
+    this.container.appendChild(toast);
+
+    const btn = toast.querySelector('button');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        toast.remove();
+        if (typeof onButtonClick === 'function') {
+          onButtonClick();
+        }
+      });
+    }
+
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        toast.style.transition = 'all 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }
+    }, 20000);
+  },
+
   async fetchNotifications() {
     // Oturum açmış kayıtlı bir kullanıcı token'ı yoksa (misafir vs.) bildirim çekme
     if (typeof Auth === 'undefined' || !Auth.getToken()) {

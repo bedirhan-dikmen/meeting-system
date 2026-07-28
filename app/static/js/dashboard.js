@@ -55,52 +55,75 @@ const Dashboard = {
 
     section.style.display = 'block';
     container.innerHTML = meetings.map(m => {
-      const hostName = m.creator ? `${m.creator.first_name || ''} ${m.creator.last_name || ''}`.trim() : 'Yeb Soft';
+      const hostName = m.creator ? `${m.creator.first_name || ''} ${m.creator.last_name || ''}`.trim() : (m.creator_name || 'Yeb Soft');
       const menuId = `dashCardPopover_${m.id}`;
+      const activeCount = m.sessions_count || m.active_participants_count || m.current_participants || 1;
+
+      const typeStr = m.meeting_type || 'Genel Toplantı';
+      const t = typeStr.toLowerCase();
+      let badgeClass = 'badge-type-general';
+      if (t.includes('planlı') || t.includes('planlanan')) badgeClass = 'badge-type-planned';
+      else if (t.includes('proje')) badgeClass = 'badge-type-project';
+      else if (t.includes('günlük') || t.includes('daily') || t.includes('standup')) badgeClass = 'badge-type-daily';
+      else if (t.includes('acil') || t.includes('özel') || t.includes('yönetim')) badgeClass = 'badge-type-urgent';
+
+      const now = new Date();
+      const dayNum = now.getDate();
+      const monthNamesTr = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Ekim', 'Kas', 'Ara'];
+      const dayNamesTr = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+      const monthStr = monthNamesTr[now.getMonth()];
+      const dayNameTr = dayNamesTr[now.getDay()];
 
       return `
-        <div class="meeting-card" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease; position: relative;">
+        <div class="meeting-card-teams">
           
-          <!-- TOP ROW: ROUND ICON & THREE DOTS POPOVER -->
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem;">
-            <div style="width: 44px; height: 44px; border-radius: 50%; background: #ecfdf5; color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; flex-shrink: 0;">
-              <i class="fas fa-video"></i>
+          <!-- FAR LEFT: DATE BOX & VERTICAL DIVIDER BAR -->
+          <div class="teams-card-left-section">
+            <div class="teams-date-box">
+              <span class="teams-date-day">${dayNum}</span>
+              <span class="teams-date-month">${monthStr}</span>
             </div>
-            
-            <div style="position: relative; display: flex; align-items: center;">
-              <button type="button" onclick="Dashboard.toggleCardMenu(event, '${menuId}')" style="background: none; border: none; color: #64748b; font-size: 1.2rem; cursor: pointer; padding: 0.2rem 0.5rem; border-radius: 6px;" title="Seçenekler">
-                <i class="fas fa-ellipsis-h"></i>
-              </button>
+            <div class="teams-vertical-divider teams-divider-live"></div>
 
-              <!-- THREE DOTS DROPDOWN MENU -->
-              <div id="${menuId}" class="teams-dropdown-popover card-popover-menu" style="right: 0; top: 100%; width: 210px; z-index: 500;">
-                <button type="button" class="teams-popover-item" onclick="Dashboard.showMeetingInfo('${m.id}')">
-                  <i class="fas fa-info-circle" style="color: #0ea5e9;"></i> Toplantı Bilgileri
-                </button>
-                <button type="button" class="teams-popover-item" onclick="Dashboard.openEditModal('${m.id}')">
-                  <i class="fas fa-edit" style="color: #6366f1;"></i> Toplantı Düzenleme
-                </button>
-                <button type="button" class="teams-popover-item" onclick="Dashboard.cancelMeeting('${m.id}')" style="color: #e11d48;">
-                  <i class="fas fa-trash-alt" style="color: #e11d48;"></i> Toplantıyı İptal Et / Sil
-                </button>
-              </div>
+            <!-- TITLE & INFO STACK -->
+            <div class="teams-card-info-stack">
+              <h4 class="teams-card-title teams-card-title-live" title="${m.title}">${m.title}</h4>
+              <p class="teams-card-time">Devam Eden Oturum, ${dayNameTr}</p>
+              <p class="teams-card-host">Yöneticisi: <strong>${hostName}</strong></p>
             </div>
           </div>
 
-          <!-- TITLE & CREATOR SUBTITLE -->
-          <h4 style="font-size: 1.05rem; font-weight: 800; color: #1e1e1e; margin: 0 0 0.25rem 0; line-height: 1.3;">${m.title}</h4>
-          <p style="font-size: 0.82rem; color: #64748b; margin: 0 0 1.25rem 0; font-weight: 500;">
-            Oluşturan: <strong style="color: #334155;">${hostName}</strong> • Canlı Oturum
-          </p>
+          <!-- MIDDLE BADGES ROW -->
+          <div class="teams-card-middle-badges">
+            <span class="${badgeClass}"><i class="fas fa-tag"></i> ${typeStr}</span>
+            <span class="badge-status-live-pill"><span class="live-pulse-dot"></span> Başladı (Canlı)</span>
+            <span class="participant-instant-badge" title="Anlık Katılımcı Sayısı"><i class="fas fa-users"></i> ${activeCount}</span>
+          </div>
 
-          <!-- DUAL ACTION BUTTONS -->
-          <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: auto;">
-            <a href="/prejoin/${m.meeting_code}" style="background: #059669; color: #ffffff; border-radius: 8px; font-weight: 700; font-size: 0.88rem; padding: 0.6rem 1rem; border: none; flex: 1; text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
-              <i class="fas fa-video"></i> Katıl
+          <!-- FAR RIGHT ACTIONS & MENU -->
+          <div class="teams-card-actions">
+            <a href="/prejoin/${m.meeting_code}" class="btn-teams-primary">
+              Katıl
             </a>
-            <button type="button" onclick="copyMeetingLink('${m.meeting_code}')" style="background: #f1f5f9; color: #1e1e1e; border-radius: 8px; font-weight: 700; font-size: 0.88rem; padding: 0.6rem 1rem; border: 1px solid #cbd5e1; flex: 1; text-align: center; cursor: pointer;">
-              Bağlantıyı paylaş
-            </button>
+
+            <div style="position: relative; display: flex; align-items: center;">
+              <button type="button" onclick="Dashboard.toggleCardMenu(event, '${menuId}')" class="card-menu-btn" title="Seçenekler">
+                <i class="fas fa-ellipsis-v"></i>
+              </button>
+
+              <!-- THREE DOTS DROPDOWN MENU -->
+              <div id="${menuId}" class="teams-dropdown-popover card-popover-menu" style="right: 0; top: 100%; width: 200px; z-index: 500;">
+                <button type="button" class="teams-popover-item" onclick="Dashboard.showMeetingInfo('${m.id}')">
+                  <i class="fas fa-info-circle" style="color: #0f6cbd;"></i> Toplantı Bilgileri
+                </button>
+                <button type="button" class="teams-popover-item" onclick="Dashboard.openEditModal('${m.id}')">
+                  <i class="fas fa-edit" style="color: #5b5fc7;"></i> Toplantı Düzenleme
+                </button>
+                <button type="button" class="teams-popover-item" onclick="Dashboard.cancelMeeting('${m.id}')" style="color: #c4314b;">
+                  <i class="fas fa-trash-alt" style="color: #c4314b;"></i> Toplantıyı İptal Et / Sil
+                </button>
+              </div>
+            </div>
           </div>
 
         </div>
@@ -127,7 +150,17 @@ const Dashboard = {
     const m = (this.liveMeetingsList || []).find(item => item.id === meetingId);
     if (!m) return;
     const hostName = m.creator ? `${m.creator.first_name || ''} ${m.creator.last_name || ''}`.trim() : 'Yeb Soft';
-    const startStr = new Date(m.scheduled_start).toLocaleString('tr-TR');
+    let startDate = new Date();
+    if (m.scheduled_start && typeof m.scheduled_start === 'string') {
+      const cleanStr = m.scheduled_start.split('.')[0].replace('Z', '').replace(/[\+\-]\d{2}:\d{2}$/, '');
+      const parts = cleanStr.split(/[-T :]/).map(Number);
+      if (parts.length >= 5) {
+        startDate = new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5] || 0);
+      } else {
+        startDate = new Date(m.scheduled_start);
+      }
+    }
+    const startStr = startDate.toLocaleString('tr-TR');
     const msg = `📍 Tür: ${m.meeting_type || 'Canlı Toplantı'}\n🔑 Oda Kodu: ${m.meeting_code}\n👤 Yöneticisi: ${hostName}\n📅 Başlangıç: ${startStr}\n🔒 Şifre: ${m.passcode || 'Yok'}\n📝 Gündem: ${m.agenda || m.description || 'Yok'}`;
 
     if (window.Notifications) {

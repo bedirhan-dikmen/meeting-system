@@ -19,6 +19,7 @@ from app.services.users import (
 )
 
 from datetime import datetime, timezone
+from app.core.tz import get_tr_now
 
 router = APIRouter()
 
@@ -39,17 +40,16 @@ def read_current_user_profile_overview(
     from app.models.meeting_participant import MeetingParticipant
     from app.models.participant_session import ParticipantSession
 
-    host_meetings = db.query(Meeting).filter(Meeting.created_by == current_user.id).all()
-    part_meeting_ids = db.query(MeetingParticipant.meeting_id).filter(MeetingParticipant.user_id == current_user.id).all()
-    part_ids = [m_id for (m_id,) in part_meeting_ids]
-    
-    session_meeting_ids = db.query(ParticipantSession.meeting_id).filter(ParticipantSession.user_id == current_user.id).all()
-    session_m_ids = [m_id for (m_id,) in session_meeting_ids]
+    session_meeting_ids = db.query(ParticipantSession.meeting_id).filter(
+        ParticipantSession.user_id == current_user.id
+    ).all()
+    session_m_ids = list(set([m_id for (m_id,) in session_meeting_ids]))
 
-    all_ids = list(set(part_ids + session_m_ids))
-    participant_meetings = db.query(Meeting).filter(Meeting.id.in_(all_ids)).all() if all_ids else []
+    attended_meetings = db.query(Meeting).filter(
+        Meeting.id.in_(session_m_ids)
+    ).all() if session_m_ids else []
 
-    all_user_meetings_dict = {m.id: m for m in (host_meetings + participant_meetings)}
+    all_user_meetings_dict = {m.id: m for m in attended_meetings}
     
     def get_sort_key(m):
         dt = m.created_at or m.scheduled_start
@@ -63,20 +63,13 @@ def read_current_user_profile_overview(
 
     sessions = db.query(ParticipantSession).filter(ParticipantSession.user_id == current_user.id).all()
     total_seconds = 0
-    now_utc = datetime.now(timezone.utc)
+    now_tr = get_tr_now()
     for s in sessions:
         if s.duration_seconds and s.duration_seconds > 0:
             total_seconds += s.duration_seconds
         elif s.joined_at:
             joined = s.joined_at
-            if joined.tzinfo is None:
-                joined = joined.replace(tzinfo=timezone.utc)
-            end_t = s.left_at
-            if end_t:
-                if end_t.tzinfo is None:
-                    end_t = end_t.replace(tzinfo=timezone.utc)
-            else:
-                end_t = now_utc
+            end_t = s.left_at or now_tr
             diff = max(0, int((end_t - joined).total_seconds()))
             total_seconds += diff
 
