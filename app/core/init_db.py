@@ -18,7 +18,6 @@ def init_db(db: Session) -> None:
                 last_name="Yönetici",
                 role="admin",
                 is_active=True,
-                is_superuser=True,
                 password_hash=get_password_hash("AdminPassword123!")
             )
             db.add(admin_user)
