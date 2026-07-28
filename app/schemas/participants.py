@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
@@ -6,20 +6,19 @@ from typing import Optional
 class MeetingParticipantBase(BaseModel):
     meeting_id: UUID = Field(..., description="Katılımcının ekleneceği toplantının UUID'si")
     user_id: UUID = Field(..., description="Davet edilen kullanıcının UUID'si")
-    role: str = Field(default="listener", description="Odadaki rolü (host, co_host, speaker, listener)")
+    role: Optional[str] = Field(default="participant", description="Odadaki rolü (moderator, host, co_host, speaker, participant, guest)")
 
 class MeetingParticipantCreate(MeetingParticipantBase):
     pass
 
 class MeetingParticipantUpdate(BaseModel):
-    role: Optional[str] = Field(None, description="Odadaki rolünü güncelle: host, co_host, speaker, listener")
-    status: Optional[str] = Field(None, description="Katılım durumunu güncelle: invited, joined, left, banned")
+    role: Optional[str] = Field(None, description="Odadaki rolünü güncelle: moderator, participant, guest")
+    status: Optional[str] = Field(None, description="Katılım durumunu güncelle: PENDING_APPROVAL, APPROVED, REJECTED, pending, accepted, declined, joined, left")
 
 class MeetingParticipantOut(MeetingParticipantBase):
     id: UUID
-    status: str
+    status: Optional[str] = "pending"
     joined_at: Optional[datetime] = None
-    left_at: Optional[datetime] = None
+    invited_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

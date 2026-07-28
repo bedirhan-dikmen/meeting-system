@@ -35,8 +35,22 @@ def _create_guest_token(meeting_code: str, guest_id: str, guest_name: str, ttl_s
     return f"{payload_b64}.{sig}"
 
 
+from jose import jwt, JWTError
+from app.core.security import create_guest_token as create_jwt_guest_token
+
 def validate_guest_token(token: str) -> Optional[dict]:
-    """Token'i doğrular. Geçerliyse payload dict döner, değilse None."""
+    """Token'i doğrular (JWT veya HMAC). Geçerliyse payload dict döner, değilse None."""
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("role") == "guest" or "guest_id" in payload or "guest_name" in payload:
+            if "guest_id" not in payload and "sub" in payload:
+                payload["guest_id"] = payload["sub"]
+            return payload
+    except JWTError:
+        pass
+
     try:
         payload_b64, sig = token.rsplit(".", 1)
         expected_sig = hmac.new(settings.SECRET_KEY.encode(), payload_b64.encode(), hashlib.sha256).hexdigest()
@@ -44,7 +58,7 @@ def validate_guest_token(token: str) -> Optional[dict]:
             return None
         payload = json.loads(base64.urlsafe_b64decode(payload_b64 + "=="))
         if payload.get("exp", 0) < int(time.time()):
-            return None  # Süresi dolmuş
+            return None
         return payload
     except Exception:
         return None
@@ -61,6 +75,7 @@ class GuestTokenRequest(BaseModel):
 class GuestTokenResponse(BaseModel):
     guest_token: str
     guest_id: str
+    guest_name: str
     meeting_title: str
     meeting_code: str
     lobby_enabled: bool
@@ -125,16 +140,20 @@ def create_guest_token(payload: GuestTokenRequest):
 
         # Geçici misafir ID üret
         guest_id = f"guest_{_uuid.uuid4().hex[:12]}"
+        guest_name_str = payload.guest_name.strip()
 
-        token = _create_guest_token(
-            meeting_code=str(meeting.meeting_code),
+        token = create_jwt_guest_token(
+            meeting_id=meeting.id,
+            guest_name=guest_name_str,
             guest_id=guest_id,
-            guest_name=payload.guest_name.strip(),
+            duration_minutes=240,
+            meeting_code=str(meeting.meeting_code)
         )
 
         return GuestTokenResponse(
             guest_token=token,
             guest_id=guest_id,
+            guest_name=guest_name_str,
             meeting_title=str(meeting.title),
             meeting_code=str(meeting.meeting_code),
             lobby_enabled=bool(meeting.lobby_enabled),
@@ -151,7 +170,7 @@ def validate_token_endpoint(token: str):
         raise HTTPException(status_code=401, detail="Geçersiz veya süresi dolmuş misafir token'ı.")
     return {
         "valid": True,
-        "guest_id": payload["guest_id"],
-        "guest_name": payload["guest_name"],
-        "meeting_code": payload["meeting_code"]
+        "guest_id": payload.get("guest_id") or payload.get("sub"),
+        "guest_name": payload.get("guest_name", "Misafir"),
+        "meeting_code": payload.get("meeting_code")
     }

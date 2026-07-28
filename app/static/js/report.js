@@ -12,7 +12,12 @@ const Report = {
 
   async loadReport() {
     try {
-      const response = await Auth.fetchWithAuth(`/api/v1/reports/meeting/${this.meetingId}`);
+      const guestToken = sessionStorage.getItem('guest_token');
+      const headers = guestToken
+        ? { 'Authorization': `Bearer ${guestToken}` }
+        : Auth.getAuthHeaders();
+
+      const response = await fetch(`/api/v1/reports/meeting/${this.meetingId}`, { headers });
 
       if (!response.ok) {
         throw new Error("Toplantı katılım raporu yüklenemedi.");
@@ -57,7 +62,26 @@ const Report = {
     if (elParticipantsCount) elParticipantsCount.textContent = `${r.total_participants_count || 0} Personel`;
     if (elNotesCount) elNotesCount.textContent = `${r.total_notes_count || 0} Not`;
 
-    // --- PRINT META: Düzenlenme Tarihi (her raporlamada o günün tarihi) ---
+    // --- YETKİ VE BUTON AYRIMI (Misafir vs Şirket Kullanıcısı) ---
+    const guestToken = sessionStorage.getItem('guest_token');
+    const isGuest = Boolean(guestToken) || !Auth.getToken();
+
+    const btnBack = document.getElementById('btnBackToMeetings');
+    const btnGuestExit = document.getElementById('btnGuestLogout');
+
+    if (isGuest) {
+      if (btnBack) btnBack.style.display = 'none';
+      if (btnGuestExit) btnGuestExit.style.display = 'inline-flex';
+
+      // Misafirin jetonunu bellekten sil — rapor yüklendikten sonra yetkisiz istek atamasın
+      sessionStorage.removeItem('guest_token');
+      localStorage.removeItem('guest_token');
+    } else {
+      if (btnBack) btnBack.style.display = 'inline-flex';
+      if (btnGuestExit) btnGuestExit.style.display = 'none';
+    }
+
+    // --- PRINT META: Düzenlenme Tarihi ---
     const printDate = document.getElementById('repPrintDate');
     if (printDate) {
       printDate.textContent = new Date().toLocaleDateString('tr-TR', {
@@ -65,15 +89,15 @@ const Report = {
       });
     }
 
-    // --- PRINT META: Raporlayan (oturumu açan kullanıcı) ---
+    // --- PRINT META: Raporlayan ---
     const reporterEl = document.getElementById('repReporterName');
     if (reporterEl) {
-      const user = Auth.getUser();
+      const user = isGuest ? null : Auth.getUser();
       if (user) {
         const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
         reporterEl.textContent = fullName || user.email || '-';
       } else {
-        reporterEl.textContent = '-';
+        reporterEl.textContent = 'Misafir Katılımcı';
       }
     }
 
@@ -148,6 +172,12 @@ const Report = {
     } else {
       if (agendaSection) agendaSection.style.display = 'none';
     }
+  },
+
+  guestExit() {
+    sessionStorage.clear();
+    localStorage.removeItem('guest_token');
+    window.location.replace('/login');
   },
 
   printReport() {

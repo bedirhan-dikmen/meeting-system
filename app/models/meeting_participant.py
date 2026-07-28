@@ -12,8 +12,8 @@ class MeetingParticipant(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     meeting_id = Column(UUID(as_uuid=True), ForeignKey("meetings.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    role = Column(String, default="participant", nullable=False)  # moderator, participant
-    status = Column(String, default="pending", nullable=False)  # pending, accepted, declined
+    role = Column(String, default="participant", nullable=False)  # moderator, participant, guest, host
+    status = Column(String, default="pending", nullable=False)  # pending, PENDING_APPROVAL, APPROVED, REJECTED, accepted, declined
     joined_at = Column(DateTime, nullable=True)
     invited_at = Column(DateTime, default=get_tr_now, nullable=False)
 

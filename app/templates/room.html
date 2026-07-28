@@ -123,10 +123,10 @@
               <button type="button" class="teams-popover-item" onclick="copyRoomLink()">
                 <i class="fas fa-link" style="color: #0ea5e9;"></i> Oda Bağlantısını Kopyala
               </button>
-              <button type="button" class="teams-popover-item" onclick="openRoomInviteModal()">
+              <button id="btnOptionInviteUser" type="button" class="teams-popover-item" onclick="openRoomInviteModal()">
                 <i class="fas fa-user-plus" style="color: #10b981;"></i> Odaya Katılımcı Davet Et
               </button>
-              <button type="button" class="teams-popover-item" onclick="openRoomSettingsModal()">
+              <button id="btnOptionEditSettings" type="button" class="teams-popover-item" onclick="openRoomSettingsModal()">
                 <i class="fas fa-sliders-h" style="color: #6366f1;"></i> Oda Ayarlarını Düzenle
               </button>
             </div>
@@ -676,7 +676,7 @@
         isCamOff
       );
 
-      if (WebRTC.isHost) {
+      if (typeof WebRTC !== 'undefined' && WebRTC.isUserHost()) {
         document.getElementById('btnEndMeetingHostPopover').style.display = 'flex';
       }
 
@@ -723,6 +723,10 @@
     let inviteSuccessCount = 0;
 
     function openRoomInvitePanel() {
+      if (typeof WebRTC !== 'undefined' && !WebRTC.isUserHost()) {
+        Notifications.show('Odaya katılımcı davet etme yetkisi yalnızca toplantı yöneticisine aittir.', 'warning', 'Yetkisiz İşlem');
+        return;
+      }
       document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
 
       // Link kutusunu doldur (Misafir katılım bağlantısı)
@@ -957,6 +961,10 @@
     }
 
     async function openRoomSettingsModal() {
+      if (typeof WebRTC !== 'undefined' && !WebRTC.isUserHost()) {
+        Notifications.show('Toplantı oda ayarlarını yalnızca toplantı yöneticisi düzenleyebilir.', 'warning', 'Yetkisiz İşlem');
+        return;
+      }
       document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
 
       const overlay = document.getElementById('roomSettingsOverlay');

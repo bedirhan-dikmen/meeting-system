@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, verify_meeting_access
 from app.models.user import User
 from app.schemas.meeting_actions import MeetingActionOut, MeetingActionCreate
 from app.services import meeting_actions as action_service
@@ -23,9 +23,9 @@ def create_meeting_action(
 def read_meeting_actions(
     meeting_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    access_claims: dict = Depends(verify_meeting_access)
 ):
-    """Bir toplantıdaki tüm aksiyon görevlerini listeler."""
+    """Bir toplantıdaki tüm aksiyon görevlerini listeler (Yetki sarmalayıcısı korumalı)."""
     return action_service.get_meeting_actions(db, meeting_id=meeting_id)
 
 @router.put("/{action_id}/status", response_model=MeetingActionOut)

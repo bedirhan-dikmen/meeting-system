@@ -36,15 +36,21 @@ async def websocket_endpoint(
     user_info = {}
 
     if guest_token:
-        # Misafir yolu: HMAC token doğrula
+        # Misafir yolu: HMAC / JWT token doğrula
         from app.routes.guest import validate_guest_token
         payload = validate_guest_token(guest_token)
-        if not payload or payload.get("meeting_code") != meeting_code:
+        if not payload:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
+
+        token_meeting_code = payload.get("meeting_code")
+        if token_meeting_code and token_meeting_code != meeting_code:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
         is_guest = True
-        user_id_str = payload["guest_id"]
-        guest_name = payload.get("guest_name", "Misafir")
+        user_id_str = payload.get("guest_id") or payload.get("sub")
+        guest_name = payload.get("guest_name", "Misafir Katılımcı")
         user_info = {
             "id": user_id_str,
             "name": guest_name,
@@ -134,21 +140,6 @@ async def websocket_endpoint(
         user_info=user_info
     )
 
-    # Misafir: lobby_enabled varsa hemen host'a bildirim gönder
-    if is_guest and meeting.lobby_enabled:
-        # Sadece lobi bekleyicisine özel bir WS channel kurulacak —
-        # host'a bildirim gitmesi için broadcast yapılacak
-        await signaling_manager.broadcast_to_room(
-            meeting_code=meeting_code,
-            message={
-                "type": "guest-join-request",
-                "sender_id": user_id_str,
-                "guest_id": user_id_str,
-                "guest_name": user_info["name"],
-            },
-            exclude_user=user_id_str
-        )
-
     try:
         while True:
             data_text = await websocket.receive_text()
@@ -172,6 +163,15 @@ async def websocket_endpoint(
             if data.get("type") == "screen-share-stop":
                 if meeting_code in signaling_manager.active_screen_shares:
                     del signaling_manager.active_screen_shares[meeting_code]
+
+            if data.get("type") == "guest-join-response":
+                if data.get("approved") is False and target_id:
+                    await signaling_manager.kick_user(meeting_code, target_id, reason="Rejected")
+                    continue
+
+            if data.get("type") == "host-kick" and target_id:
+                await signaling_manager.kick_user(meeting_code, target_id, reason="Kicked")
+                continue
 
             # Host toplantıyı bitirdiğinde DB güncellemesi
             if data.get("type") == "meeting-ended":

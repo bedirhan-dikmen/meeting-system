@@ -14,10 +14,14 @@
       aksiyonlar</p>
   </div>
   <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-    <a href="/meetings" class="btn"
+    <a id="btnBackToMeetings" href="/meetings" class="btn"
       style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; padding: 0.75rem 1.25rem; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem;">
       <i class="fas fa-arrow-left"></i> Toplantılara Dön
     </a>
+    <button id="btnGuestLogout" onclick="Report.guestExit()" class="btn"
+      style="display: none; background: #e11d48; border: none; color: #ffffff; padding: 0.75rem 1.25rem; border-radius: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer; align-items: center; gap: 0.5rem;">
+      <i class="fas fa-sign-out-alt"></i> Oturumu Kapat / Çıkış Yap
+    </button>
     <button onclick="Report.printReport()" class="btn-emerald">
       <i class="fas fa-file-pdf"></i> Raporu Yazdır / PDF İndir
     </button>

@@ -30,14 +30,16 @@ def invite_user(
     """
     return invite_user_to_meeting(db, participant_data=payload)
 
+from app.core.security import get_current_user, verify_meeting_access
+
 @router.get("/{meeting_id}", response_model=List[MeetingParticipantOut])
 def read_participants(
     meeting_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    access_claims: dict = Depends(verify_meeting_access)
 ):
     """
-    Belirli bir toplantıya ait tüm katılımcıların listesini getirir.
+    Belirli bir toplantıya ait tüm katılımcıların listesini getirir (Yetki sarmalayıcısı korumalı).
     """
     return get_meeting_participants(db, meeting_id=meeting_id)
 

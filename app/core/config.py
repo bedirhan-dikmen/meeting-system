@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     DB_POOL_SIZE: int = 20
     DB_MAX_OVERFLOW: int = 10
     DB_POOL_TIMEOUT: int = 30
-    DB_POOL_RECYCLE: int = 1800
+    DB_POOL_RECYCLE: int = 3600
 
     # Profil Resmi Upload Ayarları
     AVATAR_UPLOAD_DIR: str = "app/static/avatars"

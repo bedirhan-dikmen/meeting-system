@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from uuid import UUID
 from typing import Optional, List
@@ -38,7 +38,7 @@ class MeetingOut(BaseModel):
     title: str
     description: Optional[str] = None
     scheduled_start: datetime
-    scheduled_end: datetime
+    scheduled_end: Optional[datetime] = None
     actual_start: Optional[datetime] = None
     actual_end: Optional[datetime] = None
     meeting_code: str
@@ -46,11 +46,10 @@ class MeetingOut(BaseModel):
     agenda: Optional[str] = None
     status: Optional[str] = "planlandı"
     passcode: Optional[str] = None
-    lobby_enabled: bool = False
-    is_private: bool = False
-    is_active: bool
-    created_at: datetime
+    lobby_enabled: Optional[bool] = False
+    is_private: Optional[bool] = False
+    is_active: Optional[bool] = True
+    created_at: Optional[datetime] = None
     created_by: UUID
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

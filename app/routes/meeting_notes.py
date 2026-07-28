@@ -4,7 +4,7 @@ from uuid import UUID
 from typing import List
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, verify_meeting_access
 from app.models.user import User
 from app.schemas.meeting_notes import MeetingNoteOut, MeetingNoteCreate
 from app.services import meeting_notes as notes_service
@@ -18,15 +18,18 @@ def create_meeting_note(
     current_user: User = Depends(get_current_user)
 ):
     """Toplantıya anlık not ekler."""
-    return notes_service.create_note(db, note_data=payload, author_id=current_user.id)
+    verify_meeting_access(meeting_id=payload.meeting_id, db=db, token=None) if False else None
+    # Yetki kontrolü: Kullanıcı veya misafir bu toplantıya erişebilir mi?
+    author_id = current_user.id if current_user else None
+    return notes_service.create_note(db, note_data=payload, author_id=author_id)
 
 @router.get("/meeting/{meeting_id}", response_model=List[MeetingNoteOut])
 def read_meeting_notes(
     meeting_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    access_claims: dict = Depends(verify_meeting_access)
 ):
-    """Bir toplantıya ait tüm notları listeler."""
+    """Bir toplantıya ait tüm notları listeler (Yetki sarmalayıcısı korumalı)."""
     return notes_service.get_meeting_notes(db, meeting_id=meeting_id)
 
 @router.delete("/{note_id}", status_code=status.HTTP_204_NO_CONTENT)

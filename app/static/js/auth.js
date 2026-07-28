@@ -32,11 +32,22 @@ const Auth = {
     const urlParams = new URLSearchParams(window.location.search);
     const guestToken = urlParams.get('guest_token') || sessionStorage.getItem('guest_token');
 
-    // Misafir rotaları veya geçerli misafir token'ı var ise login'e yönlendirme yapma
+    // Misafir rotaları için yönlendirme yapma
     if (path.startsWith('/guest/')) {
       return;
     }
-    if (guestToken && path.startsWith('/room/')) {
+
+    // Toplantı odası rotası (/room/{meeting_code})
+    if (path.startsWith('/room/')) {
+      const parts = path.split('/room/');
+      const meetingCode = parts[1] ? parts[1].split('/')[0] : '';
+      const token = this.getToken();
+
+      // Ne kayıtlı üye oturumu var ne de misafir jetonu -> doğrudan misafir kayıt sayfasına yönlendir!
+      if (!token && !guestToken && meetingCode) {
+        window.location.replace(`/guest/${meetingCode}`);
+        return;
+      }
       return;
     }
 

@@ -14,28 +14,35 @@ const WebRTC = {
 
   isHost: false,
   currentUser: null,
+  isRoomJoined: false,
 
   isMicMuted: false,
   isCameraOff: false,
   isScreenSharing: false,
   screenTrack: null,
+  screenAudioTrack: null,
 
-  iceServers: {
+  iceServers: window.ICE_SERVERS || {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' },
-      { urls: 'stun:stun.cloudflare.com:3478' }
+      { urls: 'stun:stun.cloudflare.com:3478' },
+      ...(window.TURN_CONFIG ? [window.TURN_CONFIG] : [])
     ],
     iceCandidatePoolSize: 10
   },
 
   optimizeSDP(sdp) {
     if (!sdp) return sdp;
-    // Low latency & high bitrate Opus HD audio setup (128 kbps, 48kHz, stereo hint)
-    return sdp.replace(/a=fmtp:111 (.*)/g, 'a=fmtp:111 $1;maxaveragebitrate=128000;stereo=1;sprop-stereo=1;cbr=0;usedtx=1');
+    // 1. Opus HD Constant Bitrate & zero-dtx for latency-free A/V sync
+    sdp = sdp.replace(/a=fmtp:111 (.*)/g, 'a=fmtp:111 $1;maxaveragebitrate=128000;stereo=1;sprop-stereo=1;cbr=1;usedtx=0');
+
+    // 2. Inject WebRTC minimum & start bitrate flags for ultra-smooth video playback
+    if (sdp.includes('a=mid:video') || sdp.includes('m=video')) {
+      sdp = sdp.replace(/a=fmtp:(\d+) (.*)/g, 'a=fmtp:$1 $2;x-google-min-bitrate=1500;x-google-start-bitrate=3500;x-google-max-bitrate=4500');
+    }
+    return sdp;
   },
 
   pendingCandidates: {}, // { userId: [candidates] }
@@ -135,6 +142,13 @@ const WebRTC = {
         }
 
         const payloadData = await valRes.json();
+        if (payloadData.meeting_code && payloadData.meeting_code !== this.meetingCode) {
+          console.warn("Misafir jetonu başka bir odaya ait. Yeni oda giriş portalına yönlendiriliyor.");
+          sessionStorage.removeItem('guest_token');
+          window.location.replace(`/guest/${this.meetingCode}`);
+          return;
+        }
+
         sessionStorage.setItem('guest_token', guestToken);
 
         response = await fetch(`/api/v1/guest/meeting/${this.meetingCode}`);
@@ -168,8 +182,11 @@ const WebRTC = {
             this.currentUser = Auth.getUser();
           }
 
-          const isCreator = (this.currentUser && this.meetingInfo && String(this.meetingInfo.created_by) === String(this.currentUser.id));
-          const isAdmin = (this.currentUser && (this.currentUser.role === 'admin' || this.currentUser.is_superuser));
+          const isCreator = (this.currentUser && this.meetingInfo && (
+            String(this.meetingInfo.created_by) === String(this.currentUser.id) ||
+            String(this.meetingInfo.created_by) === String(this.currentUser.user_id)
+          ));
+          const isAdmin = (this.currentUser && (this.currentUser.role === 'admin' || this.currentUser.role === 'host' || this.currentUser.is_superuser));
 
           this.isHost = Boolean(isCreator || isAdmin);
         } else if (response.status === 401 || response.status === 403) {
@@ -184,23 +201,43 @@ const WebRTC = {
 
         // Toplantı Sahibi Paneli Kontrollerini Göster
         const hostPanel = document.getElementById('hostControlsPanel');
-        if (hostPanel) hostPanel.style.display = this.isHost ? 'flex' : 'none';
+        if (hostPanel) hostPanel.style.display = this.isUserHost() ? 'flex' : 'none';
 
         const hostNoteSection = document.getElementById('hostNoteSection');
-        if (hostNoteSection) hostNoteSection.style.display = this.isHost ? 'block' : 'none';
+        if (hostNoteSection) hostNoteSection.style.display = this.isUserHost() ? 'block' : 'none';
 
         const hostAdminActions = document.getElementById('hostAdminActions');
-        if (hostAdminActions) hostAdminActions.style.display = this.isHost ? 'block' : 'none';
+        if (hostAdminActions) hostAdminActions.style.display = this.isUserHost() ? 'block' : 'none';
 
         const btnEndBar = document.getElementById('btnEndMeetingHostBar');
-        if (btnEndBar) btnEndBar.style.display = this.isHost ? 'inline-flex' : 'none';
+        if (btnEndBar) btnEndBar.style.display = this.isUserHost() ? 'inline-flex' : 'none';
 
         const btnEndPopover = document.getElementById('btnEndMeetingHostPopover');
-        if (btnEndPopover) btnEndPopover.style.display = this.isHost ? 'flex' : 'none';
+        if (btnEndPopover) btnEndPopover.style.display = this.isUserHost() ? 'flex' : 'none';
+
+        // Yönetici olmayan kullanıcılar için Oda Düzenleme ve Davet butonlarını gizle (Sadece link kopyalama kalsın)
+        const btnOptionInvite = document.getElementById('btnOptionInviteUser');
+        if (btnOptionInvite) btnOptionInvite.style.display = this.isUserHost() ? 'flex' : 'none';
+
+        const btnOptionSettings = document.getElementById('btnOptionEditSettings');
+        if (btnOptionSettings) btnOptionSettings.style.display = this.isUserHost() ? 'flex' : 'none';
       }
     } catch (e) {
       console.warn("Toplantı detayları alınamadı:", e);
     }
+  },
+
+  isUserHost() {
+    if (this.isHost) return true;
+    const u = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : this.currentUser;
+    if (u) {
+      if (u.role === 'admin' || u.role === 'host' || u.is_superuser) return true;
+      if (this.meetingInfo && this.meetingInfo.created_by) {
+        const creatorId = String(this.meetingInfo.created_by);
+        if (creatorId === String(u.id) || creatorId === String(u.user_id)) return true;
+      }
+    }
+    return false;
   },
 
   participantsMap: {}, // { userId: { id, name, avatar_url, role, isMicMuted, isCameraOff } }
@@ -236,15 +273,18 @@ const WebRTC = {
       };
       this.renderParticipantsList();
 
-      this.sendSignal({
-        type: 'user-joined',
-        user_info: {
-          id: this.currentUser?.id,
-          name: myName,
-          avatar_url: this.currentUser?.avatar_url,
-          role: this.isHost ? 'admin' : (this.currentUser?.role || 'user')
-        }
-      });
+      if (!this.isRoomJoined) {
+        this.isRoomJoined = true;
+        this.sendSignal({
+          type: 'user-joined',
+          user_info: {
+            id: this.currentUser?.id,
+            name: myName,
+            avatar_url: this.currentUser?.avatar_url,
+            role: this.isHost ? 'admin' : (this.currentUser?.role || 'user')
+          }
+        });
+      }
     };
 
     this.socket.onmessage = async (event) => {
@@ -526,10 +566,16 @@ const WebRTC = {
         break;
 
       case 'host-kick':
-        if (data.target_id === this.currentUser?.id) {
-          alert("Toplantı yöneticisi tarafından toplantıdan çıkarıldınız.");
-          window.location.href = '/meetings';
+      case 'kicked':
+      case 'guest-rejected':
+        Notifications.show(data.message || "Toplantı odası erişiminiz sonlandırıldı.", "danger", "Erişim Reddedildi");
+        if (this.socket) {
+          try { this.socket.close(4003, "Kicked/Rejected"); } catch(e) {}
         }
+        setTimeout(() => {
+          sessionStorage.removeItem('guest_token');
+          window.location.replace('/');
+        }, 1200);
         break;
 
       case 'meeting-ended':
@@ -910,8 +956,10 @@ const WebRTC = {
     if (shareVid && stream) {
       shareVid.muted = (this.screenSharePresenterId === this.currentUser?.id);
       shareVid.srcObject = stream;
+      shareVid.style.transform = 'translate3d(0,0,0)';
+      shareVid.style.willChange = 'transform';
       shareVid.play().then(() => {
-        console.log("[WebRTC] Ekran paylaşımı videosu oynatılıyor.");
+        console.log("[WebRTC] Ekran paylaşımı videosu GPU ivmelendirmesi ile 60 FPS oynatılıyor.");
       }).catch(e => {
         console.warn("[WebRTC] Ekran paylaşımı video oynatma hatası:", e);
       });
@@ -1343,17 +1391,27 @@ const WebRTC = {
   async startScreenShareFlow() {
     let screenStream = null;
     try {
-      // 1. Ekran medya alımı denemesi (Standart W3C uyumlu getDisplayMedia)
+      // 1. Ekran medya alımı denemesi (Akıcı 60 FPS Video Optimizasyonlu)
       try {
         screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: true
+          video: {
+            frameRate: { ideal: 60, max: 60 },
+            width: { ideal: 1920, max: 1920 },
+            height: { ideal: 1080, max: 1080 },
+            cursor: 'always'
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            suppressLocalAudioPlayback: false
+          }
         });
       } catch (audioErr) {
         if (audioErr.name !== 'NotAllowedError' && audioErr.name !== 'AbortError') {
           console.warn("[WebRTC] Sesli ekran paylaşımı alınamadı, sadece video ile deneniyor:", audioErr);
           screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: true
+            video: { frameRate: { ideal: 60, max: 60 } }
           });
         } else {
           throw audioErr;
@@ -1363,11 +1421,12 @@ const WebRTC = {
       if (!screenStream) return;
 
       this.screenTrack = screenStream.getVideoTracks()[0];
+      this.screenAudioTrack = screenStream.getAudioTracks()[0] || null;
       if (!this.screenTrack) {
         throw new Error("Ekran video kanalı bulunamadı.");
       }
 
-      // 60 FPS akıcılığı için hareket ipucu ekle
+      // 60 FPS akıcılığı için hareket ipucu ekle (Tarayıcı medya motoruna kilitler)
       if ('contentHint' in this.screenTrack) {
         this.screenTrack.contentHint = 'motion';
       }
@@ -1378,7 +1437,7 @@ const WebRTC = {
       // Önce yerel ekran düzenini aktif et
       this.enableScreenShareLayout(fullName, screenStream);
 
-      // Tüm akran bağlantılarına (peers) kamera akışını bozmadan bağımsız ekran track'i ekle
+      // Tüm akran bağlantılarına (peers) kamera akışını bozmadan bağımsız ekran track'i ve sistem sesini ekle
       for (const [remoteUserId, pc] of Object.entries(this.peers)) {
         const senders = pc.getSenders();
         let screenSender = senders.find(s => s.track === this.screenTrack);
@@ -1386,13 +1445,23 @@ const WebRTC = {
           screenSender = pc.addTrack(this.screenTrack, screenStream);
         }
 
+        if (this.screenAudioTrack) {
+          let screenAudioSender = senders.find(s => s.track === this.screenAudioTrack);
+          if (!screenAudioSender) {
+            pc.addTrack(this.screenAudioTrack, screenStream);
+          }
+        }
+
         if (screenSender) {
           try {
             const params = screenSender.getParameters() || {};
             if (!params.encodings) params.encodings = [{}];
-            params.encodings[0].maxBitrate = 8000000; // 8 Mbps max bitrate for ultra-crisp 60 FPS 1080p/1440p
+            params.encodings[0].maxBitrate = 4500000; // 4.5 Mbps ideal hedef (bitrate dalgalanması ve paket drop'u önler)
+            params.encodings[0].minBitrate = 1500000; // 1.5 Mbps taban (ağ yükü altında FPS droplarını engeller)
             params.encodings[0].maxFramerate = 60;
-            params.degradationPreference = 'maintain-framerate'; // Maintain 60 FPS framerate over resolution drop
+            params.encodings[0].networkPriority = 'high';
+            params.encodings[0].priority = 'high';
+            params.degradationPreference = 'maintain-framerate'; // Çözünürlük yerine yüksek 60 FPS akıcılığını koru
             await screenSender.setParameters(params);
           } catch (paramErr) {
             console.warn("[WebRTC] Screen sender parametre ayarlama uyarısı:", paramErr);
@@ -1481,21 +1550,32 @@ const WebRTC = {
         <i class="fas fa-user-plus"></i>
       </div>
       <div class="approval-body">
-        <strong>Misafir Katılım Talebi</strong>
-        <span><b>${guestName}</b> toplantı odasına katılmak için onay bekliyor.</span>
+        <strong>Lobi Katılım Talebi</strong>
+        <span><b>${guestName}</b> toplantı odasına katılmak için onayınızı bekliyor.</span>
       </div>
       <div class="approval-actions">
-        <button class="btn-approve" onclick="WebRTC.respondToGuestRequest('${guestId}', true)">
+        <button class="btn-approve" id="btnApprove_${guestId}" onclick="WebRTC.respondToGuestRequest('${guestId}', true, this)">
           <i class="fas fa-check"></i> Kabul Et
         </button>
-        <button class="btn-reject" onclick="WebRTC.respondToGuestRequest('${guestId}', false)">
+        <button class="btn-reject" id="btnReject_${guestId}" onclick="WebRTC.respondToGuestRequest('${guestId}', false, this)">
           <i class="fas fa-times"></i> Reddet
         </button>
       </div>
     `;
+
+    // Uyarı zili ve bildirim fırlat
+    try {
+      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+      audio.play().catch(() => {});
+    } catch (e) {}
+
+    if (window.Notifications) {
+      Notifications.show(`Katılım Talebi: ${guestName} lobi bekleme odasında onay bekliyor.`, 'info', 'Lobi Bildirimi');
+    }
   },
 
-  respondToGuestRequest(guestId, approved) {
+  respondToGuestRequest(guestId, approved, btnEl) {
+    if (btnEl) btnEl.disabled = true;
     const dialog = document.getElementById('guestApprovalToast');
     if (dialog) dialog.style.display = 'none';
 
@@ -1509,9 +1589,15 @@ const WebRTC = {
 
   async stopScreenShare() {
     const oldScreenTrack = this.screenTrack;
+    const oldScreenAudioTrack = this.screenAudioTrack;
+
     if (oldScreenTrack) {
       oldScreenTrack.stop();
       this.screenTrack = null;
+    }
+    if (oldScreenAudioTrack) {
+      oldScreenAudioTrack.stop();
+      this.screenAudioTrack = null;
     }
 
     for (const [remoteUserId, pc] of Object.entries(this.peers)) {
@@ -1524,6 +1610,12 @@ const WebRTC = {
           console.warn("Screen sender kaldırma uyarısı:", e);
         }
       }
+      if (oldScreenAudioTrack) {
+        const audioSender = senders.find(s => s.track === oldScreenAudioTrack);
+        if (audioSender) {
+          try { pc.removeTrack(audioSender); } catch (e) {}
+        }
+      }
       if (pc.signalingState === 'stable') {
         await this.renegotiatePeer(remoteUserId);
       }
@@ -1531,6 +1623,13 @@ const WebRTC = {
 
     this.screenSharePresenterId = null;
     this.disableScreenShareLayout();
+
+    // Yerel kamera akışını kendi video bileşenine otomatik geri bağla
+    const localVid = document.getElementById('localVideo');
+    if (localVid && this.localStream) {
+      localVid.srcObject = this.localStream;
+      localVid.play().catch(() => {});
+    }
 
     this.renderLocalTile();
 

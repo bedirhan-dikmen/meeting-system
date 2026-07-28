@@ -159,3 +159,12 @@ def update_meeting(
         
     updated_meeting = update_meeting_details(db, meeting_id=meeting_id, update_data=payload)
     return updated_meeting
+
+from app.routes.guest import GuestTokenRequest, GuestTokenResponse, create_guest_token as create_guest_token_route
+
+@router.post("/join-guest", response_model=GuestTokenResponse, status_code=status.HTTP_201_CREATED)
+def join_guest(payload: GuestTokenRequest):
+    """
+    Public endpoint: Dışarıdan katılan misafir kullanıcıların toplantıya güvenli erişim sağlaması için guest_access_token üretir.
+    """
+    return create_guest_token_route(payload)
