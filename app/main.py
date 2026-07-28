@@ -21,6 +21,20 @@ app = FastAPI(
     swagger_ui_parameters={"persistAuthorization": True} # Token'ın tarayıcı yenilense bile hafızada kalmasını sağlar
 )
 
+@app.on_event("startup")
+def startup_db_seed():
+    """Uygulama başladığında veritabanı varsayılan kullanıcılarını otomatik oluşturur."""
+    try:
+        from app.core.database import SessionLocal
+        from app.core.init_db import init_db
+        db = SessionLocal()
+        try:
+            init_db(db)
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[STARTUP DB ERROR] {e}")
+
 # Static & Templates dizin yolları
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
