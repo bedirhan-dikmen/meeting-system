@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: YebsoftSecretPassword2026!
       POSTGRES_DB: meeting_system_prod
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U yebsoft_user -d meeting_system_prod" ]
       interval: 5s
@@ -31,8 +31,8 @@ services:
       - DB_POOL_SIZE=20
       - DB_POOL_TIMEOUT=30
     volumes:
-      - avatars_data:/workspace/app/static/avatars
-      - uploads_data:/workspace/uploads
+      - ./avatars_data:/workspace/app/static/avatars
+      - ./uploads_data:/workspace/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -60,20 +60,13 @@ services:
     container_name: meeting_system_nginx
     restart: always
     ports:
-      - "8080:80"
+      - "8090:80"
       - "443:443"
     entrypoint: [ "/bin/sh", "/etc/nginx/nginx-entrypoint.sh" ]
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx-entrypoint.sh:/etc/nginx/nginx-entrypoint.sh:ro
-      - certbot_certs:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
+      - ./certbot_certs:/etc/letsencrypt
+      - ./certbot_www:/var/www/certbot
     depends_on:
       - web
-
-volumes:
-  postgres_data:
-  certbot_certs:
-  certbot_www:
-  avatars_data:
-  uploads_data:
