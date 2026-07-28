@@ -20,8 +20,8 @@ services:
     image: meeting_system_api:latest
     container_name: meeting_system_api
     restart: always
-    ports:
-      - "8000:8000"
+    # Nginx arka planda web:8000 konteyner ağına doğrudan eriştiği için dış port bağlamaya gerek yoktur.
+    # Doğrudan FastAPI erişimi istenirse "8001:8000" yapılabilir.
     environment:
       - DATABASE_URL=postgresql://yebsoft_user:YebsoftSecretPassword2026!@db:5432/meeting_system_prod
       - SECRET_KEY=yebsoft_super_secure_crypto_secret_key_2026_jwt
