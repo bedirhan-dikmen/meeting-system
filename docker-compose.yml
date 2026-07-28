@@ -32,6 +32,9 @@ services:
       - DB_POOL_RECYCLE=3600
       - DB_POOL_SIZE=20
       - DB_POOL_TIMEOUT=30
+    volumes:
+      - avatars_data:/workspace/app/static/avatars
+      - uploads_data:/workspace/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -74,3 +77,5 @@ volumes:
   postgres_data:
   certbot_certs:
   certbot_www:
+  avatars_data:
+  uploads_data:
