@@ -1,5 +1,6 @@
 venv/
 .venv/
+env/
 .git/
 .gitignore
 __pycache__/
@@ -8,9 +9,15 @@ __pycache__/
 *.pyd
 .env
 *.db
+*.sqlite
 *.sqlite3
 .vscode/
 .idea/
+postgres_data/
+avatars_data/
+uploads_data/
+certbot_certs/
+certbot_www/
 uploads/
 app/static/avatars/*
 !app/static/avatars/.gitkeep
