@@ -22,3 +22,11 @@ __pycache__/
 *.db
 *.sqlite
 *.sqlite3
+
+# Docker runtime volumes & certificates
+postgres_data/
+avatars_data/
+uploads_data/
+certbot_certs/
+certbot_www/
+

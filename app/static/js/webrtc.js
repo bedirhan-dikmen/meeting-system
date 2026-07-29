@@ -22,15 +22,54 @@ const WebRTC = {
   screenTrack: null,
   screenAudioTrack: null,
 
-  iceServers: window.ICE_SERVERS || {
-    iceServers: [
+  getIceServers() {
+    if (window.ICE_SERVERS) return window.ICE_SERVERS;
+
+    const host = window.location.hostname;
+    const servers = [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun.cloudflare.com:3478' },
-      ...(window.TURN_CONFIG ? [window.TURN_CONFIG] : [])
-    ],
-    iceCandidatePoolSize: 10
+      { urls: 'stun:stun.cloudflare.com:3478' }
+    ];
+
+    if (host && host !== 'localhost' && host !== '127.0.0.1') {
+      servers.push({ urls: `stun:${host}:3478` });
+      servers.push({
+        urls: [
+          `turn:${host}:3478?transport=udp`,
+          `turn:${host}:3478?transport=tcp`
+        ],
+        username: 'yebsoft_turn_user',
+        credential: 'yebsoft_turn_password_2026'
+      });
+    }
+
+    if (window.TURN_CONFIG) {
+      servers.push(window.TURN_CONFIG);
+    }
+
+    return {
+      iceServers: servers,
+      iceCandidatePoolSize: 10
+    };
+  },
+
+  bindAutoplayUnlock() {
+    if (this._autoplayUnlocked) return;
+    this._autoplayUnlocked = true;
+
+    const unlock = () => {
+      document.querySelectorAll('audio, video').forEach(el => {
+        if (el.srcObject && el.paused) {
+          el.play().catch(() => {});
+        }
+      });
+    };
+
+    window.addEventListener('click', unlock, { passive: true });
+    window.addEventListener('touchstart', unlock, { passive: true });
+    window.addEventListener('keydown', unlock, { passive: true });
   },
 
   optimizeSDP(sdp) {
@@ -52,6 +91,8 @@ const WebRTC = {
     this.currentUser = Auth.getUser();
     this.isMicMuted = isMicMuted;
     this.isCameraOff = isCameraOff;
+
+    this.bindAutoplayUnlock();
 
     // Fetch Meeting Details
     await this.fetchMeetingInfo();
@@ -709,7 +750,7 @@ const WebRTC = {
   async createPeerConnection(remoteUserId, isInitiator) {
     if (this.peers[remoteUserId]) return this.peers[remoteUserId];
 
-    const pc = new RTCPeerConnection(this.iceServers);
+    const pc = new RTCPeerConnection(this.getIceServers());
     this.peers[remoteUserId] = pc;
 
     if (this.localStream) {
@@ -745,48 +786,51 @@ const WebRTC = {
 
     pc.ontrack = (event) => {
       console.log(`[WebRTC] Track alındı (${remoteUserId}):`, event.track.kind, event.track.label);
-      const remoteStream = event.streams[0] || new MediaStream([event.track]);
-
-      if (event.track.kind !== 'video') {
-        // Ses kanalı
+      let remoteStream = event.streams[0];
+      if (!remoteStream) {
+        if (!this.peerStreams[remoteUserId]) {
+          this.peerStreams[remoteUserId] = new MediaStream();
+        }
+        this.peerStreams[remoteUserId].addTrack(event.track);
+        remoteStream = this.peerStreams[remoteUserId];
+      } else {
         this.peerStreams[remoteUserId] = remoteStream;
-        return;
       }
 
-      const streamId = (event.streams[0]?.id || '').toLowerCase();
-      const trackLabel = (event.track?.label || '').toLowerCase();
+      if (event.track.kind === 'video') {
+        const streamId = (event.streams[0]?.id || '').toLowerCase();
+        const trackLabel = (event.track?.label || '').toLowerCase();
 
-      // Ekran paylaşımı tespiti (Etikette/ID'de anahtar kelimeler veya aktif paylaşım yapan kullanıcı olması)
-      const isExplicitScreen = streamId.includes('screen') || streamId.includes('display') || 
-                               trackLabel.includes('screen') || trackLabel.includes('display') || 
-                               trackLabel.includes('window') || trackLabel.includes('monitor') || 
-                               trackLabel.includes('desktop') || trackLabel.includes('entire');
+        // Ekran paylaşımı tespiti (Etikette/ID'de anahtar kelimeler veya aktif paylaşım yapan kullanıcı olması)
+        const isExplicitScreen = streamId.includes('screen') || streamId.includes('display') || 
+                                 trackLabel.includes('screen') || trackLabel.includes('display') || 
+                                 trackLabel.includes('window') || trackLabel.includes('monitor') || 
+                                 trackLabel.includes('desktop') || trackLabel.includes('entire');
 
-      const isPresenter = (String(this.screenSharePresenterId) === String(remoteUserId));
-      const existingWebcamStream = this.peerStreams[remoteUserId];
-      const isSecondVideoStream = existingWebcamStream && existingWebcamStream.id !== remoteStream.id;
+        const isPresenter = (String(this.screenSharePresenterId) === String(remoteUserId));
+        const existingWebcamStream = this.peerStreams[remoteUserId];
+        const isSecondVideoStream = existingWebcamStream && existingWebcamStream.id !== remoteStream.id;
 
-      if (isPresenter || isExplicitScreen || isSecondVideoStream) {
-        console.log(`[WebRTC] Ekran paylaşımı akışı bağlandı (${remoteUserId})`);
-        const shareVid = document.getElementById('screenShareVideo');
-        if (shareVid) {
-          shareVid.srcObject = remoteStream;
-          shareVid.muted = (String(remoteUserId) === String(this.currentUser?.id));
-          shareVid.play().catch(e => console.warn('[WebRTC] Ekran paylaşımı oynatma hatası:', e));
+        if (isPresenter || isExplicitScreen || isSecondVideoStream) {
+          console.log(`[WebRTC] Ekran paylaşımı akışı bağlandı (${remoteUserId})`);
+          const shareVid = document.getElementById('screenShareVideo');
+          if (shareVid) {
+            shareVid.srcObject = remoteStream;
+            shareVid.muted = (String(remoteUserId) === String(this.currentUser?.id));
+            shareVid.play().catch(e => console.warn('[WebRTC] Ekran paylaşımı oynatma hatası:', e));
+          }
+
+          const presenterName = this.participantsMap[remoteUserId]?.name || 'Katılımcı';
+          this.enableScreenShareLayout(presenterName, remoteStream);
+          return;
         }
 
-        const presenterName = this.participantsMap[remoteUserId]?.name || 'Katılımcı';
-        this.enableScreenShareLayout(presenterName, remoteStream);
-        return;
+        if (this.participantsMap[remoteUserId]) {
+          this.participantsMap[remoteUserId].isCameraOff = false;
+        }
       }
 
-      // Kamera/Mikrofon akışını katılımcı kartına bağla
-      this.peerStreams[remoteUserId] = remoteStream;
-
-      if (this.participantsMap[remoteUserId]) {
-        this.participantsMap[remoteUserId].isCameraOff = false;
-      }
-
+      // Her durumda (ses veya video) katılımcı kartını ve ses/video elemanlarını güncelle
       this.renderRemoteTile(remoteUserId, remoteStream);
     };
 
@@ -798,52 +842,58 @@ const WebRTC = {
     };
 
     if (isInitiator) {
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      this.sendSignal({
-        type: 'video-offer',
-        target_id: remoteUserId,
-        sdp: offer
-      });
+      try {
+        const offer = await pc.createOffer();
+        const optOffer = new RTCSessionDescription({
+          type: offer.type,
+          sdp: this.optimizeSDP(offer.sdp)
+        });
+        await pc.setLocalDescription(optOffer);
+        this.sendSignal({
+          type: 'video-offer',
+          target_id: remoteUserId,
+          sdp: optOffer
+        });
+      } catch (e) {
+        console.warn(`[WebRTC] Offer oluşturma hatası (${remoteUserId}):`, e);
+      }
     }
 
     return pc;
   },
 
   renderLocalTile() {
-    const activeContainer = (this.isScreenSharing || document.getElementById('screenShareArea')?.style.display === 'flex')
+    const activeContainer = (document.getElementById('screenShareArea')?.style.display === 'flex')
       ? document.getElementById('topCarouselBar')
       : document.getElementById('videoGrid');
 
     if (!activeContainer) return;
 
-    let tile = document.getElementById('localVideoTile');
+    let tile = document.getElementById('localParticipantTile');
     if (!tile) {
       tile = document.createElement('div');
-      tile.id = 'localVideoTile';
-      tile.className = 'participant-tile';
+      tile.id = 'localParticipantTile';
+      tile.className = 'participant-tile local-tile';
       activeContainer.appendChild(tile);
     } else if (tile.parentElement !== activeContainer) {
       activeContainer.appendChild(tile);
     }
 
-    const initials = (this.currentUser?.first_name?.[0] || 'S') + (this.currentUser?.last_name?.[0] || 'EN');
     const name = `${this.currentUser?.first_name || ''} ${this.currentUser?.last_name || ''}`.trim() || 'Siz';
+    const initials = `${(this.currentUser?.first_name?.[0] || 'S')}${(this.currentUser?.last_name?.[0] || 'Z')}`.toUpperCase();
     const avatarUrl = this.currentUser?.avatar_url;
 
     tile.innerHTML = `
-      <video id="localVideo" autoplay playsinline muted style="display: ${this.isCameraOff ? 'none' : 'block'}; width: 100%; height: 100%; object-fit: cover;"></video>
-      <div id="localAvatar" style="display: ${this.isCameraOff ? 'flex' : 'none'}; flex-direction: column; align-items: center; justify-content: center; width: 84px; height: 84px; border-radius: 50%; background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); color: #4f46e5; border: 2px solid #ffffff; font-size: 2.2rem; font-weight: 800; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.15); margin: auto;">
-        ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials.toUpperCase()}
+      <video id="localVideo" autoplay playsinline muted style="display: ${this.isCameraOff ? 'none' : 'block'}; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+      <div id="localAvatar" style="display: ${this.isCameraOff ? 'flex' : 'none'}; flex-direction: column; align-items: center; justify-content: center; width: 84px; height: 84px; border-radius: 50%; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #fff; font-size: 2.2rem; font-weight: 800; border: 2px solid #ffffff; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.25); margin: auto;">
+        ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials}
       </div>
       <div class="tile-overlay" style="position: absolute; bottom: 0.75rem; left: 0.75rem; right: 0.75rem; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(6px); border-radius: 8px; padding: 0.35rem 0.75rem; display: flex; align-items: center; justify-content: space-between; color: #fff;">
-        <span title="${name} (Siz)">
-          <strong style="color: #fff; font-weight: 700; font-size: 0.85rem;">${name}</strong>
-          <span style="font-size: 0.72rem; color: #38bdf8; opacity: 0.9;">(Siz)</span>
+        <span>
+          <strong style="color: #fff; font-weight: 700; font-size: 0.85rem;">${name} (Siz)</strong>
+          <span class="role-badge ${this.isHost ? 'role-badge-admin' : 'role-badge-user'}" style="font-size: 0.6rem; padding: 0.1rem 0.35rem;">${this.isHost ? 'Yönetici' : 'Katılımcı'}</span>
         </span>
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
-          <i id="localMicStatusIcon" class="fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${this.isMicMuted ? '#f43f5e' : '#10b981'}; font-size: 0.85rem;"></i>
-        </div>
+        <i id="localMicStatusIcon" class="fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${this.isMicMuted ? '#f43f5e' : '#10b981'}; font-size: 0.85rem;"></i>
       </div>
     `;
 
@@ -867,7 +917,6 @@ const WebRTC = {
     const initials = (name[0] || 'K').toUpperCase();
     const avatarUrl = info.avatar_url;
     const isCameraOff = (info.isCameraOff !== false);
-    const isMicMuted = (info.isMicMuted !== false);
     const isHostUser = (remoteUserId === this.meetingInfo?.created_by);
 
     let tile = document.getElementById(`remoteTile_${remoteUserId}`);
@@ -881,6 +930,7 @@ const WebRTC = {
     }
 
     tile.innerHTML = `
+      <audio id="remoteAudio_${remoteUserId}" autoplay playsinline style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; z-index: -1;"></audio>
       <video id="remoteVideo_${remoteUserId}" autoplay playsinline style="display: ${isCameraOff ? 'none' : 'block'}; width: 100%; height: 100%; object-fit: cover;"></video>
       <div id="remoteAvatar_${remoteUserId}" style="display: ${isCameraOff ? 'flex' : 'none'}; flex-direction: column; align-items: center; justify-content: center; width: 84px; height: 84px; border-radius: 50%; background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); color: #4f46e5; border: 2px solid #ffffff; font-size: 2.2rem; font-weight: 800; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.15); margin: auto;">
         ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials}
@@ -891,7 +941,7 @@ const WebRTC = {
           <span class="role-badge ${isHostUser ? 'role-badge-admin' : 'role-badge-user'}" style="font-size: 0.6rem; padding: 0.1rem 0.35rem;">${isHostUser ? 'Yönetici' : 'Katılımcı'}</span>
         </span>
         <div style="display: flex; gap: 0.5rem; align-items: center; margin-left: auto;">
-          <i class="fas ${isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${isMicMuted ? '#f43f5e' : '#10b981'}; font-size: 0.85rem;"></i>
+          <i class="fas ${info.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${info.isMicMuted ? '#f43f5e' : '#10b981'}; font-size: 0.85rem;"></i>
           ${this.isHost ? `
             <button onclick="WebRTC.kickParticipant('${remoteUserId}')" class="btn btn-danger" style="padding: 0.15rem 0.35rem; font-size: 0.65rem;" title="Çıkar">
               <i class="fas fa-user-minus"></i>
@@ -901,11 +951,23 @@ const WebRTC = {
       </div>
     `;
 
-    const videoEl = document.getElementById(`remoteVideo_${remoteUserId}`);
     const streamToUse = stream || this.peerStreams[remoteUserId];
-    if (videoEl && streamToUse) {
-      videoEl.srcObject = streamToUse;
-      videoEl.play().catch(e => console.warn("Uzaktan video oynatma başlatılamadı:", e));
+    if (streamToUse) {
+      const audioEl = document.getElementById(`remoteAudio_${remoteUserId}`);
+      if (audioEl) {
+        if (audioEl.srcObject !== streamToUse) {
+          audioEl.srcObject = streamToUse;
+        }
+        audioEl.play().catch(e => console.warn(`[WebRTC] Uzaktan ses (${remoteUserId}) oynatılamadı:`, e));
+      }
+
+      const videoEl = document.getElementById(`remoteVideo_${remoteUserId}`);
+      if (videoEl) {
+        if (videoEl.srcObject !== streamToUse) {
+          videoEl.srcObject = streamToUse;
+        }
+        videoEl.play().catch(e => console.warn(`[WebRTC] Uzaktan video (${remoteUserId}) oynatılamadı:`, e));
+      }
     }
 
     this.reflowVideoGrid();
