@@ -20,8 +20,14 @@ __pycache__/
 
 # Local database files
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
+
+# Scratch test files
+scratch/
+
 
 # Docker runtime volumes & certificates
 postgres_data/

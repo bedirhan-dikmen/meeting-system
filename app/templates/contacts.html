@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Kişiler & Mesajlaşma - Toplantı Yönetim Sistemi{% endblock %}
+
+{% block content %}
+<div style="padding: 1.5rem 0;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+      <h1 style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.25rem;">
+        <i class="fas fa-address-book" style="color: var(--accent-primary);"></i> Kurumsal Kişiler & Ekip
+      </h1>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">Şirket içi çalışma arkadaşlarınıza hızlıca ulaşın ve mesaj gönderin.</p>
+    </div>
+  </div>
+
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 2rem; box-shadow: var(--shadow-sm); min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+    <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(91, 95, 199, 0.1); color: var(--accent-primary); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin-bottom: 1rem;">
+      <i class="fas fa-comments"></i>
+    </div>
+    <h3 style="font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">Kişisel Mesajlaşma Modülü Hazırlanıyor</h3>
+    <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 450px; margin-bottom: 1.5rem;">
+      Ekip arkadaşlarınıza özel mesaj gönderme ve anlık sohbet özellikleri geliştirme aşamasındadır.
+    </p>
+    <a href="/profile" class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none;">
+      <i class="fas fa-user-circle"></i> Profil Bilgilerime Git
+    </a>
+  </div>
+</div>
+{% endblock %}

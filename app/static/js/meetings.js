@@ -1,494 +1,743 @@
 /* ==========================================================================
-   MEETING MANAGEMENT & FILTERING MODULE (EXECUTIVE DESIGN)
+   MEETINGS MODULE: 3 VIEWS (CARD, LIST, CALENDAR) & POPULATED/EMPTY STATES
    ========================================================================== */
 
 const Meetings = {
   allMeetings: [],
-  allUsers: [],
-  allDepartments: [],
-  selectedUserIds: [],
+  filteredMeetings: [],
+  companyUsers: [],
+  selectedUserIds: new Set(),
+  quickSelectedUserIds: new Set(),
+  currentView: 'card',    // 'card' | 'list' | 'calendar'
+  currentTab: 'live',     // 'live' | 'scheduled' | 'completed' | 'all'
 
   async init() {
-    await this.loadUsersAndDepartments();
     await this.loadMeetings();
-    this.bindEvents();
+    this.checkUrlAction();
   },
 
-  async loadUsersAndDepartments() {
-    try {
-      const resUsers = await Auth.fetchWithAuth('/api/v1/users/');
-      if (resUsers.ok) {
-        this.allUsers = await resUsers.json();
-        this.populateUserSelects();
-        this.renderUserInvitationList();
-      }
-    } catch (e) {
-      console.warn("Kullanıcılar yüklenemedi (Admin değil ise sınırlı yetki):", e);
+  checkUrlAction() {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('action');
+    if (action === 'create') {
+      this.openCreateModal();
+    } else if (action === 'quick') {
+      this.openQuickMeetingModal();
     }
   },
 
-  populateUserSelects() {
-    const participantSelect = document.getElementById('filterParticipant');
-    const hostSelect = document.getElementById('filterHost');
-
-    if (hostSelect) {
-      hostSelect.innerHTML = `<option value="">Tüm Yöneticiler</option>` +
-        this.allUsers.map(u => `<option value="${u.id}">${u.first_name} ${u.last_name}</option>`).join('');
+  /**
+   * Status Normalizer: Türk karakterli ve İngilizce tüm durum değerlerini 'live', 'scheduled', 'completed' türlerine eşler.
+   */
+  normalizeStatus(statusStr) {
+    if (!statusStr) return 'scheduled';
+    const s = String(statusStr).toLowerCase().trim();
+    
+    // Canlı / Active
+    if (s === 'canli' || s === 'canlı' || s === 'active' || s === 'live' || s === 'ongoing') {
+      return 'live';
     }
-
-    if (participantSelect) {
-      participantSelect.innerHTML = `<option value="">Tüm Katılımcılar</option>` +
-        this.allUsers.map(u => `<option value="${u.id}">${u.first_name} ${u.last_name}</option>`).join('');
+    
+    // Tamamlandı / Bitti / Ended / Completed
+    if (s === 'tamamlandi' || s === 'tamamlandı' || s === 'completed' || s === 'ended' || s === 'finished' || s === 'bitti' || s === 'kapandi' || s === 'kaptildi') {
+      return 'completed';
     }
-  },
-
-  updateCalculatedEndTime() {
-    const startInput = document.getElementById('createStart');
-    const durationSelect = document.getElementById('createDuration');
-    const displayInput = document.getElementById('createCalculatedEndDisplay');
-
-    if (!startInput || !durationSelect || !displayInput) return;
-
-    if (!startInput.value) {
-      displayInput.value = '-';
-      return;
-    }
-
-    const start = this.parseDate(startInput.value);
-    const durationMins = parseInt(durationSelect.value || '30', 10);
-    const end = new Date(start.getTime() + durationMins * 60 * 1000);
-
-    const day = String(end.getDate()).padStart(2, '0');
-    const month = String(end.getMonth() + 1).padStart(2, '0');
-    const year = end.getFullYear();
-    const hours = String(end.getHours()).padStart(2, '0');
-    const mins = String(end.getMinutes()).padStart(2, '0');
-
-    displayInput.value = `${day}.${month}.${year} ${hours}:${mins}`;
-  },
-
-  generatePasscode() {
-    const passcode = Math.floor(100000 + Math.random() * 900000).toString();
-    const passcodeEl = document.getElementById('createPasscode');
-    if (passcodeEl) passcodeEl.value = passcode;
-  },
-
-  onUserSearchInput(term) {
-    this.renderUserInvitationList(term);
-  },
-
-  toggleUserSelection(userId) {
-    const index = this.selectedUserIds.indexOf(userId);
-    if (index > -1) {
-      this.selectedUserIds.splice(index, 1);
-    } else {
-      this.selectedUserIds.push(userId);
-    }
-    this.updateSelectedUsersBadge();
-  },
-
-  updateSelectedUsersBadge() {
-    const badge = document.getElementById('selectedUsersBadge');
-    if (badge) {
-      badge.textContent = `${this.selectedUserIds.length} Seçili`;
-    }
-  },
-
-  renderUserInvitationList(filterTerm = '') {
-    const container = document.getElementById('invitedUsersContainer');
-    if (!container) return;
-
-    const currentUserId = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser()?.id : null;
-    const term = (filterTerm || '').toLowerCase().trim();
-
-    const filtered = (this.allUsers || []).filter(u => {
-      if (u.id === currentUserId) return false;
-      if (!term) return true;
-      const fullName = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
-      const email = (u.email || '').toLowerCase();
-      const username = (u.username || '').toLowerCase();
-      return fullName.includes(term) || email.includes(term) || username.includes(term);
-    });
-
-    if (filtered.length === 0) {
-      container.innerHTML = `<div style="color: #94a3b8; font-size: 0.85rem; text-align: center; padding: 0.5rem;">Kullanıcı bulunamadı.</div>`;
-      return;
-    }
-
-    container.innerHTML = filtered.map(u => {
-      const isChecked = this.selectedUserIds.includes(u.id);
-      const displayName = `${u.first_name || ''} ${u.last_name || u.username || 'Kullanıcı'}`.trim();
-      return `
-        <label style="display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; border-radius: 6px; background: ${isChecked ? '#f0fdf4' : '#f8fafc'}; border: 1px solid ${isChecked ? '#bbf7d0' : '#f1f5f9'}; cursor: pointer; transition: all 0.15s ease;">
-          <div style="display: flex; align-items: center; gap: 0.6rem;">
-            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="Meetings.toggleUserSelection('${u.id}')" style="width: 16px; height: 16px; accent-color: #10b981; cursor: pointer;">
-            <div>
-              <span style="font-size: 0.88rem; font-weight: 600; color: #1e293b;">${displayName}</span>
-              <span style="font-size: 0.78rem; color: #64748b; margin-left: 0.4rem;">(${u.email || 'e-posta yok'})</span>
-            </div>
-          </div>
-          <span style="font-size: 0.75rem; color: #64748b; background: #e2e8f0; padding: 0.1rem 0.45rem; border-radius: 4px;">${u.role || 'Kullanıcı'}</span>
-        </label>
-      `;
-    }).join('');
-
-    this.updateSelectedUsersBadge();
+    
+    // Planlandı / Scheduled (Varsayılan)
+    return 'scheduled';
   },
 
   async loadMeetings() {
     try {
-      const response = await Auth.fetchWithAuth('/api/v1/meetings/');
-
-      if (!response.ok) {
-        throw new Error("Toplantılar yüklenemedi.");
-      }
-
-      this.allMeetings = await response.json();
-      this.applyFilters();
-    } catch (err) {
-      console.error(err);
-      if (Notifications) Notifications.show(err.message, 'danger', 'Hata');
-    }
-  },
-
-
-  applyFilters() {
-    const searchTitle = document.getElementById('filterSearch')?.value.toLowerCase().trim() || '';
-    const filterHost = document.getElementById('filterHost')?.value || '';
-    const filterType = document.getElementById('filterType')?.value || '';
-    const filterStatus = document.getElementById('filterStatus')?.value || '';
-    const dateFrom = document.getElementById('filterDateFrom')?.value || '';
-    const dateTo = document.getElementById('filterDateTo')?.value || '';
-
-    const filtered = this.allMeetings.filter(m => {
-      if (searchTitle && !m.title.toLowerCase().includes(searchTitle) && !(m.description || '').toLowerCase().includes(searchTitle)) {
-        return false;
-      }
-      if (filterHost && m.created_by !== filterHost) {
-        return false;
-      }
-      if (filterType && m.meeting_type !== filterType) {
-        return false;
-      }
-      if (filterStatus && m.status !== filterStatus) {
-        return false;
-      }
-      if (dateFrom && new Date(m.scheduled_start) < new Date(dateFrom)) {
-        return false;
-      }
-      if (dateTo && new Date(m.scheduled_start) > new Date(dateTo + 'T23:59:59')) {
-        return false;
-      }
-
-      return true;
-    });
-
-    this.renderMeetingsList(filtered);
-  },
-
-  renderMeetingsList(meetings) {
-    const liveContainer = document.getElementById('liveMeetingsContainer');
-    const scheduledContainer = document.getElementById('scheduledMeetingsContainer');
-    const completedContainer = document.getElementById('completedMeetingsContainer');
-    const liveBadge = document.getElementById('liveCountBadge');
-    const scheduledBadge = document.getElementById('scheduledCountBadge');
-    const completedBadge = document.getElementById('completedCountBadge');
-
-    if (!liveContainer || !scheduledContainer) return;
-
-    const list = meetings || [];
-
-    const liveMeetings = list.filter(m => {
-      const s = (m.status || '').toLowerCase();
-      return s === 'canlı' || s === 'başladı' || s === 'active';
-    });
-
-    const completedMeetings = list.filter(m => {
-      const s = (m.status || '').toLowerCase();
-      return s === 'tamamlandı' || s === 'completed' || s === 'iptal edildi';
-    });
-
-    const scheduledMeetings = list.filter(m => {
-      const s = (m.status || '').toLowerCase();
-      return s !== 'canlı' && s !== 'başladı' && s !== 'active' && s !== 'tamamlandı' && s !== 'completed' && s !== 'iptal edildi';
-    });
-
-    if (liveBadge) liveBadge.textContent = liveMeetings.length;
-    if (scheduledBadge) scheduledBadge.textContent = scheduledMeetings.length;
-    if (completedBadge) completedBadge.textContent = completedMeetings.length;
-
-    if (liveMeetings.length === 0) {
-      liveContainer.innerHTML = `
-        <div style="padding: 1.5rem; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 12px; color: #64748b; font-size: 0.88rem; text-align: center;">
-          <i class="fas fa-broadcast-tower" style="font-size: 1.3rem; margin-bottom: 0.4rem; display: block; color: #94a3b8;"></i>
-          Şu an devam eden canlı oturum bulunmuyor.
-        </div>
-      `;
-    } else {
-      liveContainer.innerHTML = liveMeetings.map(m => this.createMeetingCardHTML(m, 'live')).join('');
-    }
-
-    if (scheduledMeetings.length === 0) {
-      scheduledContainer.innerHTML = `
-        <div style="padding: 1.5rem; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 12px; color: #64748b; font-size: 0.88rem; text-align: center;">
-          <i class="fas fa-calendar-times" style="font-size: 1.3rem; margin-bottom: 0.4rem; display: block; color: #94a3b8;"></i>
-          Yaklaşan planlı kurumsal toplantı bulunmuyor.
-        </div>
-      `;
-    } else {
-      scheduledContainer.innerHTML = scheduledMeetings.map(m => this.createMeetingCardHTML(m, 'scheduled')).join('');
-    }
-
-    if (completedContainer) {
-      if (completedMeetings.length === 0) {
-        completedContainer.innerHTML = `
-          <div style="padding: 1.5rem; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 12px; color: #64748b; font-size: 0.88rem; text-align: center;">
-            <i class="fas fa-folder-open" style="font-size: 1.3rem; margin-bottom: 0.4rem; display: block; color: #94a3b8;"></i>
-            Tamamlanan veya arşivlenen toplantı kaydı bulunmuyor.
-          </div>
-        `;
+      const res = await Auth.fetchWithAuth('/api/v1/meetings/');
+      if (res.ok) {
+        this.allMeetings = await res.json();
       } else {
-        completedContainer.innerHTML = completedMeetings.map(m => this.createMeetingCardHTML(m, 'completed')).join('');
+        this.allMeetings = [];
       }
+    } catch (e) {
+      console.warn("Toplantılar yüklenirken uyarı:", e);
+      this.allMeetings = [];
     }
+
+    this.updateTabCounts();
+    this.applyTabFilter();
   },
 
-  parseDate(dateStr) {
-    if (!dateStr) return new Date();
-    if (dateStr instanceof Date) return dateStr;
-    if (typeof dateStr === 'string') {
-      const cleanStr = dateStr.split('.')[0].replace('Z', '').replace(/[\+\-]\d{2}:\d{2}$/, '');
-      const parts = cleanStr.split(/[-T :]/).map(Number);
-      if (parts.length >= 5) {
-        return new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5] || 0);
-      }
-    }
-    return new Date(dateStr);
+  updateTabCounts() {
+    const liveCount = this.allMeetings.filter(m => this.normalizeStatus(m.status) === 'live').length;
+    const schedCount = this.allMeetings.filter(m => this.normalizeStatus(m.status) === 'scheduled').length;
+    const compCount = this.allMeetings.filter(m => this.normalizeStatus(m.status) === 'completed').length;
+    const totalCount = this.allMeetings.length;
+
+    const elLive = document.getElementById('countTabLive');
+    const elSched = document.getElementById('countTabScheduled');
+    const elComp = document.getElementById('countTabCompleted');
+    const elAll = document.getElementById('countTabAll');
+
+    if (elLive) elLive.textContent = liveCount;
+    if (elSched) elSched.textContent = schedCount;
+    if (elComp) elComp.textContent = compCount;
+    if (elAll) elAll.textContent = totalCount;
   },
 
-  createMeetingCardHTML(m, meetingCategory) {
-    const currentUser = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
-    const isOrganizer = (currentUser && (currentUser.id === m.created_by || currentUser.role === 'admin'));
+  switchTab(tabName) {
+    this.currentTab = tabName;
 
-    const startObj = this.parseDate(m.scheduled_start);
-    const duration = m.duration_minutes || 30;
-    const endObj = m.scheduled_end ? this.parseDate(m.scheduled_end) : new Date(startObj.getTime() + duration * 60 * 1000);
+    document.querySelectorAll('.tab-filter-btn').forEach(btn => {
+      btn.classList.remove('active');
+      btn.style.color = '#64748b';
+      btn.style.fontWeight = '600';
+      btn.style.borderBottom = 'none';
+    });
 
-    const startTimeStr = startObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-    const endTimeStr = endObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-    const dateStr = startObj.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const timeRangeStr = `${startTimeStr} - ${endTimeStr} (${duration} dk)`;
-
-    const hostDisplayName = m.creator ? `${m.creator.first_name || ''} ${m.creator.last_name || ''}`.trim() : (m.creator_name || 'Yeb Soft');
-    const menuId = `cardPopover_${m.id}`;
-
-    // STATUS BADGE
-    let statusBadgeHTML = '';
-    const status = (m.status || '').toLowerCase();
-    const isLive = meetingCategory === 'live' || status === 'canlı' || status === 'başladı' || status === 'active';
-    const isCompleted = meetingCategory === 'completed' || status === 'tamamlandı' || status === 'completed';
-
-    if (isLive) {
-      statusBadgeHTML = `<span class="badge-status-live-pill"><span class="live-pulse-dot"></span> Başladı (Canlı)</span>`;
-    } else if (isCompleted) {
-      statusBadgeHTML = `<span style="background: #d1fae5; border: 1px solid #a7f3d0; color: #065f46; font-size: 0.76rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 9999px;"><i class="fas fa-check-circle"></i> Tamamlandı</span>`;
-    } else if (status === 'iptal edildi') {
-      statusBadgeHTML = `<span style="background: #ffe4e6; border: 1px solid #fecdd3; color: #be123c; font-size: 0.76rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 9999px;"><i class="fas fa-ban"></i> İptal Edildi</span>`;
-    } else if (status === 'taslak') {
-      statusBadgeHTML = `<span style="background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; font-size: 0.76rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 9999px;"><i class="fas fa-file-alt"></i> Taslak</span>`;
-    } else {
-      statusBadgeHTML = `<span style="background: #e0f2fe; border: 1px solid #bae6fd; color: #0369a1; font-size: 0.76rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 9999px;"><i class="far fa-calendar-alt"></i> Planlandı</span>`;
-    }
-
-    const dayNum = startObj.getDate();
-    const monthNamesTr = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Ekim', 'Kas', 'Ara'];
-    const dayNamesTr = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
-    const monthStr = monthNamesTr[startObj.getMonth()];
-    const dayNameTr = dayNamesTr[startObj.getDay()];
-    const teamsTimeStr = `${startTimeStr} - ${endTimeStr}, ${dayNameTr}`;
-
-    // Helper: Toplantı türüne göre grafiklerle uyumlu dinamik badge üretme
-    const getTypeBadgeHTML = (meetingType) => {
-      const typeStr = meetingType || 'Genel Toplantı';
-      const t = typeStr.toLowerCase();
-      let badgeClass = 'badge-type-general';
-      
-      if (t.includes('planlı') || t.includes('planlanan')) badgeClass = 'badge-type-planned';
-      else if (t.includes('proje')) badgeClass = 'badge-type-project';
-      else if (t.includes('günlük') || t.includes('daily') || t.includes('standup')) badgeClass = 'badge-type-daily';
-      else if (t.includes('acil') || t.includes('özel') || t.includes('yönetim')) badgeClass = 'badge-type-urgent';
-
-      return `<span class="${badgeClass}"><i class="fas fa-tag"></i> ${typeStr}</span>`;
+    const activeBtnMap = {
+      live: 'tabBtnLive',
+      scheduled: 'tabBtnScheduled',
+      completed: 'tabBtnCompleted',
+      all: 'tabBtnAll'
     };
 
-    // 1. CANLI / AKTİF TOPLANTI KARTI (Microsoft Teams Birebir Düzen)
-    if (isLive) {
-      const activeCount = m.sessions_count || m.active_participants_count || m.current_participants || 1;
-      return `
-        <div class="meeting-card-teams">
-          
-          <!-- FAR LEFT: DATE BOX & VERTICAL DIVIDER BAR -->
-          <div class="teams-card-left-section">
-            <div class="teams-date-box">
-              <span class="teams-date-day">${dayNum}</span>
-              <span class="teams-date-month">${monthStr}</span>
-            </div>
-            <div class="teams-vertical-divider teams-divider-live"></div>
+    const targetBtn = document.getElementById(activeBtnMap[tabName]);
+    if (targetBtn) {
+      targetBtn.classList.add('active');
+      targetBtn.style.color = '#5b5fc7';
+      targetBtn.style.fontWeight = '700';
+      targetBtn.style.borderBottom = '2px solid #5b5fc7';
+    }
 
-            <!-- TITLE & INFO STACK -->
-            <div class="teams-card-info-stack">
-              <h4 class="teams-card-title teams-card-title-live" title="${m.title}">${m.title}</h4>
-              <p class="teams-card-time">${teamsTimeStr}</p>
-              <p class="teams-card-host">Yöneticisi: <strong>${hostDisplayName}</strong></p>
-            </div>
-          </div>
+    this.applyTabFilter();
+  },
 
-          <!-- MIDDLE BADGES ROW -->
-          <div class="teams-card-middle-badges">
-            ${getTypeBadgeHTML(m.meeting_type)}
-            <span class="badge-status-live-pill"><span class="live-pulse-dot"></span> Başladı (Canlı)</span>
-            <span class="participant-instant-badge" title="Anlık Katılımcı Sayısı"><i class="fas fa-users"></i> ${activeCount}</span>
-          </div>
+  applyTabFilter() {
+    if (this.currentTab === 'live') {
+      this.filteredMeetings = this.allMeetings.filter(m => this.normalizeStatus(m.status) === 'live');
+    } else if (this.currentTab === 'scheduled') {
+      this.filteredMeetings = this.allMeetings.filter(m => this.normalizeStatus(m.status) === 'scheduled');
+    } else if (this.currentTab === 'completed') {
+      this.filteredMeetings = this.allMeetings.filter(m => this.normalizeStatus(m.status) === 'completed');
+    } else {
+      this.filteredMeetings = [...this.allMeetings];
+    }
 
-          <!-- FAR RIGHT ACTIONS & MENU -->
-          <div class="teams-card-actions">
-            <a href="/prejoin/${m.meeting_code}" class="btn-teams-primary">
-              Katıl
-            </a>
+    this.renderCurrentView();
+  },
 
-            <div style="position: relative; display: flex; align-items: center;">
-              <button type="button" onclick="Meetings.toggleCardMenu(event, '${menuId}')" class="card-menu-btn" title="Seçenekler">
-                <i class="fas fa-ellipsis-v"></i>
-              </button>
+  switchView(viewName) {
+    this.currentView = viewName;
 
-              <!-- THREE DOTS DROPDOWN MENU -->
-              <div id="${menuId}" class="teams-dropdown-popover card-popover-menu" style="right: 0; top: 100%; width: 200px; z-index: 500;">
-                <button type="button" class="teams-popover-item" onclick="Meetings.showMeetingInfo('${m.id}')">
-                  <i class="fas fa-info-circle" style="color: #0f6cbd;"></i> Toplantı Bilgileri
-                </button>
-                <button type="button" class="teams-popover-item" onclick="Meetings.openEditModal('${m.id}')">
-                  <i class="fas fa-edit" style="color: #5b5fc7;"></i> Toplantı Düzenleme
-                </button>
-                <button type="button" class="teams-popover-item" onclick="Meetings.cancelMeeting('${m.id}')" style="color: #c4314b;">
-                  <i class="fas fa-trash-alt" style="color: #c4314b;"></i> Toplantıyı İptal Et / Sil
-                </button>
+    const cCard = document.getElementById('viewContainerCard');
+    const cList = document.getElementById('viewContainerList');
+    const cCal = document.getElementById('viewContainerCalendar');
+
+    if (cCard) cCard.style.display = viewName === 'card' ? 'block' : 'none';
+    if (cList) cList.style.display = viewName === 'list' ? 'block' : 'none';
+    if (cCal) cCal.style.display = viewName === 'calendar' ? 'block' : 'none';
+
+    const btnMap = {
+      card: 'btnViewCard',
+      list: 'btnViewList',
+      calendar: 'btnViewCalendar'
+    };
+
+    ['card', 'list', 'calendar'].forEach(v => {
+      const btn = document.getElementById(btnMap[v]);
+      if (btn) {
+        if (v === viewName) {
+          btn.classList.add('active');
+          btn.style.borderColor = '#5b5fc7';
+          btn.style.color = '#5b5fc7';
+        } else {
+          btn.classList.remove('active');
+          btn.style.borderColor = '#cbd5e1';
+          btn.style.color = '#64748b';
+        }
+      }
+    });
+
+    this.renderCurrentView();
+  },
+
+  renderCurrentView() {
+    if (this.currentView === 'card') {
+      this.renderCardView();
+    } else if (this.currentView === 'list') {
+      this.renderListView();
+    } else if (this.currentView === 'calendar') {
+      this.renderCalendarView();
+    }
+  },
+
+  /* --------------------------------------------------------------------------
+     1. KART GÖRÜNÜMÜ RENDERER
+     -------------------------------------------------------------------------- */
+  renderCardView() {
+    const container = document.getElementById('viewContainerCard');
+    if (!container) return;
+
+    if (this.filteredMeetings && this.filteredMeetings.length > 0) {
+      container.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem;">
+          ${this.filteredMeetings.map(m => {
+            const normStatus = this.normalizeStatus(m.status);
+            const isLive = normStatus === 'live';
+            const isCompleted = normStatus === 'completed';
+
+            let badgeBg = '#eff6ff';
+            let badgeColor = '#1d4ed8';
+            let badgeText = m.time_str || 'Planlandı';
+
+            if (isLive) {
+              badgeBg = '#dcfce7';
+              badgeColor = '#166534';
+              badgeText = '<span style="width:6px; height:6px; border-radius:50%; background:#166534;"></span> CANLI';
+            } else if (isCompleted) {
+              badgeBg = '#f1f5f9';
+              badgeColor = '#64748b';
+              badgeText = 'TAMAMLANDI ✓';
+            }
+
+            const parts = m.participants || m.active_participants || [];
+            const maxAvatars = 5;
+            const visibleParts = parts.slice(0, maxAvatars);
+            const extraCount = parts.length > maxAvatars ? parts.length - maxAvatars : 0;
+
+            let avatarsHtml = '';
+            if (parts.length > 0) {
+              avatarsHtml = `
+                <div style="display: flex; align-items: center; margin-top: 0.85rem; margin-bottom: 1.1rem;">
+                  <div style="display: flex;">
+                    ${visibleParts.map((p, idx) => `
+                      <div title="${p.name || ''}" style="width: 28px; height: 28px; border-radius: 50%; background: #e0e7ff; color: #4338ca; border: 2px solid #ffffff; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 800; margin-left: ${idx === 0 ? '0' : '-8px'}; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        ${p.avatar ? `<img src="${p.avatar}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : (p.initials || 'U')}
+                      </div>
+                    `).join('')}
+                  </div>
+                  ${extraCount > 0 ? `
+                    <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 0.15rem 0.45rem; border-radius: 10px; margin-left: 4px;">+${extraCount}</span>
+                  ` : ''}
+                </div>
+              `;
+            } else {
+              avatarsHtml = `
+                <div style="display: flex; align-items: center; margin-top: 0.85rem; margin-bottom: 1.1rem; font-size: 0.76rem; color: #94a3b8; font-weight: 500; gap: 0.35rem;">
+                  <i class="far fa-user-circle" style="color: #cbd5e1; font-size: 0.85rem;"></i> Odada henüz katılım yok
+                </div>
+              `;
+            }
+
+            return `
+              <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03); display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                    <span style="background: ${badgeBg}; color: ${badgeColor}; font-size: 0.7rem; font-weight: 800; padding: 0.2rem 0.55rem; border-radius: 6px; display: flex; align-items: center; gap: 0.35rem;">
+                      ${badgeText}
+                    </span>
+                    <div style="position: relative;">
+                      <button onclick="Meetings.toggleCardMenu(event, 'popMenu_${m.id}')" style="background: none; border: none; font-size: 1rem; color: #94a3b8; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 6px;" title="Seçenekler">&#8942;</button>
+                      <div id="cardMenu_popMenu_${m.id}" class="card-dropdown-menu" style="display: none; position: absolute; top: 100%; right: 0; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); width: 210px; z-index: 1000; padding: 0.4rem 0;">
+                        <button onclick="Meetings.openEditModal('${m.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 0.6rem;">
+                          <i class="far fa-edit" style="color: #6366f1;"></i> Toplantı Bilgilerini Düzenle
+                        </button>
+                        <button onclick="Meetings.cancelMeeting('${m.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #ef4444; cursor: pointer; display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid #f1f5f9;">
+                          <i class="far fa-times-circle" style="color: #ef4444;"></i> Toplantıyı İptal Et
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: ${isLive ? '#eeefec' : '#f8fafc'}; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0;">
+                      <i class="${isLive ? 'fas fa-video' : (isCompleted ? 'fas fa-check-circle' : 'far fa-calendar-alt')}"></i>
+                    </div>
+                    <div>
+                      <span style="font-size: 0.75rem; color: #64748b;">${m.time_str || 'Planlı Oturum'}</span>
+                      <h4 style="font-size: 0.95rem; font-weight: 800; color: #0f172a; margin-top: 0.1rem;">${m.title}</h4>
+                      <span style="font-size: 0.75rem; color: #94a3b8;"><i class="fas fa-tag"></i> ${m.meeting_type || 'Planlı Toplantı'}</span>
+                    </div>
+                  </div>
+
+                  ${avatarsHtml}
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button onclick="window.location.href='/prejoin/${m.meeting_code}'" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 8px; padding: 0.55rem 1rem; font-weight: 700; font-size: 0.82rem; cursor: pointer; flex: 1; transition: all 0.2s;">
+                    Odaya Katıl
+                  </button>
+                  <button onclick="Meetings.openDetailsModal('${m.id}')" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.55rem 1rem; font-weight: 700; font-size: 0.82rem; cursor: pointer; flex: 1; transition: all 0.2s;">
+                    Detaylar
+                  </button>
+                </div>
               </div>
-            </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    } else {
+      const tabTitleMap = {
+        live: 'Aktif canlı toplantınız yok',
+        scheduled: 'Planlanmış toplantınız yok',
+        completed: 'Tamamlanmış toplantınız yok',
+        all: 'Kayıtlı toplantı bulunmuyor'
+      };
+
+      container.innerHTML = `
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 3.5rem 2rem; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);">
+          <div style="width: 120px; height: 90px; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: center;">
+            <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+              <circle cx="60" cy="45" r="35" fill="#EEF2FF"/>
+              <rect x="42" y="32" width="36" height="26" rx="6" fill="#5B5FC7"/>
+              <path d="M78 40L88 34V56L78 50V40Z" fill="#5B5FC7"/>
+            </svg>
+          </div>
+          <h3 style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin-bottom: 0.4rem;">${tabTitleMap[this.currentTab] || 'Toplantı bulunmuyor'}</h3>
+          <p style="color: #64748b; font-size: 0.88rem; max-width: 420px; margin-bottom: 1.5rem; line-height: 1.4;">Bu kategoride henüz kayıtlı bir toplantı bulunmuyor. Hemen yeni bir toplantı başlatabilir veya planlayabilirsiniz.</p>
+          <div style="display: flex; gap: 0.85rem;">
+            <button onclick="Meetings.openQuickMeetingModal()" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 10px; padding: 0.7rem 1.5rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem;">
+              <i class="fas fa-bolt"></i> Hızlı Toplantı Başlat
+            </button>
+            <button onclick="Meetings.openCreateModal()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.7rem 1.4rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem;">
+              <i class="far fa-calendar-plus"></i> Toplantı Planla
+            </button>
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  /* --------------------------------------------------------------------------
+     2. LİSTE GÖRÜNÜMÜ RENDERER
+     -------------------------------------------------------------------------- */
+  renderListView() {
+    const container = document.getElementById('viewContainerList');
+    if (!container) return;
+
+    let html = `
+      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.85rem;">
+          <div style="display: flex; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.45rem 0.85rem; width: 280px;">
+            <i class="fas fa-search" style="color: #94a3b8; font-size: 0.85rem; margin-right: 0.5rem;"></i>
+            <input type="text" id="listSearchInput" placeholder="Toplantı ara..." style="background: transparent; border: none; outline: none; font-size: 0.85rem; width: 100%; color: #0f172a;">
           </div>
 
+          <button style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.45rem 1rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem;">
+            <i class="fas fa-sliders-h" style="color: #5b5fc7;"></i> Filtreler <i class="fas fa-chevron-down" style="font-size: 0.7rem;"></i>
+          </button>
+        </div>
+    `;
+
+    if (this.filteredMeetings && this.filteredMeetings.length > 0) {
+      html += `
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+            <thead>
+              <tr style="border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 0.78rem; font-weight: 700; text-transform: uppercase;">
+                <th style="padding: 0.75rem 1rem;">Toplantı Adı</th>
+                <th style="padding: 0.75rem 1rem;">Tarih & Saat</th>
+                <th style="padding: 0.75rem 1rem;">Tür</th>
+                <th style="padding: 0.75rem 1rem;">Katılımcılar</th>
+                <th style="padding: 0.75rem 1rem;">Durum</th>
+                <th style="padding: 0.75rem 1rem; text-align: right;">İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${this.filteredMeetings.map(m => {
+                const normStatus = this.normalizeStatus(m.status);
+                const isLive = normStatus === 'live';
+                const isCompleted = normStatus === 'completed';
+
+                let statusBadge = `<span style="background: #eff6ff; color: #1d4ed8; font-size: 0.72rem; font-weight: 800; padding: 0.2rem 0.55rem; border-radius: 6px;">Planlandı</span>`;
+                if (isLive) {
+                  statusBadge = `<span style="background: #dcfce7; color: #166534; font-size: 0.72rem; font-weight: 800; padding: 0.2rem 0.55rem; border-radius: 6px;">CANLI</span>`;
+                } else if (isCompleted) {
+                  statusBadge = `<span style="background: #f1f5f9; color: #64748b; font-size: 0.72rem; font-weight: 800; padding: 0.2rem 0.55rem; border-radius: 6px;">Tamamlandı</span>`;
+                }
+
+                return `
+                  <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;">
+                    <td style="padding: 0.85rem 1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem;">
+                      <span style="width: 8px; height: 8px; border-radius: 50%; background: ${isLive ? '#10b981' : (isCompleted ? '#94a3b8' : '#5b5fc7')};"></span>
+                      ${m.title}
+                    </td>
+                    <td style="padding: 0.85rem 1rem; color: #64748b;">${m.time_str || 'Bugün 14:30 - 15:30'}</td>
+                    <td style="padding: 0.85rem 1rem;">
+                      <span style="background: #eeefec; color: #5b5fc7; font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 6px;">${m.meeting_type || 'Planlı Toplantı'}</span>
+                    </td>
+                    <td style="padding: 0.85rem 1rem;">
+                      <div style="display: flex; align-items: center; gap: 0.25rem;">
+                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&q=80" style="width: 24px; height: 24px; border-radius: 50%;">
+                        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=80&q=80" style="width: 24px; height: 24px; border-radius: 50%;">
+                        <span style="font-size: 0.72rem; font-weight: 700; color: #64748b;">+5</span>
+                      </div>
+                    </td>
+                    <td style="padding: 0.85rem 1rem;">
+                      ${statusBadge}
+                    </td>
+                    <td style="padding: 0.85rem 1rem; text-align: right;">
+                      <button onclick="window.location.href='/prejoin/${m.meeting_code}'" style="background: ${isLive ? '#5b5fc7' : '#f1f5f9'}; color: ${isLive ? '#ffffff' : '#4f46e5'}; border: none; border-radius: 6px; padding: 0.4rem 0.85rem; font-weight: 700; font-size: 0.78rem; cursor: pointer; margin-right: 0.35rem;">
+                        ${isLive ? 'Katıl' : 'Detaylar'}
+                      </button>
+                      <button onclick="Meetings.showMeetingInfo('${m.id}')" style="background: none; border: none; color: #94a3b8; font-size: 0.9rem; cursor: pointer;">⋮</button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else {
+      const tabTitleMap = {
+        live: 'Canlı toplantınız yok',
+        scheduled: 'Planlanmış toplantınız yok',
+        completed: 'Tamamlanmış toplantınız yok',
+        all: 'Kayıtlı toplantı bulunmuyor'
+      };
+
+      html += `
+        <div style="padding: 3.5rem 1.5rem; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <div style="width: 110px; height: 80px; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: center;">
+            <svg viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+              <rect x="15" y="20" width="70" height="50" rx="10" fill="#EEF2FF" stroke="#6366F1" stroke-width="2"/>
+              <rect x="15" y="20" width="70" height="15" rx="10" fill="#6366F1"/>
+              <circle cx="35" cy="15" r="3" fill="#6366F1"/>
+              <circle cx="65" cy="15" r="3" fill="#6366F1"/>
+            </svg>
+          </div>
+          <h3 style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin-bottom: 0.4rem;">${tabTitleMap[this.currentTab] || 'Toplantı yok'}</h3>
+          <p style="color: #64748b; font-size: 0.88rem; max-width: 420px; margin-bottom: 1.5rem; line-height: 1.4;">Bu kategoride henüz toplantı bulunmuyor. Yeni bir toplantı planlayabilirsiniz.</p>
+          <div style="display: flex; gap: 0.85rem;">
+            <button onclick="Meetings.openCreateModal()" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 10px; padding: 0.7rem 1.5rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem;">
+              <i class="far fa-calendar-plus"></i> Toplantı Planla
+            </button>
+            <button onclick="Meetings.openQuickMeetingModal()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.7rem 1.4rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem;">
+              <i class="fas fa-bolt"></i> Hızlı Toplantı
+            </button>
+          </div>
         </div>
       `;
     }
 
-    // 2. PLANLANAN / PLANLI TOPLANTI KARTI (Microsoft Teams Birebir Düzen)
-    return `
-      <div class="meeting-card-teams">
-        
-        <!-- FAR LEFT: DATE BOX & VERTICAL DIVIDER BAR -->
-        <div class="teams-card-left-section">
-          <div class="teams-date-box">
-            <span class="teams-date-day">${dayNum}</span>
-            <span class="teams-date-month">${monthStr}</span>
-          </div>
-          <div class="teams-vertical-divider teams-divider-planned"></div>
-
-          <!-- TITLE & INFO STACK -->
-          <div class="teams-card-info-stack">
-            <h4 class="teams-card-title" title="${m.title}">${m.title}</h4>
-            <p class="teams-card-time">${teamsTimeStr}</p>
-            <p class="teams-card-host">Yöneticisi: <strong>${hostDisplayName}</strong></p>
-          </div>
-        </div>
-
-        <!-- MIDDLE BADGES ROW -->
-        <div class="teams-card-middle-badges">
-          ${getTypeBadgeHTML(m.meeting_type)}
-          ${isCompleted 
-            ? `<span class="badge-status-completed-pill"><i class="fas fa-check-circle"></i> Tamamlandı</span>`
-            : `<span class="badge-status-planned-pill"><i class="far fa-calendar"></i> Planlandı</span>`}
-        </div>
-
-        <!-- FAR RIGHT ACTIONS & MENU -->
-        <div class="teams-card-actions">
-          ${isCompleted ? `
-            <button type="button" onclick="Meetings.showMeetingInfo('${m.id}')" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 700; font-size: 0.82rem; padding: 0.5rem 0.95rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem;">
-              <i class="fas fa-info-circle"></i> Detaylar
-            </button>
-          ` : `
-            <a href="/prejoin/${m.meeting_code}" class="btn-teams-primary">
-              Katıl
-            </a>
-          `}
-
-          <div style="position: relative; display: flex; align-items: center;">
-            <button type="button" onclick="Meetings.toggleCardMenu(event, '${menuId}')" class="card-menu-btn" title="Seçenekler">
-              <i class="fas fa-ellipsis-v"></i>
-            </button>
-
-            <!-- THREE DOTS DROPDOWN MENU -->
-            <div id="${menuId}" class="teams-dropdown-popover card-popover-menu" style="right: 0; top: 100%; width: 200px; z-index: 500;">
-              <button type="button" class="teams-popover-item" onclick="Meetings.showMeetingInfo('${m.id}')">
-                <i class="fas fa-info-circle" style="color: #0f6cbd;"></i> Toplantı Bilgileri
-              </button>
-              ${!isCompleted ? `
-              <button type="button" class="teams-popover-item" onclick="Meetings.openEditModal('${m.id}')">
-                <i class="fas fa-edit" style="color: #5b5fc7;"></i> Toplantı Düzenleme
-              </button>
-              <button type="button" class="teams-popover-item" onclick="Meetings.cancelMeeting('${m.id}')" style="color: #c4314b;">
-                <i class="fas fa-trash-alt" style="color: #c4314b;"></i> Toplantıyı İptal Et / Sil
-              </button>
-              ` : ''}
-            </div>
-          </div>
-        </div>
-
-      </div>
-    `;
+    html += `</div>`;
+    container.innerHTML = html;
   },
 
+  /* --------------------------------------------------------------------------
+     3. TAKVİM GÖRÜNÜMÜ RENDERER
+     -------------------------------------------------------------------------- */
+  renderCalendarView() {
+    const container = document.getElementById('viewContainerCalendar');
+    if (!container) return;
 
-  bindEvents() {
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.card-popover-menu') && !e.target.closest('button')) {
-        document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
+    if (this.filteredMeetings && this.filteredMeetings.length > 0) {
+      container.innerHTML = `
+        <div style="display: grid; grid-template-columns: 240px 1fr; gap: 1.5rem;">
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+              <h4 style="font-size: 0.95rem; font-weight: 800; color: #0f172a;">Mayıs 2024</h4>
+              <div style="display: flex; gap: 0.25rem;">
+                <button style="background: none; border: none; color: #64748b; cursor: pointer;">&lt;</button>
+                <button style="background: none; border: none; color: #64748b; cursor: pointer;">&gt;</button>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; gap: 0.35rem; font-size: 0.72rem;">
+              <span style="font-weight: 700; color: #94a3b8;">Pzt</span>
+              <span style="font-weight: 700; color: #94a3b8;">Sal</span>
+              <span style="font-weight: 700; color: #94a3b8;">Çar</span>
+              <span style="font-weight: 700; color: #94a3b8;">Per</span>
+              <span style="font-weight: 700; color: #94a3b8;">Cum</span>
+              <span style="font-weight: 700; color: #94a3b8;">Cmt</span>
+              <span style="font-weight: 700; color: #94a3b8;">Paz</span>
+
+              ${[...Array(31)].map((_, i) => `
+                <span style="padding: 0.3rem 0; border-radius: 50%; ${i + 1 === 3 ? 'background:#5b5fc7; color:#fff; font-weight:800;' : 'color:#475569;'}">${i + 1}</span>
+              `).join('')}
+            </div>
+
+            <button style="background: #f8fafc; color: #5b5fc7; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.5rem; width: 100%; font-weight: 700; font-size: 0.8rem; cursor: pointer; margin-top: 1.25rem;">
+              Bugüne Dön
+            </button>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <button style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.8rem;">&lt;</button>
+                <button style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.8rem;">&gt;</button>
+                <h4 style="font-size: 1rem; font-weight: 800; color: #0f172a; margin: 0;">1 - 7 Mayıs 2024</h4>
+              </div>
+
+              <div style="display: flex; gap: 0.35rem;">
+                <button style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 600; color: #64748b;">Gün</button>
+                <button style="background: #5b5fc7; border: none; border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 800; color: #ffffff;">Hafta</button>
+                <button style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 600; color: #64748b;">Ay</button>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; font-size: 0.78rem; font-weight: 700; color: #475569;">
+              <div>Pzt 1 May</div>
+              <div>Sal 2 May</div>
+              <div style="color:#5b5fc7;">Çar 3 May</div>
+              <div>Per 4 May</div>
+              <div style="color:#10b981;">Cum 5 May</div>
+              <div>Cmt 6 May</div>
+              <div>Paz 7 May</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; min-height: 260px; padding-top: 1rem;">
+              <div></div>
+              <div></div>
+              
+              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <div style="background: #eeefec; border-left: 3px solid #5b5fc7; border-radius: 6px; padding: 0.5rem; font-size: 0.72rem;">
+                  <span style="font-weight: 700; color: #5b5fc7; display: block;">10:00 - 11:00</span>
+                  <strong style="color: #0f172a;">Sprint Planlama</strong>
+                </div>
+              </div>
+
+              <div></div>
+
+              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <div style="background: #dcfce7; border-left: 3px solid #10b981; border-radius: 6px; padding: 0.5rem; font-size: 0.72rem;">
+                  <span style="font-weight: 800; color: #166534; display: block;">14:30 - 15:30 [CANLI]</span>
+                  <strong style="color: #0f172a;">Proje Değerlendirme</strong>
+                </div>
+              </div>
+
+              <div></div>
+              <div></div>
+            </div>
+
+          </div>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03); min-height: 420px; position: relative;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <button style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.8rem; cursor: pointer;">&lt;</button>
+              <button style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.8rem; cursor: pointer;">&gt;</button>
+              <button style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 700; color: #475569; cursor: pointer;">Bugün</button>
+              <h4 style="font-size: 1rem; font-weight: 800; color: #0f172a; margin: 0; margin-left: 0.5rem;">27 Mayıs - 2 Haziran 2024</h4>
+            </div>
+
+            <div style="display: flex; gap: 0.35rem;">
+              <button style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 600; color: #64748b; cursor: pointer;">Gün</button>
+              <button style="background: #5b5fc7; border: none; border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 800; color: #ffffff; cursor: pointer;">Hafta</button>
+              <button style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 600; color: #64748b; cursor: pointer;">Ay</button>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; font-size: 0.78rem; font-weight: 700; color: #64748b;">
+            <div>Pzt 27 Mayıs</div>
+            <div>Sal 28 Mayıs</div>
+            <div>Çar 29 Mayıs</div>
+            <div>Per 30 Mayıs</div>
+            <div>Cum 31 Mayıs</div>
+            <div>Cmt 1 Haziran</div>
+            <div>Paz 2 Haziran</div>
+          </div>
+
+          <div style="padding: 4rem 1.5rem; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div style="width: 120px; height: 90px; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: center;">
+              <svg viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+                <rect x="30" y="50" width="100" height="55" rx="10" fill="#5B5FC7" fill-opacity="0.15" stroke="#5B5FC7" stroke-width="2"/>
+                <path d="M30 50L80 25L130 50" stroke="#5B5FC7" stroke-width="2"/>
+                <circle cx="50" cy="35" r="6" fill="#F59E0B"/>
+                <circle cx="80" cy="20" r="5" fill="#10B981"/>
+                <circle cx="110" cy="38" r="7" fill="#EF4444"/>
+              </svg>
+            </div>
+            <h3 style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin-bottom: 0.4rem;">Bu hafta için planlanmış toplantı yok</h3>
+            <p style="color: #64748b; font-size: 0.88rem; max-width: 420px; margin-bottom: 1.5rem; line-height: 1.4;">Takviminiz boş görünüyor. Yeni bir toplantı planlayarak gününüzü organize edin.</p>
+            <button onclick="Meetings.openCreateModal()" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 10px; padding: 0.7rem 1.6rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; box-shadow: 0 4px 12px rgba(91, 95, 199, 0.25);">
+              <i class="far fa-calendar-plus"></i> Toplantı Planla
+            </button>
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  /* --------------------------------------------------------------------------
+     MODAL & PASSCODE & PARTICIPANT HANDLERS
+     -------------------------------------------------------------------------- */
+  generateRandomPasscode() {
+    const randomCode = Math.floor(10000 + Math.random() * 90000);
+    const passcodeEl = document.getElementById('createPasscode');
+    if (passcodeEl) passcodeEl.value = randomCode;
+  },
+
+  async loadCompanyUsers() {
+    try {
+      const res = await Auth.fetchWithAuth('/api/v1/users/');
+      if (res.ok) {
+        const users = await res.json();
+        const currentUser = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+        const currentUserId = String(currentUser?.id || currentUser?.user_id || '').toLowerCase();
+        const currentUserEmail = String(currentUser?.email || '').toLowerCase();
+
+        // Kendi kendini davet etmeyi engellemek için oturum açan kullanıcıyı listeden çıkarıyoruz
+        this.companyUsers = (users || []).filter(u => {
+          const uId = String(u.id || '').toLowerCase();
+          const uEmail = String(u.email || '').toLowerCase();
+          if (currentUserId && uId === currentUserId) return false;
+          if (currentUserEmail && uEmail === currentUserEmail) return false;
+          return true;
+        });
+      } else {
+        this.companyUsers = [];
       }
+    } catch (e) {
+      console.warn("Kullanıcılar yüklenirken uyarı:", e);
+      this.companyUsers = [];
+    }
+    this.renderUsersListContainer();
+    this.renderQuickUsersListContainer();
+  },
+
+  renderUsersListContainer(filterText = '') {
+    const container = document.getElementById('usersListContainer');
+    if (!container) return;
+
+    const text = (filterText || '').toLowerCase().trim();
+    const filtered = this.companyUsers.filter(u => {
+      const name = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      return name.includes(text) || email.includes(text);
     });
 
-    const inputs = ['filterSearch', 'filterHost', 'filterType', 'filterStatus', 'filterDateFrom', 'filterDateTo', 'filterParticipant'];
-    inputs.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.addEventListener('input', () => this.applyFilters());
-        el.addEventListener('change', () => this.applyFilters());
-      }
-    });
-
-    const createStartEl = document.getElementById('createStart');
-    const createDurationEl = document.getElementById('createDuration');
-    if (createStartEl) {
-      createStartEl.addEventListener('change', () => this.updateCalculatedEndTime());
-      createStartEl.addEventListener('input', () => this.updateCalculatedEndTime());
-    }
-    if (createDurationEl) {
-      createDurationEl.addEventListener('change', () => this.updateCalculatedEndTime());
+    if (filtered.length === 0) {
+      container.innerHTML = `<span style="font-size: 0.78rem; color: #94a3b8; text-align: center; padding: 0.5rem;">Kullanıcı bulunamadı</span>`;
+      return;
     }
 
-    const formCreate = document.getElementById('formCreateMeeting');
-    if (formCreate) {
-      formCreate.addEventListener('submit', (e) => this.handleCreateMeeting(e));
+    container.innerHTML = filtered.map(u => {
+      const isChecked = this.selectedUserIds.has(u.id);
+      const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email;
+      return `
+        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: #0f172a; padding: 0.25rem 0.4rem; border-radius: 6px; cursor: pointer; transition: background 0.15s; ${isChecked ? 'background: #eff6ff;' : ''}">
+          <input type="checkbox" value="${u.id}" ${isChecked ? 'checked' : ''} onchange="Meetings.toggleUserSelection('${u.id}')" style="accent-color: #5b5fc7; width: 15px; height: 15px;">
+          <span style="font-weight: 700;">${fullName}</span>
+          <span style="font-size: 0.74rem; color: #64748b; margin-left: auto;">(${u.email})</span>
+        </label>
+      `;
+    }).join('');
+  },
+
+  filterParticipantList(query) {
+    this.renderUsersListContainer(query);
+  },
+
+  toggleUserSelection(userId) {
+    if (this.selectedUserIds.has(userId)) {
+      this.selectedUserIds.delete(userId);
+    } else {
+      this.selectedUserIds.add(userId);
+    }
+    this.renderSelectedChips();
+    this.renderUsersListContainer(document.getElementById('participantSearchInput')?.value || '');
+  },
+
+  renderSelectedChips() {
+    const container = document.getElementById('selectedParticipantsContainer');
+    if (!container) return;
+
+    if (this.selectedUserIds.size === 0) {
+      container.innerHTML = '';
+      return;
     }
 
-    const formEdit = document.getElementById('formEditMeeting');
-    if (formEdit) {
-      formEdit.addEventListener('submit', (e) => this.handleEditMeeting(e));
+    const selectedUsers = this.companyUsers.filter(u => this.selectedUserIds.has(u.id));
+    container.innerHTML = selectedUsers.map(u => {
+      const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email;
+      return `
+        <span style="background: #eeefec; color: #5b5fc7; font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 12px; display: inline-flex; align-items: center; gap: 0.35rem; border: 1px solid #c7d2fe;">
+          ${fullName}
+          <button type="button" onclick="Meetings.toggleUserSelection('${u.id}')" style="background: none; border: none; color: #5b5fc7; cursor: pointer; font-size: 0.85rem; padding: 0; line-height: 1;">&times;</button>
+        </span>
+      `;
+    }).join('');
+  },
+
+  /* HIZLI TOPLANTI PARTICIPANTS HANDLERS */
+  renderQuickUsersListContainer() {
+    const container = document.getElementById('quickUsersListContainer');
+    if (!container) return;
+
+    if (this.companyUsers.length === 0) {
+      container.innerHTML = `<span style="font-size: 0.78rem; color: #94a3b8; text-align: center; padding: 0.5rem;">Kullanıcı bulunamadı</span>`;
+      return;
     }
+
+    container.innerHTML = this.companyUsers.map(u => {
+      const isChecked = this.quickSelectedUserIds.has(u.id);
+      const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email;
+      return `
+        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: #0f172a; padding: 0.25rem 0.4rem; border-radius: 6px; cursor: pointer; transition: background 0.15s; ${isChecked ? 'background: #eff6ff;' : ''}">
+          <input type="checkbox" value="${u.id}" ${isChecked ? 'checked' : ''} onchange="Meetings.toggleQuickUserSelection('${u.id}')" style="accent-color: #5b5fc7; width: 15px; height: 15px;">
+          <span style="font-weight: 700;">${fullName}</span>
+          <span style="font-size: 0.74rem; color: #64748b; margin-left: auto;">(${u.email})</span>
+        </label>
+      `;
+    }).join('');
+    this.renderQuickSelectedChips();
+  },
+
+  toggleQuickUserSelection(userId) {
+    if (this.quickSelectedUserIds.has(userId)) {
+      this.quickSelectedUserIds.delete(userId);
+    } else {
+      this.quickSelectedUserIds.add(userId);
+    }
+    this.renderQuickUsersListContainer();
+  },
+
+  toggleQuickSelectAll(forceAll = false) {
+    if (forceAll || this.quickSelectedUserIds.size < this.companyUsers.length) {
+      this.companyUsers.forEach(u => this.quickSelectedUserIds.add(u.id));
+    } else {
+      this.quickSelectedUserIds.clear();
+    }
+    this.renderQuickUsersListContainer();
+  },
+
+  renderQuickSelectedChips() {
+    const container = document.getElementById('quickSelectedChips');
+    if (!container) return;
+
+    if (this.quickSelectedUserIds.size === 0) {
+      container.innerHTML = `<span style="font-size: 0.75rem; color: #94a3b8; font-style: italic;">Henüz kimse davet edilmedi.</span>`;
+      return;
+    }
+
+    const selectedUsers = this.companyUsers.filter(u => this.quickSelectedUserIds.has(u.id));
+    container.innerHTML = selectedUsers.map(u => {
+      const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email;
+      return `
+        <span style="background: #eeefec; color: #5b5fc7; font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 12px; display: inline-flex; align-items: center; gap: 0.35rem; border: 1px solid #c7d2fe;">
+          ${fullName}
+          <button type="button" onclick="Meetings.toggleQuickUserSelection('${u.id}')" style="background: none; border: none; color: #5b5fc7; cursor: pointer; font-size: 0.85rem; padding: 0; line-height: 1;">&times;</button>
+        </span>
+      `;
+    }).join('');
   },
 
   openCreateModal() {
     const modal = document.getElementById('createMeetingModal');
-    if (modal) modal.classList.add('active');
+    if (modal) {
+      modal.classList.add('active');
+      modal.style.setProperty('display', 'flex', 'important');
+      modal.style.setProperty('opacity', '1', 'important');
+      modal.style.setProperty('pointer-events', 'auto', 'important');
+      modal.style.setProperty('z-index', '99999', 'important');
+    }
 
-    this.selectedUserIds = [];
+    this.selectedUserIds.clear();
+    this.renderSelectedChips();
+    this.generateRandomPasscode();
 
     const startInput = document.getElementById('createStart');
     if (startInput) {
@@ -497,13 +746,175 @@ const Meetings = {
       startInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
     }
 
-    this.updateCalculatedEndTime();
-    this.renderUserInvitationList('');
+    this.loadCompanyUsers();
   },
 
   closeCreateModal() {
     const modal = document.getElementById('createMeetingModal');
-    if (modal) modal.classList.remove('active');
+    if (modal) {
+      modal.classList.remove('active');
+      modal.style.setProperty('display', 'none', 'important');
+      modal.style.setProperty('opacity', '0', 'important');
+      modal.style.setProperty('pointer-events', 'none', 'important');
+    }
+  },
+
+  async openQuickMeetingModal() {
+    const modal = document.getElementById('quickMeetingModal');
+    if (modal) {
+      modal.classList.add('active');
+      modal.style.setProperty('display', 'flex', 'important');
+      modal.style.setProperty('opacity', '1', 'important');
+      modal.style.setProperty('pointer-events', 'auto', 'important');
+      modal.style.setProperty('z-index', '99999', 'important');
+    }
+
+    this.quickSelectedUserIds.clear();
+    await this.loadCompanyUsers();
+    // Varsayılan olarak HERKESİ DAVET ET aktif
+    this.toggleQuickSelectAll(true);
+  },
+
+  closeQuickMeetingModal() {
+    const modal = document.getElementById('quickMeetingModal');
+    if (modal) {
+      modal.classList.remove('active');
+      modal.style.setProperty('display', 'none', 'important');
+      modal.style.setProperty('opacity', '0', 'important');
+      modal.style.setProperty('pointer-events', 'none', 'important');
+    }
+  },
+
+  openEditModal(meetingId) {
+    const m = (this.allMeetings || []).find(item => String(item.id) === String(meetingId));
+    const modal = document.getElementById('editMeetingModal');
+    if (!modal) return;
+
+    if (m) {
+      const idEl = document.getElementById('editMeetingId');
+      const titleEl = document.getElementById('editTitle');
+      const descEl = document.getElementById('editDescription');
+      const agendaEl = document.getElementById('editAgenda');
+      const passcodeEl = document.getElementById('editPasscode');
+      const lobbyEl = document.getElementById('editLobbyEnabled');
+
+      if (idEl) idEl.value = m.id;
+      if (titleEl) titleEl.value = m.title || '';
+      if (descEl) descEl.value = m.description || '';
+      if (agendaEl) agendaEl.value = m.agenda || '';
+      if (passcodeEl) passcodeEl.value = m.passcode || '';
+      if (lobbyEl) lobbyEl.checked = !!m.lobby_enabled;
+    }
+
+    modal.classList.add('active');
+    modal.style.setProperty('display', 'flex', 'important');
+    modal.style.setProperty('opacity', '1', 'important');
+    modal.style.setProperty('pointer-events', 'auto', 'important');
+    modal.style.setProperty('z-index', '99999', 'important');
+  },
+
+  closeEditModal() {
+    const modal = document.getElementById('editMeetingModal');
+    if (modal) {
+      modal.classList.remove('active');
+      modal.style.setProperty('display', 'none', 'important');
+      modal.style.setProperty('opacity', '0', 'important');
+      modal.style.setProperty('pointer-events', 'none', 'important');
+    }
+  },
+
+  async cancelMeeting(meetingId) {
+    if (!confirm("Bu toplantıyı iptal etmek istediğinize emin misiniz?")) return;
+    try {
+      const res = await Auth.fetchWithAuth(`/api/v1/meetings/${meetingId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        alert("Toplantı başarıyla iptal edildi.");
+        await this.loadMeetings();
+        if (window.Dashboard && typeof window.Dashboard.loadStats === 'function') {
+          await window.Dashboard.loadStats();
+        }
+      } else {
+        const err = await res.json();
+        alert("İptal işlemi başarısız: " + (err.detail || 'Hata oluştu'));
+      }
+    } catch (err) {
+      console.error("Toplantı iptal hatası:", err);
+      alert("Toplantı iptal edilirken bir hata oluştu.");
+    }
+  },
+
+  openDetailsModal(meetingId) {
+    this.showMeetingInfo(meetingId);
+  },
+
+  showMeetingInfo(meetingId) {
+    const m = (this.allMeetings || []).find(item => String(item.id) === String(meetingId));
+    const modal = document.getElementById('meetingDetailsModal');
+
+    if (m) {
+      const titleEl = document.getElementById('infoMeetingTitle');
+      const badgeEl = document.getElementById('infoMeetingBadge');
+      const codeEl = document.getElementById('infoMeetingCode');
+      const activeCountEl = document.getElementById('infoMeetingActiveCount');
+      const descEl = document.getElementById('infoMeetingDescription');
+      const timeRangeEl = document.getElementById('infoMeetingTimeRange');
+      const securityEl = document.getElementById('infoMeetingSecurity');
+      const listEl = document.getElementById('infoMeetingParticipantsList');
+      const joinBtn = document.getElementById('infoMeetingJoinBtn');
+
+      if (titleEl) titleEl.textContent = m.title || 'Toplantı Detayı';
+      if (codeEl) codeEl.textContent = m.meeting_code || '-';
+      if (descEl) descEl.textContent = m.agenda || m.description || 'Açıklama veya gündem belirtilmedi.';
+      if (timeRangeEl) timeRangeEl.textContent = m.time_str || (m.scheduled_start ? new Date(m.scheduled_start).toLocaleString('tr-TR') : '-');
+      if (securityEl) securityEl.textContent = m.passcode ? `Şifreli (${m.passcode})` : 'Şifresiz';
+      if (joinBtn) joinBtn.href = `/prejoin/${m.meeting_code}`;
+
+      const activeCount = m.active_count || (m.participants ? m.participants.length : 0);
+      if (activeCountEl) activeCountEl.textContent = `${activeCount} Kişi Aktif`;
+
+      if (badgeEl) {
+        const isLive = this.normalizeStatus(m.status) === 'live';
+        badgeEl.textContent = isLive ? 'CANLI' : (m.status || 'Planlandı').toUpperCase();
+        badgeEl.style.background = isLive ? '#dcfce7' : '#e0e7ff';
+        badgeEl.style.color = isLive ? '#166534' : '#3730a3';
+      }
+
+      if (listEl) {
+        const parts = m.participants || m.active_participants || [];
+        if (parts.length > 0) {
+          listEl.innerHTML = parts.map(p => `
+            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; padding: 0.25rem 0;">
+              <div style="width: 26px; height: 26px; border-radius: 50%; background: #e0e7ff; color: #4338ca; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800;">
+                ${p.initials || 'U'}
+              </div>
+              <span style="font-weight: 600; color: #0f172a;">${p.name || 'Kullanıcı'}</span>
+            </div>
+          `).join('');
+        } else {
+          listEl.innerHTML = '<span style="font-size: 0.8rem; color: #94a3b8;">Henüz katılan aktif üye yok.</span>';
+        }
+      }
+    }
+
+    if (modal) {
+      modal.classList.add('active');
+      modal.style.setProperty('display', 'flex', 'important');
+      modal.style.setProperty('opacity', '1', 'important');
+      modal.style.setProperty('pointer-events', 'auto', 'important');
+      modal.style.setProperty('z-index', '99999', 'important');
+    }
+  },
+
+  closeDetailsModal() {
+    const modal = document.getElementById('meetingDetailsModal');
+    if (modal) {
+      modal.classList.remove('active');
+      modal.style.setProperty('display', 'none', 'important');
+      modal.style.setProperty('opacity', '0', 'important');
+      modal.style.setProperty('pointer-events', 'none', 'important');
+    }
   },
 
   toggleCardMenu(e, menuId) {
@@ -511,199 +922,170 @@ const Meetings = {
       e.stopPropagation();
       e.preventDefault();
     }
-    const targetPop = document.getElementById(menuId);
-    document.querySelectorAll('.teams-dropdown-popover').forEach(p => {
-      if (p !== targetPop) p.classList.remove('show');
+    const targetId = menuId.startsWith('cardMenu_') ? menuId : `cardMenu_${menuId}`;
+    document.querySelectorAll('.card-dropdown-menu').forEach(el => {
+      if (el.id !== targetId) {
+        el.style.display = 'none';
+      }
     });
-    if (targetPop) {
-      targetPop.classList.toggle('show');
-    }
-  },
 
-  showMeetingInfo(meetingId) {
-    document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
-    const m = (this.allMeetings || []).find(item => item.id === meetingId);
-    if (!m) return;
-
-    const hostName = m.creator ? `${m.creator.first_name || ''} ${m.creator.last_name || ''}`.trim() : 'Yeb Soft';
-    const startObj = this.parseDate(m.scheduled_start);
-    const duration = m.duration_minutes || 30;
-    const endObj = m.scheduled_end ? this.parseDate(m.scheduled_end) : new Date(startObj.getTime() + duration * 60000);
-
-    const dateStr = startObj.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const startTimeStr = startObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-    const endTimeStr = endObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-
-    const titleEl = document.getElementById('infoMeetingTitle');
-    const descEl = document.getElementById('infoMeetingDescription');
-    const hostEl = document.getElementById('infoMeetingHost');
-    const dateEl = document.getElementById('infoMeetingDate');
-    const timeRangeEl = document.getElementById('infoMeetingTimeRange');
-    const typeEl = document.getElementById('infoMeetingType');
-    const codeEl = document.getElementById('infoMeetingCodeBadge');
-    const statusEl = document.getElementById('infoMeetingStatusBadge');
-    const joinBtn = document.getElementById('infoMeetingJoinBtn');
-
-    if (titleEl) titleEl.textContent = m.title;
-    if (descEl) descEl.textContent = m.agenda ? `[GÜNDEM]\n${m.agenda}\n\n[AÇIKLAMA]\n${m.description || 'Yok'}` : (m.description || 'Açıklama veya gündem belirtilmedi.');
-    if (hostEl) hostEl.textContent = hostName;
-    if (dateEl) dateEl.textContent = dateStr;
-    if (timeRangeEl) timeRangeEl.textContent = `${startTimeStr} - ${endTimeStr} (${duration} dk)`;
-    if (typeEl) typeEl.textContent = m.meeting_type || 'Genel Toplantı';
-    if (codeEl) codeEl.textContent = `ODA KODU: ${m.meeting_code} | ŞİFRE: ${m.passcode || 'Yok'}`;
-    if (statusEl) statusEl.textContent = (m.status || 'planlandı').toUpperCase();
-    if (joinBtn) joinBtn.href = `/prejoin/${m.meeting_code}`;
-
-    const modal = document.getElementById('meetingDetailsModal');
-    if (modal) modal.classList.add('active');
-  },
-
-  closeDetailsModal() {
-    const modal = document.getElementById('meetingDetailsModal');
-    if (modal) modal.classList.remove('active');
-  },
-
-  openEditModal(meetingId) {
-    document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
-    const meeting = (this.allMeetings || []).find(m => m.id === meetingId);
-    if (!meeting) return;
-
-    document.getElementById('editMeetingId').value = meeting.id;
-    document.getElementById('editTitle').value = meeting.title || '';
-    document.getElementById('editDescription').value = meeting.description || '';
-    document.getElementById('editType').value = meeting.meeting_type || 'Genel Toplantı';
-
-    const modal = document.getElementById('editMeetingModal');
-    if (modal) modal.classList.add('active');
-  },
-
-  closeEditModal() {
-    const modal = document.getElementById('editMeetingModal');
-    if (modal) modal.classList.remove('active');
-  },
-
-  async handleCreateMeeting(e) {
-    e.preventDefault();
-    const title = document.getElementById('createTitle').value.trim();
-    const description = document.getElementById('createDescription').value.trim();
-    const scheduledStart = document.getElementById('createStart').value;
-    const durationMinutes = parseInt(document.getElementById('createDuration').value || '30', 10);
-    const meetingType = document.getElementById('createType').value;
-    const agenda = document.getElementById('createAgenda')?.value.trim() || '';
-    const passcode = document.getElementById('createPasscode')?.value.trim() || null;
-    const lobbyEnabled = document.getElementById('createLobbyEnabled')?.checked || false;
-    const isPrivate = document.getElementById('createIsPrivate')?.checked || false;
-
-    if (!title || !scheduledStart) {
-      Notifications.show("Lütfen gerekli alanları doldurun.", "warning", "Eksik Bilgi");
-      return;
-    }
-
-    const pad = (n) => String(n).padStart(2, '0');
-    const parts = scheduledStart.split(/[-T :]/).map(Number);
-    const startDate = new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], 0);
-    const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
-
-    const startISO = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}T${pad(startDate.getHours())}:${pad(startDate.getMinutes())}:00`;
-    const endISO = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}:00`;
-
-    try {
-      const res = await fetch('/api/v1/meetings/', {
-        method: 'POST',
-        headers: Auth.getAuthHeaders(),
-        body: JSON.stringify({
-          title,
-          description,
-          scheduled_start: startISO,
-          scheduled_end: endISO,
-          duration_minutes: durationMinutes,
-          meeting_type: meetingType,
-          agenda: agenda || null,
-          passcode: passcode || null,
-          lobby_enabled: lobbyEnabled,
-          is_private: isPrivate,
-          invited_user_ids: this.selectedUserIds,
-          status: 'planlandı'
-        })
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || "Toplantı oluşturulamadı.");
-      }
-
-      Notifications.show("Toplantı başarıyla oluşturuldu ve davetler iletildi!", "success", "Başarılı");
-      this.closeCreateModal();
-      await this.loadMeetings();
-    } catch (err) {
-      console.error(err);
-      Notifications.show(err.message, "danger", "Hata");
-    }
-  },
-
-  async handleEditMeeting(e) {
-    e.preventDefault();
-    const meetingId = document.getElementById('editMeetingId').value;
-    const title = document.getElementById('editTitle').value.trim();
-    const description = document.getElementById('editDescription').value.trim();
-    const meetingType = document.getElementById('editType').value;
-
-    try {
-      const res = await fetch(`/api/v1/meetings/${meetingId}`, {
-        method: 'PUT',
-        headers: Auth.getAuthHeaders(),
-        body: JSON.stringify({
-          title,
-          description,
-          meeting_type: meetingType
-        })
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || "Toplantı güncellenemedi.");
-      }
-
-      Notifications.show("Toplantı başarıyla güncellendi!", "success", "Başarılı");
-      this.closeEditModal();
-      await this.loadMeetings();
-    } catch (err) {
-      console.error(err);
-      Notifications.show(err.message, "danger", "Hata");
-    }
-  },
-
-  async cancelMeeting(meetingId) {
-    document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.classList.remove('show'));
-    const meeting = (this.allMeetings || []).find(m => m.id === meetingId);
-    const title = meeting ? meeting.title : 'Bu toplantı';
-
-    if (!confirm(`"${title}" toplantısını silmek / iptal etmek istediğinize emin misiniz?`)) return;
-
-    try {
-      const res = await fetch(`/api/v1/meetings/${meetingId}`, {
-        method: 'PUT',
-        headers: Auth.getAuthHeaders(),
-        body: JSON.stringify({
-          status: 'iptal edildi',
-          is_active: false
-        })
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || "Toplantı silinemedi.");
-      }
-
-      Notifications.show("Toplantı başarıyla silindi ve iptal edildi.", "info", "Toplantı Silindi");
-      await this.loadMeetings();
-    } catch (err) {
-      console.error(err);
-      Notifications.show(err.message, "danger", "Hata");
+    const menuEl = document.getElementById(targetId) || document.getElementById(menuId);
+    if (menuEl) {
+      menuEl.style.display = menuEl.style.display === 'block' ? 'none' : 'block';
     }
   }
 };
 
+window.Meetings = Meetings;
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.card-dropdown-menu') && !e.target.closest('button')) {
+    document.querySelectorAll('.card-dropdown-menu').forEach(el => el.style.display = 'none');
+  }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
-  Meetings.init();
+  window.Meetings.init();
+
+  const formEdit = document.getElementById('formEditMeeting');
+  if (formEdit) {
+    formEdit.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const meetingId = document.getElementById('editMeetingId').value;
+      const title = document.getElementById('editTitle').value;
+      const description = document.getElementById('editDescription').value;
+      const agenda = document.getElementById('editAgenda').value;
+      const passcode = document.getElementById('editPasscode').value;
+      const lobbyEnabled = document.getElementById('editLobbyEnabled').checked;
+
+      try {
+        const payload = {
+          title: title,
+          description: description,
+          agenda: agenda,
+          passcode: passcode,
+          lobby_enabled: lobbyEnabled
+        };
+
+        const res = await Auth.fetchWithAuth(`/api/v1/meetings/${meetingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          Meetings.closeEditModal();
+          await Meetings.loadMeetings();
+          if (window.Dashboard && typeof window.Dashboard.loadStats === 'function') {
+            await window.Dashboard.loadStats();
+          }
+          alert("Toplantı bilgileri başarıyla güncellendi.");
+        } else {
+          const err = await res.json();
+          alert("Güncelleme başarısız: " + (err.detail || 'Hata'));
+        }
+      } catch (err) {
+        console.error("Güncelleme hatası:", err);
+        alert("Toplantı güncellenirken hata oluştu.");
+      }
+    });
+  }
+
+  const formCreate = document.getElementById('formCreateMeeting');
+  if (formCreate) {
+    formCreate.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('createTitle').value;
+      const meetingType = document.getElementById('createMeetingType').value || 'Planlı Toplantı';
+      const start = document.getElementById('createStart').value;
+      const duration = parseInt(document.getElementById('createDuration').value || '30', 10);
+      const passcode = document.getElementById('createPasscode').value || '';
+      const lobbyEnabled = document.getElementById('createLobbyEnabled').checked;
+      const isPrivate = document.getElementById('createIsPrivate').checked;
+      const description = document.getElementById('createDescription').value || '';
+      const agenda = document.getElementById('createAgenda').value || '';
+      const invitedIds = Array.from(Meetings.selectedUserIds);
+
+      try {
+        const payload = {
+          title: title,
+          meeting_type: meetingType,
+          scheduled_start: new Date(start).toISOString(),
+          duration_minutes: duration,
+          passcode: passcode,
+          lobby_enabled: lobbyEnabled,
+          is_private: isPrivate,
+          description: description,
+          agenda: agenda,
+          invited_user_ids: invitedIds
+        };
+
+        const res = await Auth.fetchWithAuth('/api/v1/meetings/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          window.Meetings.closeCreateModal();
+          await window.Meetings.loadMeetings();
+        } else {
+          let msg = 'Hata oluştu';
+          try {
+            const errData = await res.json();
+            if (typeof errData.detail === 'string') msg = errData.detail;
+            else if (Array.isArray(errData.detail)) msg = errData.detail.map(d => d.msg || JSON.stringify(d)).join(', ');
+          } catch(e) {}
+          alert('Toplantı oluşturulamadı: ' + msg);
+        }
+      } catch (err) {
+        console.error("Toplantı oluşturma hatası:", err);
+        alert("Toplantı oluşturulurken hata oluştu: " + (err.message || err));
+      }
+    });
+  }
+
+  // Quick Meeting Form Submission Handler
+  const formQuick = document.getElementById('formQuickMeeting');
+  if (formQuick) {
+    formQuick.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const now = new Date();
+        const payload = {
+          title: "Hızlı Toplantı",
+          scheduled_start: now.toISOString(),
+          duration_minutes: 60,
+          meeting_type: "Hızlı Toplantı",
+          agenda: "Anlık hızlı başlatılan oturum",
+          description: "Hızlı Oturum",
+          passcode: "",
+          lobby_enabled: true,
+          invited_user_ids: Array.from(Meetings.quickSelectedUserIds)
+        };
+
+        const res = await Auth.fetchWithAuth('/api/v1/meetings/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          window.location.href = `/prejoin/${data.meeting_code}`;
+        } else {
+          let msg = 'Hata oluştu';
+          try {
+            const err = await res.json();
+            if (typeof err.detail === 'string') msg = err.detail;
+            else if (Array.isArray(err.detail)) msg = err.detail.map(d => d.msg || JSON.stringify(d)).join(', ');
+          } catch(e) {}
+          alert("Hızlı toplantı başlatılamadı: " + msg);
+        }
+      } catch (err) {
+        console.error("Hızlı toplantı hatası:", err);
+        alert("Hızlı toplantı başlatılırken hata oluştu: " + (err.message || err));
+      }
+    });
+  }
 });

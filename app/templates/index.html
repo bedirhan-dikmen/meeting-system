@@ -1,172 +1,324 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Toplantı Yönetim Sistemi{% endblock %}
+{% block title %}Anasayfa - YebMeeting{% endblock %}
 
 {% block content %}
-<!-- EXECUTIVE DASHBOARD HERO BANNER -->
-<div class="executive-hero">
+<div class="dashboard-page-wrapper" style="padding: 1.5rem 0 3rem 0;">
+
+  <!-- HEADER ROW: Greeting & Action Buttons -->
+  <div class="dashboard-top-row" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.75rem;">
+    <div>
+      <h1 id="dashGreetingText" style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
+        Hoş geldiniz, <span id="dashUserName">Bedirhan</span>! 👋
+      </h1>
+      <p id="dashCurrentDateText" style="color: #64748b; font-size: 0.9rem; font-weight: 500;">
+        Bugün harika bir gün! Verimli toplantılar sizi bekliyor.
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.85rem;">
+      <button onclick="Meetings.openQuickMeetingModal()" class="btn-action-soft" style="background: #ffffff; color: #4f46e5; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.65rem 1.2rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+        <i class="fas fa-bolt" style="color: #6366f1;"></i> Hızlı Toplantı
+      </button>
+
+      <button onclick="Meetings.openCreateModal()" class="btn-action-purple" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 10px; padding: 0.65rem 1.25rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 0.65rem; box-shadow: 0 4px 12px rgba(91, 95, 199, 0.25); transition: all 0.2s ease;">
+        <i class="far fa-calendar-plus"></i> Toplantı Oluştur <i class="fas fa-chevron-down" style="font-size: 0.75rem;"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ROW 1: 3 MAIN CARDS -->
+  <div style="display: grid; grid-template-columns: 1.4fr 1fr 1.3fr; gap: 1.25rem; margin-bottom: 1.75rem;">
+    
+    <!-- CARD 1: AKTİF TOPLANTI KARTI -->
+    <div id="cardLiveMeetingContainer" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03); min-height: 230px; display: flex; flex-direction: column; justify-content: center;">
+      <div style="text-align: center; padding: 0.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+        <div style="width: 64px; height: 64px; border-radius: 20px; background: #e0e7ff; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin-bottom: 1rem;">
+          <i class="fas fa-video"></i>
+        </div>
+        <h3 style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin-bottom: 0.35rem;">Henüz aktif bir toplantınız yok</h3>
+        <p style="color: #64748b; font-size: 0.85rem; max-width: 320px; margin-bottom: 1.25rem; line-height: 1.4;">Yeni bir toplantı başlatın veya planladığınız toplantıya katılın.</p>
+        <div style="display: flex; gap: 0.75rem;">
+          <button onclick="Meetings.openCreateModal()" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 10px; padding: 0.65rem 1.3rem; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: all 0.2s;">Toplantı Oluştur</button>
+          <button onclick="Meetings.openQuickMeetingModal()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.65rem 1.2rem; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: all 0.2s;">Toplantıya Katıl</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 2: İLK PLANLI TOPLANTI KARTI -->
+    <div id="cardNextMeetingContainer" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03); min-height: 230px; display: flex; flex-direction: column; justify-content: center;">
+      <div style="text-align: center; padding: 0.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+        <div style="width: 100px; height: 75px; margin-bottom: 0.85rem; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+            <rect x="15" y="20" width="70" height="50" rx="10" fill="#EEF2FF" stroke="#6366F1" stroke-width="2"/>
+            <rect x="15" y="20" width="70" height="15" rx="10" fill="#6366F1"/>
+            <circle cx="35" cy="15" r="3" fill="#6366F1"/>
+            <circle cx="65" cy="15" r="3" fill="#6366F1"/>
+            <circle cx="70" cy="55" r="14" fill="#FFFFFF" stroke="#6366F1" stroke-width="2"/>
+            <path d="M70 47V55L75 58" stroke="#6366F1" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h3 style="font-size: 1.1rem; font-weight: 800; color: #0f172a; margin-bottom: 0.35rem;">Yaklaşan toplantınız bulunmuyor</h3>
+        <p style="color: #64748b; font-size: 0.82rem; max-width: 260px; margin-bottom: 1.25rem; line-height: 1.4;">Toplantı planlayarak zamanınızı verimli yönetebilirsiniz.</p>
+        <button onclick="Meetings.openCreateModal()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.6rem 1.4rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;">Toplantı Planla</button>
+      </div>
+    </div>
+
+    <!-- CARD 3: 2X2 STATS METRIC GRID -->
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.2rem; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03); display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
+      
+      <!-- Stat 1 -->
+      <div style="background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 12px; padding: 0.85rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+          <i class="far fa-calendar" style="color: #5b5fc7; font-size: 1.1rem;"></i>
+          <a href="/calendar" style="font-size: 0.72rem; font-weight: 700; color: #5b5fc7; text-decoration: none;">Görüntüle</a>
+        </div>
+        <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Bugünkü Toplantılar</span>
+        <h3 id="statCountToday" style="font-size: 1.4rem; font-weight: 800; color: #0f172a; margin-top: 0.1rem;">0</h3>
+      </div>
+
+      <!-- Stat 2 -->
+      <div style="background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 12px; padding: 0.85rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+          <i class="far fa-calendar-check" style="color: #5b5fc7; font-size: 1.1rem;"></i>
+          <a href="/meetings" style="font-size: 0.72rem; font-weight: 700; color: #5b5fc7; text-decoration: none;">Görüntüle</a>
+        </div>
+        <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Planlı Toplantılar</span>
+        <h3 id="statCountScheduled" style="font-size: 1.4rem; font-weight: 800; color: #0f172a; margin-top: 0.1rem;">0</h3>
+      </div>
+
+      <!-- Stat 3 -->
+      <div style="background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 12px; padding: 0.85rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+          <i class="far fa-check-circle" style="color: #10b981; font-size: 1.1rem;"></i>
+          <a href="/history" style="font-size: 0.72rem; font-weight: 700; color: #5b5fc7; text-decoration: none;">Görüntüle</a>
+        </div>
+        <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Tamamlanan Toplantılar</span>
+        <h3 id="statCountCompleted" style="font-size: 1.4rem; font-weight: 800; color: #0f172a; margin-top: 0.1rem;">0</h3>
+      </div>
+
+      <!-- Stat 4 -->
+      <div style="background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 12px; padding: 0.85rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+          <i class="far fa-clock" style="color: #d97706; font-size: 1.1rem;"></i>
+          <a href="/history" style="font-size: 0.72rem; font-weight: 700; color: #5b5fc7; text-decoration: none;">Görüntüle</a>
+        </div>
+        <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Toplam Süre (Bu Ay)</span>
+        <h3 id="statCountHours" style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin-top: 0.1rem;">0 saat</h3>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ROW 2: 3 COLUMNS -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.25rem; margin-bottom: 1.75rem;">
+    
+    <!-- COL 1: BUGÜNKÜ TOPLANTILAR -->
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.35rem; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03); display: flex; flex-direction: column; justify-content: space-between; min-height: 320px;">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+          <h3 style="font-size: 1rem; font-weight: 800; color: #0f172a;">Bugünkü Toplantılar</h3>
+        </div>
+
+        <div id="todayMeetingsListContainer">
+          <div style="text-align: center; padding: 1.5rem 0.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div style="width: 100px; height: 75px; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center;">
+              <svg viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+                <path d="M20 70L35 25H65L80 70H20Z" fill="#EEF2FF" stroke="#5B5FC7" stroke-width="2"/>
+                <rect x="25" y="32" width="50" height="30" rx="6" fill="#FFFFFF" stroke="#5B5FC7" stroke-width="1.5"/>
+                <circle cx="40" cy="20" r="3" fill="#5B5FC7"/>
+                <circle cx="60" cy="20" r="3" fill="#5B5FC7"/>
+                <line x1="32" y1="42" x2="68" y1="42" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round"/>
+                <line x1="32" y1="50" x2="55" y1="50" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <h3 style="font-size: 1rem; font-weight: 800; color: #0f172a; margin-bottom: 0.35rem;">Bugün planlanmış bir toplantınız yok</h3>
+            <p style="color: #64748b; font-size: 0.8rem; max-width: 250px; margin-bottom: 1.25rem; line-height: 1.4;">Gününüzü planlamak için takviminize yeni bir toplantı ekleyin.</p>
+            <button onclick="window.location.href='/calendar'" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.55rem 1.3rem; font-weight: 700; font-size: 0.82rem; cursor: pointer; transition: all 0.2s;">Takvime Git</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COL 2: YAKLAŞAN TOPLANTILAR -->
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.35rem; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03); min-height: 320px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h3 style="font-size: 1rem; font-weight: 800; color: #0f172a;">Yaklaşan Toplantılar</h3>
+      </div>
+
+      <div id="upcomingMeetingsListContainer">
+        <div style="text-align: center; padding: 1.5rem 0.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <div style="width: 110px; height: 80px; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center;">
+            <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+              <ellipse cx="60" cy="70" rx="45" ry="8" fill="#F1F5F9"/>
+              <circle cx="42" cy="45" r="22" fill="#5B5FC7" fill-opacity="0.15" stroke="#5B5FC7" stroke-width="3"/>
+              <circle cx="78" cy="45" r="22" fill="#5B5FC7" fill-opacity="0.15" stroke="#5B5FC7" stroke-width="3"/>
+              <circle cx="42" cy="45" r="14" fill="#3B82F6" fill-opacity="0.2"/>
+              <circle cx="78" cy="45" r="14" fill="#3B82F6" fill-opacity="0.2"/>
+              <rect x="52" y="40" width="16" height="10" rx="3" fill="#5B5FC7"/>
+            </svg>
+          </div>
+          <h3 style="font-size: 1rem; font-weight: 800; color: #0f172a; margin-bottom: 0.35rem;">Yaklaşan toplantı bulunmuyor</h3>
+          <p style="color: #64748b; font-size: 0.8rem; max-width: 260px; margin-bottom: 1.25rem; line-height: 1.4;">Planladığınız toplantılar burada listelenecek. Hemen yeni bir toplantı oluşturun.</p>
+          <button onclick="Meetings.openCreateModal()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.55rem 1.3rem; font-weight: 700; font-size: 0.82rem; cursor: pointer; transition: all 0.2s;">Toplantı Planla</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- COL 3: HIZLI İŞLEMLER -->
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.35rem; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);">
+      <h3 style="font-size: 1rem; font-weight: 800; color: #0f172a; margin-bottom: 1.25rem;">Hızlı İşlemler</h3>
+
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        
+        <div onclick="Meetings.openCreateModal()" style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9; cursor: pointer; transition: all 0.2s;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 36px; height: 36px; border-radius: 10px; background: #eeefec; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1rem;">
+              <i class="far fa-calendar-plus"></i>
+            </div>
+            <div>
+              <h4 style="font-size: 0.85rem; font-weight: 700; color: #0f172a;">Toplantı Oluştur</h4>
+              <span style="font-size: 0.72rem; color: #64748b;">Yeni bir toplantı planlayın</span>
+            </div>
+          </div>
+          <i class="fas fa-chevron-right" style="font-size: 0.8rem; color: #94a3b8;"></i>
+        </div>
+
+        <div onclick="Meetings.openQuickMeetingModal()" style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9; cursor: pointer; transition: all 0.2s;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 36px; height: 36px; border-radius: 10px; background: #eeefec; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1rem;">
+              <i class="fas fa-bolt"></i>
+            </div>
+            <div>
+              <h4 style="font-size: 0.85rem; font-weight: 700; color: #0f172a;">Hızlı Toplantı Başlat</h4>
+              <span style="font-size: 0.72rem; color: #64748b;">Anında toplantı başlatın</span>
+            </div>
+          </div>
+          <i class="fas fa-chevron-right" style="font-size: 0.8rem; color: #94a3b8;"></i>
+        </div>
+
+        <div onclick="window.location.href='/meetings'" style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9; cursor: pointer; transition: all 0.2s;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 36px; height: 36px; border-radius: 10px; background: #eeefec; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1rem;">
+              <i class="far fa-compass"></i>
+            </div>
+            <div>
+              <h4 style="font-size: 0.85rem; font-weight: 700; color: #0f172a;">Toplantılara Göz At</h4>
+              <span style="font-size: 0.72rem; color: #64748b;">Tüm toplantılarınızı görüntüleyin</span>
+            </div>
+          </div>
+          <i class="fas fa-chevron-right" style="font-size: 0.8rem; color: #94a3b8;"></i>
+        </div>
+
+        <div onclick="window.location.href='/contacts'" style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9; cursor: pointer; transition: all 0.2s;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 36px; height: 36px; border-radius: 10px; background: #eeefec; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1rem;">
+              <i class="far fa-user"></i>
+            </div>
+            <div>
+              <h4 style="font-size: 0.85rem; font-weight: 700; color: #0f172a;">Kişiler</h4>
+              <span style="font-size: 0.72rem; color: #64748b;">Kişilerinize hızlıca ulaşın</span>
+            </div>
+          </div>
+          <i class="fas fa-chevron-right" style="font-size: 0.8rem; color: #94a3b8;"></i>
+        </div>
+
+        <div onclick="window.location.href='/calendar'" style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9; cursor: pointer; transition: all 0.2s;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 36px; height: 36px; border-radius: 10px; background: #eeefec; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1rem;">
+              <i class="far fa-calendar"></i>
+            </div>
+            <div>
+              <h4 style="font-size: 0.85rem; font-weight: 700; color: #0f172a;">Takvim</h4>
+              <span style="font-size: 0.72rem; color: #64748b;">Takviminizi görüntüleyin</span>
+            </div>
+          </div>
+          <i class="fas fa-chevron-right" style="font-size: 0.8rem; color: #94a3b8;"></i>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW 3: PROMO / INFORMATION BANNER -->
+  <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.75rem 2rem; margin-bottom: 1.75rem; display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 2rem;">
+      <div style="width: 150px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+        <svg viewBox="0 0 180 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+          <rect x="20" y="20" width="140" height="85" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+          <rect x="28" y="28" width="124" height="60" rx="6" fill="#F8FAFC"/>
+          <rect x="35" y="35" width="34" height="22" rx="4" fill="#EEF2FF" stroke="#5B5FC7" stroke-width="1"/>
+          <rect x="73" y="35" width="34" height="22" rx="4" fill="#ECFDF5" stroke="#10B981" stroke-width="1"/>
+          <rect x="111" y="35" width="34" height="22" rx="4" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1"/>
+          <rect x="35" y="61" width="34" height="22" rx="4" fill="#F1F5F9"/>
+          <rect x="73" y="61" width="34" height="22" rx="4" fill="#F1F5F9"/>
+          <rect x="111" y="61" width="34" height="22" rx="4" fill="#EEF2FF"/>
+          <path d="M10 105H170" stroke="#CBD5E1" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <div>
+        <h3 style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin-bottom: 0.4rem;">
+          Toplantılarınızı daha verimli yönetin
+        </h3>
+        <p style="color: #64748b; font-size: 0.88rem; margin-bottom: 1rem;">
+          Planlayın, katılın ve kaydedilen toplantılara kolayca erişin. Ekibinizle daha bağlantılı olun.
+        </p>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 1.25rem;">
+          <span style="font-size: 0.82rem; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 0.4rem;">
+            <i class="far fa-check-circle" style="color: #5b5fc7;"></i> Kolay planlama
+          </span>
+          <span style="font-size: 0.82rem; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 0.4rem;">
+            <i class="far fa-check-circle" style="color: #5b5fc7;"></i> Hızlı katılım
+          </span>
+          <span style="font-size: 0.82rem; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 0.4rem;">
+            <i class="far fa-check-circle" style="color: #5b5fc7;"></i> Kayıt erişimi
+          </span>
+          <span style="font-size: 0.82rem; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 0.4rem;">
+            <i class="far fa-check-circle" style="color: #5b5fc7;"></i> Takvim entegrasyonu
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <button onclick="window.location.href='/meetings'" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.75rem 1.5rem; font-weight: 700; font-size: 0.88rem; cursor: pointer; flex-shrink: 0; transition: all 0.2s;">
+      Daha fazla bilgi
+    </button>
+  </div>
+
+  <!-- ROW 4: BUGÜN İÇİN GÜNDEMİNİZ -->
   <div>
-    <div class="executive-badge">
-      <i class="fas fa-chart-line"></i> Dashboard & Analytics Portal
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h3 style="font-size: 1.05rem; font-weight: 800; color: #0f172a;">Bugün için gündeminiz</h3>
     </div>
-    <h1 class="executive-title">Genel Bakış & Kurumsal Analizler</h1>
-    <p class="executive-subtitle">Sistem genelindeki canlı toplantı istatistikleri, aktif katılımcı sayıları ve
-      performans metrikleri</p>
-  </div>
-</div>
 
+    <div id="agendaTimelineContainer">
+      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 2.5rem 2rem; display: flex; align-items: center; justify-content: center; gap: 3rem; width: 100%;">
+        <div style="width: 140px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+            <rect x="30" y="50" width="100" height="55" rx="10" fill="#5B5FC7" fill-opacity="0.15" stroke="#5B5FC7" stroke-width="2"/>
+            <path d="M30 50L80 25L130 50" stroke="#5B5FC7" stroke-width="2"/>
+            <circle cx="50" cy="35" r="6" fill="#F59E0B"/>
+            <circle cx="80" cy="20" r="5" fill="#10B981"/>
+            <circle cx="110" cy="38" r="7" fill="#EF4444"/>
+          </svg>
+        </div>
 
-
-<!-- MS TEAMS STYLE EXECUTIVE STAT CARDS GRID -->
-<div class="stats-grid"
-  style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 2.5rem;">
-
-  <!-- Card 1: Toplam Kullanıcı -->
-  <div class="stat-card"
-    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease;">
-    <div
-      style="width: 48px; height: 48px; border-radius: 12px; background: #e0e7ff; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;">
-      <i class="fas fa-users"></i>
-    </div>
-    <div class="stat-info">
-      <h3 id="statTotalUsers" style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.1;">
-        0</h3>
-      <p
-        style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin: 0.2rem 0 0 0; text-transform: uppercase; letter-spacing: 0.4px;">
-        Toplam Kullanıcı</p>
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin-bottom: 0.35rem;">Bugün için bir gündem bulunmuyor</h3>
+          <p style="color: #64748b; font-size: 0.88rem; margin-bottom: 1.25rem; max-width: 450px; line-height: 1.4;">Takviminiz boş görünüyor. Yeni bir toplantı planlayarak gününüzü organize edin.</p>
+          <button onclick="Meetings.openCreateModal()" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 10px; padding: 0.7rem 1.6rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(91, 95, 199, 0.25);">Toplantı Oluştur</button>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Card 2: Bugünkü Toplantı -->
-  <div class="stat-card"
-    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease;">
-    <div
-      style="width: 48px; height: 48px; border-radius: 12px; background: #e0f2fe; color: #0ea5e9; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;">
-      <i class="fas fa-calendar-day"></i>
-    </div>
-    <div class="stat-info">
-      <h3 id="statTodayMeetings"
-        style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.1;">0</h3>
-      <p
-        style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin: 0.2rem 0 0 0; text-transform: uppercase; letter-spacing: 0.4px;">
-        Bugünkü Toplantı</p>
-    </div>
-  </div>
-
-  <!-- Card 3: Yaklaşan Toplantı -->
-  <div class="stat-card"
-    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease;">
-    <div
-      style="width: 48px; height: 48px; border-radius: 12px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;">
-      <i class="fas fa-clock"></i>
-    </div>
-    <div class="stat-info">
-      <h3 id="statUpcomingMeetings"
-        style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.1;">0</h3>
-      <p
-        style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin: 0.2rem 0 0 0; text-transform: uppercase; letter-spacing: 0.4px;">
-        Yaklaşan Toplantı</p>
-    </div>
-  </div>
-
-  <!-- Card 4: Tamamlanan Toplantı -->
-  <div class="stat-card"
-    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease;">
-    <div
-      style="width: 48px; height: 48px; border-radius: 12px; background: #d1fae5; color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;">
-      <i class="fas fa-check-circle"></i>
-    </div>
-    <div class="stat-info">
-      <h3 id="statCompletedMeetings"
-        style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.1;">0</h3>
-      <p
-        style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin: 0.2rem 0 0 0; text-transform: uppercase; letter-spacing: 0.4px;">
-        Tamamlanan Toplantı</p>
-    </div>
-  </div>
-
-  <!-- Card 5: İptal Edilen -->
-  <div class="stat-card"
-    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease;">
-    <div
-      style="width: 48px; height: 48px; border-radius: 12px; background: #ffe4e6; color: #e11d48; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;">
-      <i class="fas fa-ban"></i>
-    </div>
-    <div class="stat-info">
-      <h3 id="statCancelledMeetings"
-        style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.1;">0</h3>
-      <p
-        style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin: 0.2rem 0 0 0; text-transform: uppercase; letter-spacing: 0.4px;">
-        İptal Edilen</p>
-    </div>
-  </div>
-
-  <!-- Card 6: Bu Ay Yapılan -->
-  <div class="stat-card"
-    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); transition: transform 0.2s ease, box-shadow 0.2s ease;">
-    <div
-      style="width: 48px; height: 48px; border-radius: 12px; background: #f3e8ff; color: #8b5cf6; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;">
-      <i class="fas fa-calendar-alt"></i>
-    </div>
-    <div class="stat-info">
-      <h3 id="statThisMonthMeetings"
-        style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.1;">0</h3>
-      <p
-        style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin: 0.2rem 0 0 0; text-transform: uppercase; letter-spacing: 0.4px;">
-        Bu Ay Yapılan</p>
-    </div>
-  </div>
-
-</div>
-
-<!-- CHARTS GRID & TOP PARTICIPANTS -->
-<div class="charts-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
-  <!-- Chart 1: Aylara Göre Toplantı Sayısı -->
-  <div class="chart-card"
-    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.5rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
-    <div class="chart-header"
-      style="border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem; margin-bottom: 1.25rem;">
-      <h3
-        style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-        <i class="fas fa-chart-bar" style="color: #5b5fc7;"></i> Aylara Göre Toplantı Sayısı
-      </h3>
-    </div>
-    <div class="chart-container" style="position: relative; height: 280px;">
-      <canvas id="chartMonthly"></canvas>
-    </div>
-  </div>
-
-  <!-- Chart 2: Toplantı Türlerine Göre Dağılım -->
-  <div class="chart-card"
-    style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.5rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
-    <div class="chart-header"
-      style="border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem; margin-bottom: 1.25rem;">
-      <h3
-        style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-        <i class="fas fa-chart-pie" style="color: #0ea5e9;"></i> Tür Dağılımı
-      </h3>
-    </div>
-    <div class="chart-container" style="position: relative; height: 280px;">
-      <canvas id="chartTypes"></canvas>
-    </div>
-  </div>
-</div>
-
-<!-- TOP PARTICIPANTS LEADERBOARD CARD -->
-<div class="chart-card"
-  style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.5rem; margin-bottom: 2.5rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
-  <div class="chart-header" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem; margin-bottom: 1.25rem;">
-    <h3
-      style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-      <i class="fas fa-award" style="color: #d97706;"></i> En Fazla Katılan Kullanıcılar
-    </h3>
-  </div>
-  <div id="topParticipantsList">
-    <!-- Populated by JS -->
-  </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/dashboard.js?v=2.0"></script>
+<script src="/static/js/dashboard.js?v=7.0"></script>
 {% endblock %}

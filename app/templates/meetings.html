@@ -3,477 +3,124 @@
 {% block title %}Toplantılarım - YebMeeting{% endblock %}
 
 {% block content %}
-<!-- EXECUTIVE MEETINGS HERO BANNER (MATCHING SCREENSHOT 1:1) -->
-<div
-  style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 18px; padding: 2rem 2.25rem; color: #ffffff; display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08); flex-wrap: wrap; gap: 1.25rem;">
-  <div>
-    <div
-      style="background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2); color: #38bdf8; font-size: 0.72rem; font-weight: 800; padding: 0.25rem 0.75rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0.6rem;">
-      <i class="fas fa-shield-alt"></i> EXECUTIVE MEETING PORTAL
-    </div>
-    <h1 style="font-size: 1.8rem; font-weight: 800; color: #ffffff; margin: 0 0 0.4rem 0; letter-spacing: -0.3px;">
-      Toplantı Yönetim Merkezi</h1>
-    <p style="font-size: 0.92rem; color: #94a3b8; margin: 0; max-width: 600px; line-height: 1.5;">Tüm kurumsal
-      oturumlarınızı filtreleyin, canlı toplantılara anında katılın veya yenilerini planlayın.</p>
-  </div>
+<div class="dashboard-page-wrapper" style="padding: 1.5rem 0 3rem 0;">
 
-  <div>
-    <button type="button" onclick="Meetings.openCreateModal()" class="btn-emerald"
-      style="padding: 0.8rem 1.6rem; font-size: 0.95rem; border-radius: 10px; font-weight: 800; box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35); cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
-      <i class="fas fa-plus"></i> Yeni Toplantı Planla
-    </button>
-  </div>
-</div>
-
-<!-- ADVANCED 7-COLUMN FILTERS PANEL (MATCHING SCREENSHOT 1:1) -->
-<div
-  style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 2rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
-  <div
-    style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
-    <h3
-      style="font-size: 0.88rem; font-weight: 800; color: #5b5fc7; text-transform: uppercase; letter-spacing: 0.5px; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-      <i class="fas fa-sliders" style="color: #5b5fc7;"></i> GELİŞMİŞ TOPLANTI FİLTRELEME
-    </h3>
-    <button type="button" onclick="Meetings.resetFilters()"
-      style="background: none; border: none; color: #64748b; font-size: 0.82rem; font-weight: 700; cursor: pointer;">
-      <i class="fas fa-undo"></i> Sıfırla
-    </button>
-  </div>
-
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.85rem;">
-    <!-- 1. Toplantı Ara -->
+  <!-- PAGE HEADER ROW (MATCHING SCREENSHOTS 1:1) -->
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.75rem; flex-wrap: wrap; gap: 1rem;">
     <div>
-      <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
-        <i class="fas fa-search" style="color: #6366f1;"></i> Toplantı Ara
-      </label>
-      <input type="text" id="filterSearch" class="form-control" placeholder="Başlık veya açıklama..."
-        style="border-radius: 8px; font-size: 0.82rem;">
+      <h1 style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem;">
+        Toplantılarım
+      </h1>
+      <p style="color: #64748b; font-size: 0.9rem; font-weight: 500;">
+        Tüm toplantılarınızı yönetin ve planlayın.
+      </p>
     </div>
 
-    <!-- 2. Yönetici -->
-    <div>
-      <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
-        <i class="fas fa-user-tie" style="color: #0284c7;"></i> Yönetici
-      </label>
-      <select id="filterHost" class="form-select" style="border-radius: 8px; font-size: 0.82rem;">
-        <option value="">Tüm Yöneticiler</option>
-      </select>
-    </div>
+    <div style="display: flex; align-items: center; gap: 0.85rem;">
+      <button onclick="Meetings.openQuickMeetingModal()" class="btn-action-soft" style="background: #ffffff; color: #4f46e5; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.65rem 1.2rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+        <i class="fas fa-bolt" style="color: #6366f1;"></i> Hızlı Toplantı
+      </button>
 
-    <!-- 3. Toplantı Türü -->
-    <div>
-      <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
-        <i class="fas fa-tag" style="color: #8b5cf6;"></i> Toplantı Türü
-      </label>
-      <select id="filterType" class="form-select" style="border-radius: 8px; font-size: 0.82rem;">
-        <option value="">Tüm Türler</option>
-        <option value="Genel Toplantı">📢 Genel Toplantı</option>
-        <option value="Planlı Toplantı">📅 Planlı Toplantı</option>
-        <option value="Günlük Toplantı">☀️ Günlük Toplantı</option>
-        <option value="Haftalık Toplantı">📆 Haftalık Toplantı</option>
-        <option value="Proje Toplantısı">🚀 Proje Toplantısı</option>
-        <option value="Departman Toplantısı">🏢 Departman Toplantısı</option>
-        <option value="Eğitim">🎓 Eğitim</option>
-        <option value="Müşteri Toplantısı">🤝 Müşteri Toplantısı</option>
-      </select>
-    </div>
-
-    <!-- 4. Durum -->
-    <div>
-      <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
-        <i class="fas fa-info-circle" style="color: #10b981;"></i> Durum
-      </label>
-      <select id="filterStatus" class="form-select" style="border-radius: 8px; font-size: 0.82rem;">
-        <option value="">Tüm Durumlar</option>
-        <option value="canlı">🟢 Canlı Oturumlar</option>
-        <option value="planlandı">📅 Planlananlar</option>
-        <option value="tamamlandı">✅ Tamamlananlar</option>
-        <option value="iptal edildi">🚫 İptal Edilenler</option>
-      </select>
-    </div>
-
-    <!-- 5. Başlangıç Tarihi -->
-    <div>
-      <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
-        <i class="fas fa-calendar" style="color: #f59e0b;"></i> Başlangıç Tarihi
-      </label>
-      <input type="date" id="filterDateFrom" class="form-control" style="border-radius: 8px; font-size: 0.82rem;">
-    </div>
-
-    <!-- 6. Bitiş Tarihi -->
-    <div>
-      <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
-        <i class="fas fa-calendar-check" style="color: #d97706;"></i> Bitiş Tarihi
-      </label>
-      <input type="date" id="filterDateTo" class="form-control" style="border-radius: 8px; font-size: 0.82rem;">
-    </div>
-
-    <!-- 7. Katılımcı -->
-    <div>
-      <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
-        <i class="fas fa-users" style="color: #06b6d4;"></i> Katılımcı
-      </label>
-      <select id="filterParticipant" class="form-select" style="border-radius: 8px; font-size: 0.82rem;">
-        <option value="">Tüm Katılımcılar</option>
-      </select>
+      <button onclick="Meetings.openCreateModal()" class="btn-action-purple" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 10px; padding: 0.65rem 1.25rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 0.65rem; box-shadow: 0 4px 12px rgba(91, 95, 199, 0.25); transition: all 0.2s ease;">
+        <i class="far fa-calendar-plus"></i> Toplantı Planla <i class="fas fa-chevron-down" style="font-size: 0.75rem;"></i>
+      </button>
     </div>
   </div>
-</div>
 
-<!-- SECTION 1: LIVE MEETINGS SECTION (HORIZONTAL LIST) -->
-<div style="margin-bottom: 2.5rem;">
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
-    <h2
-      style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.6rem;">
-      <span
-        style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: #d1fae5; color: #10b981;">
-        <i class="fas fa-broadcast-tower" style="font-size: 0.95rem;"></i>
-      </span>
-      Devam Eden Canlı Oturumlar
-      <span id="liveCountBadge"
-        style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; font-size: 0.78rem; font-weight: 800; padding: 0.15rem 0.65rem; border-radius: 9999px;">0</span>
-    </h2>
-  </div>
+  <!-- SUB-HEADER CONTROL BAR: FILTER TABS & 3 VIEW SWITCHERS -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.85rem; flex-wrap: wrap; gap: 1rem;">
+    
+    <!-- Filter Tabs (Left) -->
+    <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+      <button onclick="Meetings.switchTab('live')" id="tabBtnLive" class="tab-filter-btn active" style="background: none; border: none; font-size: 0.95rem; font-weight: 700; color: #5b5fc7; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.4rem; border-bottom: 2px solid #5b5fc7;">
+        Canlı Toplantılar <span id="countTabLive" style="background: #dcfce7; color: #166534; font-size: 0.75rem; font-weight: 800; padding: 0.15rem 0.5rem; border-radius: 10px;">2</span>
+      </button>
 
-  <div id="liveMeetingsContainer" style="display: flex; flex-direction: column; gap: 0.85rem;">
-    <!-- Populated horizontally by JS -->
-  </div>
-</div>
+      <button onclick="Meetings.switchTab('scheduled')" id="tabBtnScheduled" class="tab-filter-btn" style="background: none; border: none; font-size: 0.95rem; font-weight: 600; color: #64748b; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.4rem;">
+        Planlı Toplantılar <span id="countTabScheduled" style="background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 10px;">5</span>
+      </button>
 
-<!-- SECTION 2: SCHEDULED MEETINGS SECTION (HORIZONTAL LIST) -->
-<div style="margin-bottom: 2.5rem;">
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
-    <h2
-      style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.6rem;">
-      <span
-        style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: #e0e7ff; color: #5b5fc7;">
-        <i class="fas fa-calendar-alt" style="font-size: 0.95rem;"></i>
-      </span>
-      Planlanan Toplantı Listesi
-      <span id="scheduledCountBadge"
-        style="background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; font-size: 0.78rem; font-weight: 800; padding: 0.15rem 0.65rem; border-radius: 9999px;">0</span>
-    </h2>
-  </div>
+      <button onclick="Meetings.switchTab('completed')" id="tabBtnCompleted" class="tab-filter-btn" style="background: none; border: none; font-size: 0.95rem; font-weight: 600; color: #64748b; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.4rem;">
+        Tamamlanan Toplantılar <span id="countTabCompleted" style="background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 10px;">12</span>
+      </button>
 
-  <div id="scheduledMeetingsContainer" style="display: flex; flex-direction: column; gap: 0.85rem;">
-    <!-- Populated horizontally by JS -->
-  </div>
-</div>
-
-<!-- SECTION 3: COMPLETED / ARCHIVED MEETINGS SECTION -->
-<div style="margin-bottom: 2.5rem;">
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
-    <h2
-      style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.6rem;">
-      <span
-        style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: #d1fae5; color: #059669;">
-        <i class="fas fa-archive" style="font-size: 0.95rem;"></i>
-      </span>
-      Tamamlanan / Arşivlenen Toplantılar
-      <span id="completedCountBadge"
-        style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; font-size: 0.78rem; font-weight: 800; padding: 0.15rem 0.65rem; border-radius: 9999px;">0</span>
-    </h2>
-  </div>
-
-  <div id="completedMeetingsContainer" style="display: flex; flex-direction: column; gap: 0.85rem;">
-    <!-- Populated horizontally by JS -->
-  </div>
-</div>
-
-
-<!-- CREATE MEETING MODAL -->
-<div id="createMeetingModal" class="modal-backdrop">
-  <div class="modal-card"
-    style="border-radius: 16px; max-width: 640px; width: 95%; max-height: 90vh; overflow-y: auto; border: 1px solid #cbd5e1; box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.2); padding: 1.5rem;">
-    <div class="modal-header" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem;">
-      <h3
-        style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 0.6rem;">
-        <i class="fas fa-calendar-plus" style="color: #10b981;"></i> Yeni Toplantı Oluştur
-      </h3>
-      <button type="button" onclick="Meetings.closeCreateModal()" class="icon-btn"
-        style="width: 32px; height: 32px; border-radius: 50%;">
-        <i class="fas fa-times"></i>
+      <button onclick="Meetings.switchTab('all')" id="tabBtnAll" class="tab-filter-btn" style="background: none; border: none; font-size: 0.95rem; font-weight: 600; color: #64748b; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.4rem;">
+        Tümü <span id="countTabAll" style="background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 10px;">19</span>
       </button>
     </div>
 
-    <form id="formCreateMeeting" style="margin-top: 1.25rem;">
-      <div class="form-group" style="margin-bottom: 1rem;">
-        <label style="font-weight: 600; color: #334155; font-size: 0.9rem; margin-bottom: 0.35rem; display: block;">Toplantı Başlığı & Konusu *</label>
-        <input type="text" id="createTitle" class="form-control" required
-          placeholder="Örn: Q3 Departman Strateji Görüşmesi" style="border-radius: 8px;">
-      </div>
+    <!-- 3 View Switcher Buttons (Right) -->
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <span style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin-right: 0.25rem;">Görünüm:</span>
+      
+      <button id="btnViewCard" onclick="Meetings.switchView('card')" class="view-switch-btn active" title="Kart Görünümü" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid #5b5fc7; background: #ffffff; color: #5b5fc7; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.2s;">
+        <i class="fas fa-th-large"></i>
+      </button>
 
-      <div class="form-group" style="margin-bottom: 1rem;">
-        <label style="font-weight: 600; color: #334155; font-size: 0.9rem; margin-bottom: 0.35rem; display: block;">Toplantı Açıklaması</label>
-        <textarea id="createDescription" class="form-control" rows="2" placeholder="Toplantının amacı ve kısa özeti..."
-          style="border-radius: 8px;"></textarea>
-      </div>
+      <button id="btnViewList" onclick="Meetings.switchView('list')" class="view-switch-btn" title="Liste Görünümü" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.2s;">
+        <i class="fas fa-list"></i>
+      </button>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-        <div>
-          <label style="font-weight: 600; color: #334155; font-size: 0.88rem; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.35rem;">
-            <i class="far fa-clock" style="color: #6366f1;"></i> Başlangıç Zamanı *
-          </label>
-          <input type="datetime-local" id="createStart" class="form-control" required style="border-radius: 8px;">
-        </div>
-        <div>
-          <label style="font-weight: 600; color: #334155; font-size: 0.88rem; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.35rem;">
-            <i class="fas fa-hourglass-half" style="color: #0284c7;"></i> Tahmini Süre *
-          </label>
-          <select id="createDuration" class="form-select" style="border-radius: 8px;">
-            <option value="15">15 Dakika</option>
-            <option value="30" selected>30 Dakika</option>
-            <option value="45">45 Dakika</option>
-            <option value="60">1 Saat</option>
-            <option value="90">1.5 Saat</option>
-            <option value="120">2 Saat</option>
-          </select>
-        </div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-        <div>
-          <label style="font-weight: 600; color: #334155; font-size: 0.88rem; margin-bottom: 0.35rem; display: block;">Toplantı Türü *</label>
-          <select id="createType" class="form-select" style="border-radius: 8px;">
-            <option value="Planlı Toplantı" selected>📅 Planlı Toplantı</option>
-            <option value="Anlık Toplantı">⚡ Anlık Toplantı</option>
-            <option value="Günlük Toplantı">☀️ Günlük Toplantı</option>
-            <option value="Haftalık Toplantı">📆 Haftalık Toplantı</option>
-            <option value="Proje Toplantısı">🚀 Proje Toplantısı</option>
-            <option value="Departman Toplantısı">🏢 Departman Toplantısı</option>
-            <option value="Eğitim">🎓 Eğitim</option>
-            <option value="Müşteri Toplantısı">🤝 Müşteri Toplantısı</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-weight: 500; color: #64748b; font-size: 0.88rem; margin-bottom: 0.35rem; display: block;">Hesaplanan Bitiş Zamanı</label>
-          <input type="text" id="createCalculatedEndDisplay" class="form-control" readonly
-            style="border-radius: 8px; background-color: #f8fafc; color: #475569; font-weight: 500;" placeholder="24.07.2026 09:47">
-        </div>
-      </div>
-
-      <!-- ERİŞİLEBİLİRLİK & GÜVENLİK AYARLARI -->
-      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
-        <div style="font-weight: 700; color: #4f46e5; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">
-          <i class="fas fa-shield-alt" style="color: #4f46e5;"></i> ERİŞİLEBİLİRLİK & GÜVENLİK AYARLARI
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start;">
-          <div>
-            <label style="font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 0.35rem; display: block;">Oda Katılım Şifresi (Opsiyonel)</label>
-            <div style="display: flex; gap: 0.4rem;">
-              <input type="text" id="createPasscode" class="form-control" placeholder="Örn: 987654" style="border-radius: 8px; font-size: 0.9rem;">
-              <button type="button" onclick="Meetings.generatePasscode()" class="btn btn-light" title="Rastgele Şifre Üret" style="border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 0.75rem; color: #4f46e5;">
-                <i class="fas fa-key"></i>
-              </button>
-            </div>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 0.6rem; padding-top: 1.2rem;">
-            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #334155; cursor: pointer; font-weight: 500;">
-              <input type="checkbox" id="createLobbyEnabled" style="width: 16px; height: 16px; accent-color: #4f46e5;"> Lobi / Bekleme Odası Aktif Olsun
-            </label>
-            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #334155; cursor: pointer; font-weight: 500;">
-              <input type="checkbox" id="createIsPrivate" style="width: 16px; height: 16px; accent-color: #4f46e5;"> Sadece Davetliler Katılabilir
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <!-- TOPLANTI GÜNDEMİ -->
-      <div class="form-group" style="margin-bottom: 1rem;">
-        <label style="font-weight: 600; color: #334155; font-size: 0.9rem; margin-bottom: 0.35rem; display: block;">Toplantı Gündemi</label>
-        <textarea id="createAgenda" class="form-control" rows="3"
-          placeholder="1. Giriş ve sunum&#10;2. Soru ve cevaplar..." style="border-radius: 8px; font-family: inherit; font-size: 0.88rem;"></textarea>
-      </div>
-
-      <!-- KATILIMCI DAVETİ -->
-      <div style="margin-bottom: 1.25rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-          <label style="font-weight: 600; color: #334155; font-size: 0.9rem; display: flex; align-items: center; gap: 0.4rem;">
-            <i class="fas fa-user-plus" style="color: #6366f1;"></i> Katılımcı Daveti (Arama Destekli)
-          </label>
-          <span id="selectedUsersBadge" style="background: #e0e7ff; color: #4338ca; font-size: 0.75rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 9999px;">0 Seçili</span>
-        </div>
-        <div style="position: relative; margin-bottom: 0.5rem;">
-          <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: #0284c7; font-size: 0.9rem;"></i>
-          <input type="text" id="userSearchInput" oninput="Meetings.onUserSearchInput(this.value)" class="form-control"
-            placeholder="İsim veya e-posta ile hızlı ara (Örn: Ahmet, Yebsoft...)" style="border-radius: 8px; padding-left: 2.3rem;">
-        </div>
-        <div id="invitedUsersContainer" style="max-height: 140px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.5rem; background: #ffffff; display: flex; flex-direction: column; gap: 0.35rem;">
-          <div style="color: #94a3b8; font-size: 0.85rem; text-align: center; padding: 0.5rem;">Kullanıcılar yükleniyor...</div>
-        </div>
-      </div>
-
-      <!-- FOOTER BUTTONS -->
-      <div style="border-top: 1px solid #f1f5f9; padding-top: 1rem; margin-top: 1rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
-        <button type="button" onclick="Meetings.closeCreateModal()" class="btn btn-secondary"
-          style="border-radius: 8px; font-weight: 600; padding: 0.6rem 1.25rem;">İptal</button>
-        <button type="submit" class="btn-emerald"
-          style="border-radius: 8px; font-weight: 700; padding: 0.65rem 1.4rem; display: flex; align-items: center; gap: 0.5rem; background: #059669; color: white; border: none; cursor: pointer;">
-          <i class="fas fa-check"></i> Toplantıyı Oluştur ve Başlat
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- EDIT MEETING MODAL -->
-<div id="editMeetingModal" class="modal-backdrop">
-  <div class="modal-card"
-    style="border-radius: 16px; max-width: 600px; border: 1px solid #cbd5e1; box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.2);">
-    <div class="modal-header" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem;">
-      <h3
-        style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 0.6rem;">
-        <i class="fas fa-edit" style="color: #4f46e5;"></i> Toplantı Bilgilerini Düzenle
-      </h3>
-      <button type="button" onclick="Meetings.closeEditModal()" class="icon-btn"
-        style="width: 32px; height: 32px; border-radius: 50%;">
-        <i class="fas fa-times"></i>
+      <button id="btnViewCalendar" onclick="Meetings.switchView('calendar')" class="view-switch-btn" title="Takvim Görünümü" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.2s;">
+        <i class="fas fa-calendar-alt"></i>
       </button>
     </div>
 
-    <form id="formEditMeeting" style="margin-top: 1.25rem;">
-      <input type="hidden" id="editMeetingId">
-
-      <div class="form-group" style="margin-bottom: 1rem;">
-        <label style="font-weight: 600; color: #334155;">Toplantı Başlığı *</label>
-        <input type="text" id="editTitle" class="form-control" required style="border-radius: 8px;">
-      </div>
-
-      <div class="form-group" style="margin-bottom: 1rem;">
-        <label style="color: #334155; font-size: 0.85rem;">Toplantı Açıklaması & Gündem</label>
-        <textarea id="editDescription" class="form-control" rows="2" style="border-radius: 8px;"></textarea>
-      </div>
-
-      <div class="form-group" style="margin-bottom: 1rem;">
-        <label style="font-weight: 600; color: #334155;">Toplantı Türü</label>
-        <select id="editType" class="form-select" style="border-radius: 8px;">
-          <option value="Genel Toplantı">📢 Genel Toplantı</option>
-          <option value="Planlı Toplantı">📅 Planlı Toplantı</option>
-          <option value="Günlük Toplantı">☀️ Günlük Toplantı</option>
-          <option value="Haftalık Toplantı">📆 Haftalık Toplantı</option>
-          <option value="Proje Toplantısı">🚀 Proje Toplantısı</option>
-          <option value="Departman Toplantısı">🏢 Departman Toplantısı</option>
-          <option value="Eğitim">🎓 Eğitim</option>
-          <option value="Müşteri Toplantısı">🤝 Müşteri Toplantısı</option>
-        </select>
-      </div>
-
-      <div
-        style="border-top: 1px solid #f1f5f9; padding-top: 1rem; margin-top: 1rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
-        <button type="button" onclick="Meetings.closeEditModal()" class="btn btn-secondary"
-          style="border-radius: 8px; font-weight: 600;">İptal</button>
-        <button type="submit" class="btn"
-          style="background: #5b5fc7; color: #fff; border-radius: 8px; font-weight: 700; padding: 0.65rem 1.4rem;">
-          <i class="fas fa-save"></i> Değişiklikleri Kaydet
-        </button>
-      </div>
-    </form>
   </div>
+
+  <!-- VIEW CONTAINER 1: KART GÖRÜNÜMÜ -->
+  <div id="viewContainerCard" class="view-panel" style="display: block;">
+    <!-- Rendered dynamically by JS (Populated Cards Grid or Card Empty State) -->
+  </div>
+
+  <!-- VIEW CONTAINER 2: LİSTE GÖRÜNÜMÜ -->
+  <div id="viewContainerList" class="view-panel" style="display: none;">
+    <!-- Rendered dynamically by JS (Table View or List Empty State) -->
+  </div>
+
+  <!-- VIEW CONTAINER 3: TAKVİM GÖRÜNÜMÜ -->
+  <div id="viewContainerCalendar" class="view-panel" style="display: none;">
+    <!-- Rendered dynamically by JS (Weekly Calendar Grid or Calendar Empty State) -->
+  </div>
+
 </div>
 
-<!-- EXTENDED MEETING DETAILS INFO MODAL (WITH AGENDA & PARTICIPANTS INVITE STATUS) -->
-<div id="meetingDetailsModal" class="modal-backdrop">
-  <div class="modal-card"
-    style="border-radius: 16px; max-width: 680px; border: 1px solid #cbd5e1; box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.25);">
-    <div class="modal-header" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem;">
-      <h3
-        style="margin: 0; font-size: 1.2rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 0.6rem;">
-        <i class="fas fa-info-circle" style="color: #0ea5e9;"></i> Toplantı Detayları & Katılımcı Durumları
-      </h3>
-      <button type="button" onclick="Meetings.closeDetailsModal()" class="icon-btn"
-        style="width: 32px; height: 32px; border-radius: 50%;">
-        <i class="fas fa-times"></i>
-      </button>
+
+
+<!-- EXTENDED MEETING DETAILS INFO MODAL -->
+<div id="meetingDetailsModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 1rem;">
+  <div class="modal-card" style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 550px; padding: 1.75rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem; margin-bottom: 1rem;">
+      <h3 id="infoMeetingTitle" style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 0;">Toplantı Detayları</h3>
+      <button type="button" onclick="Meetings.closeDetailsModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #64748b;">&times;</button>
     </div>
 
-    <div
-      style="padding: 1.25rem 0; display: flex; flex-direction: column; gap: 1.1rem; max-height: 75vh; overflow-y: auto;">
-
-      <!-- TITLE, CODE & STATUS BADGE HEADER -->
-      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.1rem;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-          <span id="infoMeetingStatusBadge"
-            style="font-size: 0.78rem; font-weight: 800; padding: 0.2rem 0.75rem; border-radius: 9999px;">-</span>
-          <span id="infoMeetingCodeBadge"
-            style="font-family: monospace; font-size: 0.82rem; font-weight: 800; background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.65rem; border-radius: 6px;">-</span>
-        </div>
-        <h4 id="infoMeetingTitle" style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0 0 0.4rem 0;">-
-        </h4>
-        <span id="infoMeetingType"
-          style="font-size: 0.8rem; font-weight: 700; color: #5b5fc7; background: #e0e7ff; padding: 0.15rem 0.55rem; border-radius: 6px;">-</span>
+    <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.9rem;">
+      <div>
+        <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Açıklama / Gündem</span>
+        <p id="infoMeetingDescription" style="color: #0f172a; margin-top: 0.25rem; font-weight: 500;">-</p>
       </div>
 
-      <!-- TIMING & HOST METRICS GRID -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.85rem;">
-          <small
-            style="font-size: 0.72rem; font-weight: 800; color: #64748b; display: block; text-transform: uppercase;">Toplantı
-            Yöneticisi</small>
-          <strong id="infoMeetingHost"
-            style="font-size: 0.92rem; color: #0f172a; display: block; margin-top: 0.2rem;">-</strong>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; background: #f8fafc; padding: 0.85rem; border-radius: 10px; border: 1px solid #f1f5f9;">
+        <div>
+          <span style="font-size: 0.72rem; font-weight: 700; color: #64748b;">DÜZENLEYEN</span>
+          <p id="infoMeetingHost" style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin: 0;">-</p>
         </div>
-
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.85rem;">
-          <small
-            style="font-size: 0.72rem; font-weight: 800; color: #64748b; display: block; text-transform: uppercase;">Tarih
-            & Zaman</small>
-          <strong id="infoMeetingDate"
-            style="font-size: 0.92rem; color: #0f172a; display: block; margin-top: 0.2rem;">-</strong>
-        </div>
-
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.85rem;">
-          <small
-            style="font-size: 0.72rem; font-weight: 800; color: #64748b; display: block; text-transform: uppercase;">Saat
-            Aralığı & Süre</small>
-          <strong id="infoMeetingTimeRange"
-            style="font-size: 0.92rem; color: #5b5fc7; display: block; margin-top: 0.2rem;">-</strong>
+        <div>
+          <span style="font-size: 0.72rem; font-weight: 700; color: #64748b;">TARİH & SAAT</span>
+          <p id="infoMeetingTimeRange" style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin: 0;">-</p>
         </div>
       </div>
 
-      <!-- AGENDA & DESCRIPTION -->
-      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem;">
-        <h5
-          style="font-size: 0.88rem; font-weight: 800; color: #334155; margin: 0 0 0.5rem 0; display: flex; align-items: center; gap: 0.4rem;">
-          <i class="fas fa-list-check" style="color: #10b981;"></i> Toplantı Gündemi & Açıklaması
-        </h5>
-        <p id="infoMeetingDescription"
-          style="font-size: 0.88rem; color: #475569; margin: 0; line-height: 1.5; white-space: pre-wrap;">-</p>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
+        <button type="button" onclick="Meetings.closeDetailsModal()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.55rem 1.1rem; font-weight: 700; font-size: 0.85rem; cursor: pointer;">Kapat</button>
+        <a id="infoMeetingJoinBtn" href="#" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 8px; padding: 0.55rem 1.25rem; font-weight: 700; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem;">Odaya Katıl</a>
       </div>
-
-      <!-- INVITED PARTICIPANTS & INVITATION STATUS LIST -->
-      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-          <h5
-            style="font-size: 0.88rem; font-weight: 800; color: #334155; margin: 0; display: flex; align-items: center; gap: 0.4rem;">
-            <i class="fas fa-users-viewfinder" style="color: #6366f1;"></i> Davet Edilen Katılımcılar & Davet Durumları
-          </h5>
-          <span id="infoParticipantsCount" style="font-size: 0.78rem; font-weight: 700; color: #64748b;">0
-            katılımcı</span>
-        </div>
-
-        <div id="infoParticipantsListContainer"
-          style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;">
-          <!-- Populated by JS -->
-        </div>
-      </div>
-
-      <!-- MODAL FOOTER BUTTONS -->
-      <div
-        style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid #f1f5f9; padding-top: 1rem; margin-top: 0.25rem;">
-        <button type="button" onclick="Meetings.closeDetailsModal()" class="btn btn-secondary"
-          style="border-radius: 8px; font-weight: 700;">Kapat</button>
-        <a id="infoMeetingJoinBtn" href="#" class="btn"
-          style="background: #5b5fc7; color: #fff; border-radius: 8px; font-weight: 700; padding: 0.6rem 1.25rem; text-decoration: none;">
-          <i class="fas fa-video"></i> Toplantıya Katıl
-        </a>
-      </div>
-
     </div>
   </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/meetings.js?v=2.0"></script>
+<script src="/static/js/meetings.js?v=5.0"></script>
 {% endblock %}

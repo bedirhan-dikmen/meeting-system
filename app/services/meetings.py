@@ -67,11 +67,30 @@ def create_new_meeting(db: Session, meeting_data: MeetingCreate, host_id: UUID) 
 
     # Davet edilen kullanıcıları ekle ve bildirim gönder
     if meeting_data.invited_user_ids:
-        for user_id in meeting_data.invited_user_ids:
-            if user_id != host_id:
+        from app.models.user import User
+        for u_id in meeting_data.invited_user_ids:
+            try:
+                target_user_id = UUID(str(u_id))
+            except (ValueError, TypeError):
+                continue
+
+            if str(target_user_id) != str(host_id):
+                # Veritabanında kullanıcının varlığını doğrula (FK hatasını önlemek için)
+                user_exists = db.query(User.id).filter(User.id == target_user_id).first()
+                if not user_exists:
+                    continue
+
+                # Duplicate katılım kontrolü
+                existing_p = db.query(MeetingParticipant).filter(
+                    MeetingParticipant.meeting_id == db_meeting.id,
+                    MeetingParticipant.user_id == target_user_id
+                ).first()
+                if existing_p:
+                    continue
+
                 participant = MeetingParticipant(
                     meeting_id=db_meeting.id,
-                    user_id=user_id,
+                    user_id=target_user_id,
                     role="participant",
                     status="pending"
                 )
@@ -79,9 +98,10 @@ def create_new_meeting(db: Session, meeting_data: MeetingCreate, host_id: UUID) 
 
                 # Bildirim oluştur
                 notif = Notification(
-                    user_id=user_id,
+                    user_id=target_user_id,
                     title="Yeni Toplantı Daveti",
-                    message=f"'{db_meeting.title}' toplantısına davet edildiniz. Tarih: {db_meeting.scheduled_start.strftime('%d.%m.%Y %H:%M')}"
+                    message=f"'{db_meeting.title}' toplantısına davet edildiniz. Tarih: {db_meeting.scheduled_start.strftime('%d.%m.%Y %H:%M')}",
+                    meeting_code=code
                 )
                 db.add(notif)
 
@@ -91,13 +111,27 @@ def create_new_meeting(db: Session, meeting_data: MeetingCreate, host_id: UUID) 
 
 from sqlalchemy.orm import Session, selectinload
 
-def get_meetings_list(db: Session, skip: int = 0, limit: int = 100) -> List[Meeting]:
-    """Sistemdeki aktif toplantıları eager loading ile listeler (N+1 engellendi)."""
-    return db.query(Meeting).options(
+from app.models.participant_session import ParticipantSession
+
+def get_meetings_list(db: Session, skip: int = 0, limit: int = 100, user_id: Optional[UUID] = None, is_admin: bool = False) -> List[Meeting]:
+    """Sistemdeki veya kullanıcının davetli olduğu/oluşturduğu aktif toplantıları eager loading ile listeler (N+1 engellendi)."""
+    query = db.query(Meeting).options(
         selectinload(Meeting.participants),
         selectinload(Meeting.notes),
         selectinload(Meeting.actions)
-    ).filter(Meeting.is_active == True).order_by(Meeting.created_at.desc()).offset(skip).limit(limit).all()
+    ).filter(Meeting.is_active == True)
+
+    if user_id and not is_admin:
+        user_meeting_ids = db.query(MeetingParticipant.meeting_id).filter(
+            MeetingParticipant.user_id == user_id
+        ).union(
+            db.query(ParticipantSession.meeting_id).filter(
+                ParticipantSession.user_id == user_id
+            )
+        )
+        query = query.filter((Meeting.created_by == user_id) | (Meeting.id.in_(user_meeting_ids)))
+
+    return query.order_by(Meeting.created_at.desc()).offset(skip).limit(limit).all()
 
 def get_meeting_by_id(db: Session, meeting_id: UUID) -> Optional[Meeting]:
     """UUID ile spesifik bir toplantıyı eager loading ile çeker."""

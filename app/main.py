@@ -130,6 +130,14 @@ def page_history(request: Request):
 def page_profile(request: Request):
     return templates.TemplateResponse("profile.html", {"request": request})
 
+@app.get("/calendar", tags=["Frontend Sayfaları"])
+def page_calendar(request: Request):
+    return templates.TemplateResponse("calendar.html", {"request": request})
+
+@app.get("/contacts", tags=["Frontend Sayfaları"])
+def page_contacts(request: Request):
+    return templates.TemplateResponse("contacts.html", {"request": request})
+
 @app.get("/api-status", tags=["Health Check"])
 def read_root():
     return {

@@ -18,9 +18,8 @@ def create_meeting_note(
     current_user: User = Depends(get_current_user)
 ):
     """Toplantıya anlık not ekler."""
-    verify_meeting_access(meeting_id=payload.meeting_id, db=db, token=None) if False else None
     # Yetki kontrolü: Kullanıcı veya misafir bu toplantıya erişebilir mi?
-    author_id = current_user.id if current_user else None
+    author_id = current_user.id
     return notes_service.create_note(db, note_data=payload, author_id=author_id)
 
 @router.get("/meeting/{meeting_id}", response_model=List[MeetingNoteOut])

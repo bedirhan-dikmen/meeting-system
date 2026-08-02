@@ -16,6 +16,10 @@ const Auth = {
     }
   },
 
+  getCurrentUser() {
+    return this.getUser();
+  },
+
   saveAuth(token, user) {
     localStorage.setItem('access_token', token);
     localStorage.setItem('user_info', JSON.stringify(user));

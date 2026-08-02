@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from uuid import UUID
-from typing import Optional, List
+from typing import Optional, List, Union
 
 # Toplantı oluşturulurken istemciden (Frontend) beklenen şema
 class MeetingCreate(BaseModel):
@@ -16,7 +16,7 @@ class MeetingCreate(BaseModel):
     passcode: Optional[str] = Field(None, description="Oda Katılım Şifresi")
     lobby_enabled: Optional[bool] = Field(False, description="Bekleme Odası / Lobi Durumu")
     is_private: Optional[bool] = Field(False, description="Sadece Davetliler Katılabilir mi?")
-    invited_user_ids: Optional[List[UUID]] = Field(default=[], description="Davet Edilen Kullanıcı ID Listesi")
+    invited_user_ids: Optional[List[Union[UUID, str]]] = Field(default=[], description="Davet Edilen Kullanıcı ID Listesi")
 
 # Toplantı güncellenirken kullanılabilecek şema
 class MeetingUpdate(BaseModel):
@@ -51,5 +51,8 @@ class MeetingOut(BaseModel):
     is_active: Optional[bool] = True
     created_at: Optional[datetime] = None
     created_by: UUID
+    active_count: Optional[int] = 0
+    active_participants: Optional[List[dict]] = []
+    time_str: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -32,3 +32,28 @@ def mark_notification_read(
             status_code=404,
             detail="Bildirim bulunamadı veya bu işlem için yetkiniz yok."
         )
+
+@router.delete("/{notification_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_single_notification(
+    notification_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Belirli bir bildirimi siler."""
+    success = notif_service.delete_notification(db, notification_id=notification_id, user_id=current_user.id)
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail="Bildirim bulunamadı veya bu işlem için yetkiniz yok."
+        )
+
+@router.delete("/", status_code=status.HTTP_200_OK)
+@router.post("/clear-all", status_code=status.HTTP_200_OK)
+@router.post("/read-all", status_code=status.HTTP_200_OK)
+def clear_all_notifications(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Kullanıcının tüm bildirimlerini siler."""
+    deleted_count = notif_service.delete_all_user_notifications(db, user_id=current_user.id)
+    return {"message": "Tüm bildirimler temizlendi.", "count": deleted_count}

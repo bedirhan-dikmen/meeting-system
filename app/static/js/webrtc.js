@@ -7,7 +7,9 @@ const WebRTC = {
   meetingCode: '',
   localStream: null,
   peers: {}, // { userId: RTCPeerConnection }
-  peerStreams: {},
+  peerStreams: {}, // { userId: webcamMediaStream }
+  peerScreenStreams: {}, // { userId: screenShareMediaStream }
+  pendingDepartures: {}, // { userId: { timerId, userInfo } } for page refresh grace period
   meetingInfo: null,
   startTime: null,
   timerInterval: null,
@@ -21,6 +23,10 @@ const WebRTC = {
   isScreenSharing: false,
   screenTrack: null,
   screenAudioTrack: null,
+
+  remoteVolumes: {},
+  remoteMuted: {},
+  pinnedTileId: null,
 
   getIceServers() {
     if (window.ICE_SERVERS) return window.ICE_SERVERS;
@@ -92,6 +98,12 @@ const WebRTC = {
     this.isMicMuted = isMicMuted;
     this.isCameraOff = isCameraOff;
 
+    // Reset stale screen share state on join/refresh
+    this.screenSharePresenterId = null;
+    this.isScreenSharing = false;
+    sessionStorage.removeItem('meeting_screen_sharing');
+    this.disableScreenShareLayout();
+
     this.bindAutoplayUnlock();
 
     // Fetch Meeting Details
@@ -129,6 +141,9 @@ const WebRTC = {
     if (this.localStream) {
       this.localStream.getVideoTracks().forEach(t => t.enabled = !this.isCameraOff);
       this.localStream.getAudioTracks().forEach(t => t.enabled = !this.isMicMuted);
+
+      // Mevcut tüm akran bağlantılarına yerel medya kanallarını anında kilitler
+      Object.values(this.peers).forEach(pc => this.attachLocalTracksToPeer(pc));
     }
 
     this.renderLocalTile();
@@ -137,6 +152,13 @@ const WebRTC = {
     this.connectWebSocket();
     this.startTimer();
     this.bindRoomControls();
+
+    // Sayfa yenilendiğinde/kapatıldığında aktif ekran paylaşımını oda üyeleri için temizle
+    window.addEventListener('beforeunload', () => {
+      if (this.isScreenSharing) {
+        this.sendSignal({ type: 'screen-share-stop' });
+      }
+    });
   },
 
   async loadExistingNotes() {
@@ -262,6 +284,10 @@ const WebRTC = {
 
         const btnOptionSettings = document.getElementById('btnOptionEditSettings');
         if (btnOptionSettings) btnOptionSettings.style.display = this.isUserHost() ? 'flex' : 'none';
+
+        if (this.isUserHost()) {
+          this.startLobbyPolling();
+        }
       }
     } catch (e) {
       console.warn("Toplantı detayları alınamadı:", e);
@@ -272,13 +298,35 @@ const WebRTC = {
     if (this.isHost) return true;
     const u = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : this.currentUser;
     if (u) {
-      if (u.role === 'admin' || u.role === 'host' || u.is_superuser) return true;
+      if (u.role === 'admin' || u.role === 'host' || u.role === 'manager' || u.is_superuser) return true;
       if (this.meetingInfo && this.meetingInfo.created_by) {
-        const creatorId = String(this.meetingInfo.created_by);
-        if (creatorId === String(u.id) || creatorId === String(u.user_id)) return true;
+        const creatorId = String(this.meetingInfo.created_by).toLowerCase();
+        const userId = String(u.id || u.user_id || u.sub || '').toLowerCase();
+        if (userId && creatorId === userId) return true;
       }
     }
     return false;
+  },
+
+  startLobbyPolling() {
+    if (this.lobbyPollInterval) clearInterval(this.lobbyPollInterval);
+
+    this.lobbyPollInterval = setInterval(async () => {
+      if (!this.meetingCode || !this.isUserHost()) return;
+      try {
+        const res = await fetch(`/api/v1/signaling/lobby/${this.meetingCode}`, {
+          headers: (typeof Auth !== 'undefined' && Auth.getAuthHeaders) ? Auth.getAuthHeaders() : {}
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.pending_requests)) {
+            data.pending_requests.forEach(req => {
+              if (req) this.showLobbyApprovalNotification(req);
+            });
+          }
+        }
+      } catch (e) {}
+    }, 3000);
   },
 
   participantsMap: {}, // { userId: { id, name, avatar_url, role, isMicMuted, isCameraOff } }
@@ -316,13 +364,20 @@ const WebRTC = {
 
       if (!this.isRoomJoined) {
         this.isRoomJoined = true;
+        const sessionKey = `meeting_joined_${this.meetingCode}_${this.currentUser?.id}`;
+        const isReconnect = Boolean(sessionStorage.getItem(sessionKey));
+        sessionStorage.setItem(sessionKey, '1');
+
         this.sendSignal({
           type: 'user-joined',
+          is_reconnect: isReconnect,
           user_info: {
-            id: this.currentUser?.id,
+            id: String(this.currentUser?.id),
             name: myName,
             avatar_url: this.currentUser?.avatar_url,
-            role: this.isHost ? 'admin' : (this.currentUser?.role || 'user')
+            role: this.isHost ? 'admin' : (this.currentUser?.role || 'user'),
+            isMicMuted: this.isMicMuted,
+            isCameraOff: this.isCameraOff
           }
         });
       }
@@ -416,13 +471,14 @@ const WebRTC = {
         if (Array.isArray(data.users)) {
           data.users.forEach(u => {
             if (u && u.id) {
-              this.participantsMap[u.id] = {
-                id: u.id,
+              const uid = String(u.id);
+              this.participantsMap[uid] = {
+                id: uid,
                 name: u.name || 'Katılımcı',
                 avatar_url: u.avatar_url,
                 role: u.role || 'user',
-                isMicMuted: u.isMicMuted !== undefined ? u.isMicMuted : true,
-                isCameraOff: u.isCameraOff !== undefined ? u.isCameraOff : true
+                isMicMuted: u.isMicMuted !== undefined ? Boolean(u.isMicMuted) : false,
+                isCameraOff: u.isCameraOff !== undefined ? Boolean(u.isCameraOff) : false
               };
             }
           });
@@ -431,40 +487,65 @@ const WebRTC = {
           this.reflowVideoGrid();
 
           for (const u of data.users) {
-            if (u.id && u.id !== this.currentUser?.id) {
-              const isInitiator = Boolean(this.currentUser?.id && u.id && this.currentUser.id < u.id);
-              await this.createPeerConnection(u.id, isInitiator);
+            if (u.id && String(u.id) !== String(this.currentUser?.id)) {
+              const uStr = String(u.id);
+              const isInitiator = Boolean(this.currentUser?.id && String(this.currentUser.id) < uStr);
+              await this.createPeerConnection(uStr, isInitiator);
             }
           }
         }
+        if (Array.isArray(data.pending_lobby_requests)) {
+          data.pending_lobby_requests.forEach(req => {
+            if (req) this.showLobbyApprovalNotification(req);
+          });
+        }
         if (data.active_screen_share && data.active_screen_share.presenter_id) {
-          this.screenSharePresenterId = data.active_screen_share.presenter_id;
-          const presenterStream = this.peerStreams[this.screenSharePresenterId] || null;
-          this.enableScreenShareLayout(data.active_screen_share.presenter_name || 'Katılımcı', presenterStream);
+          const presenterId = String(data.active_screen_share.presenter_id);
+          const presenterStream = this.peerStreams[presenterId] || (document.getElementById(`remoteVideo_${presenterId}`)?.srcObject) || null;
+          if (presenterStream) {
+            this.screenSharePresenterId = presenterId;
+            this.enableScreenShareLayout(data.active_screen_share.presenter_name || 'Katılımcı', presenterStream);
+          } else {
+            this.disableScreenShareLayout();
+          }
+        } else {
+          this.disableScreenShareLayout();
         }
         break;
 
       case 'user-joined':
         if (data.user_info) {
-          const joinedId = data.user_info.id || senderId;
+          const joinedId = String(data.user_info.id || senderId);
+
+          // Katılımcı F5 / sayfa yenileme süresi içinde (4 sn) geri geldiyse veya is_reconnect true ise sessizce bağlan
+          const isReconnectingFromRefresh = Boolean(data.is_reconnect || this.pendingDepartures[joinedId]);
+          if (this.pendingDepartures[joinedId]) {
+            clearTimeout(this.pendingDepartures[joinedId].timerId);
+            delete this.pendingDepartures[joinedId];
+          }
+
           this.participantsMap[joinedId] = {
             id: joinedId,
             name: data.user_info.name || 'Katılımcı',
             avatar_url: data.user_info.avatar_url,
             role: data.user_info.role || 'user',
-            isMicMuted: data.user_info.isMicMuted !== undefined ? data.user_info.isMicMuted : true,
-            isCameraOff: data.user_info.isCameraOff !== undefined ? data.user_info.isCameraOff : true
+            isMicMuted: data.user_info.isMicMuted !== undefined ? Boolean(data.user_info.isMicMuted) : false,
+            isCameraOff: data.user_info.isCameraOff !== undefined ? Boolean(data.user_info.isCameraOff) : false
           };
           this.renderParticipantsList();
           this.renderRemoteTile(joinedId);
           this.reflowVideoGrid();
 
-          if (joinedId && joinedId !== this.currentUser?.id) {
-            const isInitiator = Boolean(this.currentUser?.id && joinedId && this.currentUser.id < joinedId);
+          if (joinedId && joinedId !== String(this.currentUser?.id)) {
+            const isInitiator = Boolean(this.currentUser?.id && joinedId && String(this.currentUser.id) < joinedId);
             await this.createPeerConnection(joinedId, isInitiator);
           }
+
+          // Sayfa yenilemelerinde (F5) katıldı bildirimi düşmesini %100 engelle
+          if (!isReconnectingFromRefresh) {
+            Notifications.show(`${data.user_info?.name || 'Bir katılımcı'} odaya katıldı.`, 'info', 'Toplantı Katılımı');
+          }
         }
-        Notifications.show(`${data.user_info?.name || 'Bir katılımcı'} odaya katıldı.`, 'info', 'Toplantı Katılımı');
         break;
 
       case 'user-state-update':
@@ -474,6 +555,12 @@ const WebRTC = {
           this.renderParticipantsList();
           this.renderRemoteTile(senderId);
           this.reflowVideoGrid();
+        }
+        break;
+
+      case 'lobby-join-request':
+        if (data.user_info) {
+          this.showLobbyApprovalNotification(data.user_info);
         }
         break;
 
@@ -555,13 +642,7 @@ const WebRTC = {
         if (String(data.target_id) === String(this.currentUser?.id)) {
           if (data.approved) {
             this.approvedScreenShare = true;
-            Notifications.showAction(
-              "Yönetici ekran paylaşımı talebinizi onayladı! Ekranınızı seçip yayını başlatmak için butona tıklayın.",
-              "Ekranı Paylaş",
-              () => this.startScreenShareFlow(),
-              "success",
-              "Ekran Paylaşımı İzni"
-            );
+            this.showScreenShareGrantedDialog();
           } else {
             Notifications.show("Yönetici ekran paylaşımı talebinizi reddetti.", "error", "Ekran Paylaşımı İzni");
           }
@@ -569,14 +650,13 @@ const WebRTC = {
         break;
 
       case 'screen-share-start':
-        this.screenSharePresenterId = senderId;
-        if (this.participantsMap[senderId]) {
-          this.participantsMap[senderId].isCameraOff = false;
+        this.screenSharePresenterId = String(senderId);
+        this.activeScreenStreamId = data.stream_id || null;
+        const presenterScreenStream = this.peerScreenStreams[senderId] || null;
+        this.enableScreenShareLayout(data.presenter_name || 'Katılımcı', presenterScreenStream);
+        if (senderId !== this.currentUser?.id && this.peerStreams[senderId]) {
+          this.renderRemoteTile(senderId, this.peerStreams[senderId]);
         }
-        const presenterStream = this.peerStreams[senderId]
-          || (document.getElementById(`remoteVideo_${senderId}`)?.srcObject)
-          || null;
-        this.enableScreenShareLayout(data.presenter_name || 'Katılımcı', presenterStream);
         Notifications.show(`${data.presenter_name || 'Bir katılımcı'} ekranını paylaşıyor.`, 'info', 'Ekran Paylaşımı');
         break;
 
@@ -595,14 +675,41 @@ const WebRTC = {
         break;
 
       case 'user-left':
-        const leavingId = senderId || data.user_info?.id;
+        const leavingId = String(senderId || data.user_info?.id || '');
         if (leavingId) {
-          delete this.participantsMap[leavingId];
-          delete this.peerStreams[leavingId];
-          this.removePeer(leavingId);
-          this.renderParticipantsList();
-          this.reflowVideoGrid();
-          Notifications.show(`Bir katılımcı toplantıdan ayrıldı.`, 'info', 'Ayrıldı');
+          const leavingName = data.user_info?.name || this.participantsMap[leavingId]?.name || 'Bir katılımcı';
+
+          if (data.explicit) {
+            // Kullanıcı bilinçli olarak "Ayrıl" butonuna bastı -> Anında ayrılma ve bildirim
+            if (this.pendingDepartures[leavingId]) {
+              clearTimeout(this.pendingDepartures[leavingId].timerId);
+              delete this.pendingDepartures[leavingId];
+            }
+            delete this.participantsMap[leavingId];
+            delete this.peerStreams[leavingId];
+            this.removePeer(leavingId);
+            this.renderParticipantsList();
+            this.reflowVideoGrid();
+            Notifications.show(`${leavingName} toplantıdan ayrıldı.`, 'info', 'Ayrıldı');
+          } else {
+            // Sayfa yenileme (F5) veya geçici bağlantı kopması -> 4 saniyelik tolerans süresi!
+            if (this.pendingDepartures[leavingId]) {
+              clearTimeout(this.pendingDepartures[leavingId].timerId);
+            }
+
+            this.pendingDepartures[leavingId] = {
+              userInfo: this.participantsMap[leavingId] || data.user_info,
+              timerId: setTimeout(() => {
+                delete this.pendingDepartures[leavingId];
+                delete this.participantsMap[leavingId];
+                delete this.peerStreams[leavingId];
+                this.removePeer(leavingId);
+                this.renderParticipantsList();
+                this.reflowVideoGrid();
+                Notifications.show(`${leavingName} toplantıdan ayrıldı.`, 'info', 'Ayrıldı');
+              }, 4000)
+            };
+          }
         }
         break;
 
@@ -662,11 +769,23 @@ const WebRTC = {
   respondToGuestRequest(guestId, approved) {
     const modal = document.getElementById(`guestModal_${guestId}`);
     if (modal) modal.remove();
+
+    const toast = document.getElementById('guestApprovalToast');
+    if (toast) {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translate(-50%, -20px)';
+      toast.style.transition = 'all 0.25s ease';
+      setTimeout(() => {
+        if (toast.parentNode) toast.remove();
+      }, 250);
+    }
+
     this.sendSignal({
       type: 'guest-join-response',
       guest_id: guestId,
       approved: approved
     });
+
     if (window.Notifications) {
       Notifications.show(approved ? 'Misafir talebi kabul edildi.' : 'Misafir talebi reddedildi.', approved ? 'success' : 'warning');
     }
@@ -747,17 +866,36 @@ const WebRTC = {
     }
   },
 
+  attachLocalTracksToPeer(pc) {
+    if (!pc || !this.localStream) return;
+    const senders = pc.getSenders();
+    this.localStream.getTracks().forEach(track => {
+      const exists = senders.some(s => s.track === track || (s.track && s.track.kind === track.kind));
+      if (!exists) {
+        try {
+          pc.addTrack(track, this.localStream);
+        } catch (e) {
+          console.warn("[WebRTC] Local track ekleme uyarısı:", e);
+        }
+      } else {
+        const sender = senders.find(s => s.track && s.track.kind === track.kind);
+        if (sender && sender.track !== track) {
+          sender.replaceTrack(track).catch(e => console.warn("[WebRTC] replaceTrack uyarısı:", e));
+        }
+      }
+    });
+  },
+
   async createPeerConnection(remoteUserId, isInitiator) {
-    if (this.peers[remoteUserId]) return this.peers[remoteUserId];
+    if (this.peers[remoteUserId]) {
+      this.attachLocalTracksToPeer(this.peers[remoteUserId]);
+      return this.peers[remoteUserId];
+    }
 
     const pc = new RTCPeerConnection(this.getIceServers());
     this.peers[remoteUserId] = pc;
 
-    if (this.localStream) {
-      this.localStream.getTracks().forEach(track => {
-        pc.addTrack(track, this.localStream);
-      });
-    }
+    this.attachLocalTracksToPeer(pc);
 
     if (this.isScreenSharing && this.screenTrack) {
       pc.addTrack(this.screenTrack);
@@ -786,58 +924,72 @@ const WebRTC = {
 
     pc.ontrack = (event) => {
       console.log(`[WebRTC] Track alındı (${remoteUserId}):`, event.track.kind, event.track.label);
-      let remoteStream = event.streams[0];
-      if (!remoteStream) {
-        if (!this.peerStreams[remoteUserId]) {
-          this.peerStreams[remoteUserId] = new MediaStream();
-        }
-        this.peerStreams[remoteUserId].addTrack(event.track);
-        remoteStream = this.peerStreams[remoteUserId];
-      } else {
-        this.peerStreams[remoteUserId] = remoteStream;
-      }
+      const incomingStream = event.streams[0] || new MediaStream([event.track]);
 
       if (event.track.kind === 'video') {
-        const streamId = (event.streams[0]?.id || '').toLowerCase();
+        const streamId = (event.streams[0]?.id || '');
+        const streamIdLower = streamId.toLowerCase();
         const trackLabel = (event.track?.label || '').toLowerCase();
+        const contentHint = (event.track?.contentHint || '').toLowerCase();
 
-        // Ekran paylaşımı tespiti (Etikette/ID'de anahtar kelimeler veya aktif paylaşım yapan kullanıcı olması)
-        const isExplicitScreen = streamId.includes('screen') || streamId.includes('display') || 
+        // Ekran paylaşımı tespiti
+        const isExplicitScreen = streamIdLower.includes('screen') || streamIdLower.includes('display') || 
                                  trackLabel.includes('screen') || trackLabel.includes('display') || 
                                  trackLabel.includes('window') || trackLabel.includes('monitor') || 
-                                 trackLabel.includes('desktop') || trackLabel.includes('entire');
+                                 trackLabel.includes('desktop') || trackLabel.includes('entire') ||
+                                 contentHint === 'motion';
 
+        const isScreenStreamIdMatch = Boolean(this.activeScreenStreamId && streamId === this.activeScreenStreamId);
         const isPresenter = (String(this.screenSharePresenterId) === String(remoteUserId));
-        const existingWebcamStream = this.peerStreams[remoteUserId];
-        const isSecondVideoStream = existingWebcamStream && existingWebcamStream.id !== remoteStream.id;
+        const hasExistingWebcam = Boolean(this.peerStreams[remoteUserId] && this.peerStreams[remoteUserId].getVideoTracks().length > 0);
 
-        if (isPresenter || isExplicitScreen || isSecondVideoStream) {
-          console.log(`[WebRTC] Ekran paylaşımı akışı bağlandı (${remoteUserId})`);
+        if (isScreenStreamIdMatch || isExplicitScreen || (isPresenter && hasExistingWebcam)) {
+          console.log(`[WebRTC] Doğrulanmış EKRAN PAYLAŞIM akışı bağlandı (${remoteUserId})`);
+          this.peerScreenStreams[remoteUserId] = incomingStream;
+
           const shareVid = document.getElementById('screenShareVideo');
           if (shareVid) {
-            shareVid.srcObject = remoteStream;
+            shareVid.srcObject = incomingStream;
             shareVid.muted = (String(remoteUserId) === String(this.currentUser?.id));
             shareVid.play().catch(e => console.warn('[WebRTC] Ekran paylaşımı oynatma hatası:', e));
           }
 
           const presenterName = this.participantsMap[remoteUserId]?.name || 'Katılımcı';
-          this.enableScreenShareLayout(presenterName, remoteStream);
+          this.screenSharePresenterId = String(remoteUserId);
+          this.enableScreenShareLayout(presenterName, incomingStream);
+
+          // Sunucunun kamera kartını da üst şeritte web kamerası ile güncelle
+          if (this.peerStreams[remoteUserId]) {
+            this.renderRemoteTile(remoteUserId, this.peerStreams[remoteUserId]);
+          }
           return;
         }
 
+        // Normal Kamera Akışı
+        console.log(`[WebRTC] Doğrulanmış KAMERA akışı bağlandı (${remoteUserId})`);
+        this.peerStreams[remoteUserId] = incomingStream;
         if (this.participantsMap[remoteUserId]) {
           this.participantsMap[remoteUserId].isCameraOff = false;
         }
+        this.renderRemoteTile(remoteUserId, incomingStream);
+        return;
       }
 
-      // Her durumda (ses veya video) katılımcı kartını ve ses/video elemanlarını güncelle
-      this.renderRemoteTile(remoteUserId, remoteStream);
+      if (event.track.kind === 'audio') {
+        const audioEl = document.getElementById(`remoteAudio_${remoteUserId}`);
+        if (audioEl) {
+          audioEl.srcObject = incomingStream;
+          audioEl.play().catch(e => console.warn('[WebRTC] Uzaktan ses oynatılamadı:', e));
+        }
+      }
     };
 
-    // Connection state log
+    // Connection state handler (Preserve DOM tile during F5 refresh grace period)
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-        this.removePeer(remoteUserId);
+      if (pc.connectionState === 'failed') {
+        if (!this.pendingDepartures[String(remoteUserId)]) {
+          this.removePeer(remoteUserId);
+        }
       }
     };
 
@@ -863,37 +1015,64 @@ const WebRTC = {
   },
 
   renderLocalTile() {
-    const activeContainer = (document.getElementById('screenShareArea')?.style.display === 'flex')
+    const isScreenShareActive = (document.getElementById('screenShareArea')?.style.display === 'flex');
+    const activeContainer = isScreenShareActive
       ? document.getElementById('topCarouselBar')
       : document.getElementById('videoGrid');
 
     if (!activeContainer) return;
 
     let tile = document.getElementById('localParticipantTile');
+    const isPinned = (this.pinnedTileId === 'localParticipantTile');
+
     if (!tile) {
       tile = document.createElement('div');
       tile.id = 'localParticipantTile';
-      tile.className = 'participant-tile local-tile';
+      tile.className = `participant-tile local-tile ${isPinned ? 'pinned-tile' : ''}`;
       activeContainer.appendChild(tile);
-    } else if (tile.parentElement !== activeContainer) {
-      activeContainer.appendChild(tile);
+    } else {
+      tile.className = `participant-tile local-tile ${isPinned ? 'pinned-tile' : ''}`;
+      if (tile.parentElement !== activeContainer) {
+        activeContainer.appendChild(tile);
+      }
     }
 
-    const name = `${this.currentUser?.first_name || ''} ${this.currentUser?.last_name || ''}`.trim() || 'Siz';
-    const initials = `${(this.currentUser?.first_name?.[0] || 'S')}${(this.currentUser?.last_name?.[0] || 'Z')}`.toUpperCase();
+    const name = `${this.currentUser?.first_name || ''} ${this.currentUser?.last_name || ''}`.trim() || 'Bedirhan Dikmen';
+    const initials = `${(this.currentUser?.first_name?.[0] || 'B')}${(this.currentUser?.last_name?.[0] || 'D')}`.toUpperCase();
     const avatarUrl = this.currentUser?.avatar_url;
 
     tile.innerHTML = `
       <video id="localVideo" autoplay playsinline muted style="display: ${this.isCameraOff ? 'none' : 'block'}; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
-      <div id="localAvatar" style="display: ${this.isCameraOff ? 'flex' : 'none'}; flex-direction: column; align-items: center; justify-content: center; width: 84px; height: 84px; border-radius: 50%; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #fff; font-size: 2.2rem; font-weight: 800; border: 2px solid #ffffff; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.25); margin: auto;">
+      <div id="localAvatar" style="display: ${this.isCameraOff ? 'flex' : 'none'}; flex-direction: column; align-items: center; justify-content: center; width: 76px; height: 76px; border-radius: 50%; background: #5b5fc7; color: #fff; font-size: 2rem; font-weight: 800; border: 2px solid #ffffff; box-shadow: 0 4px 15px rgba(91, 95, 199, 0.25); margin: auto;">
         ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials}
       </div>
-      <div class="tile-overlay" style="position: absolute; bottom: 0.75rem; left: 0.75rem; right: 0.75rem; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(6px); border-radius: 8px; padding: 0.35rem 0.75rem; display: flex; align-items: center; justify-content: space-between; color: #fff;">
-        <span>
-          <strong style="color: #fff; font-weight: 700; font-size: 0.85rem;">${name} (Siz)</strong>
-          <span class="role-badge ${this.isHost ? 'role-badge-admin' : 'role-badge-user'}" style="font-size: 0.6rem; padding: 0.1rem 0.35rem;">${this.isHost ? 'Yönetici' : 'Katılımcı'}</span>
-        </span>
-        <i id="localMicStatusIcon" class="fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${this.isMicMuted ? '#f43f5e' : '#10b981'}; font-size: 0.85rem;"></i>
+      
+      <!-- TOP-RIGHT 3-DOTS CONTEXT MENU BUTTON -->
+      <button class="tile-more-btn" onclick="WebRTC.toggleCardContextMenu(event, 'local')" title="Kart Seçenekleri" style="position: absolute; top: 0.65rem; right: 0.65rem; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; z-index: 15; backdrop-filter: blur(4px);">
+        <i class="fas fa-ellipsis-v" style="font-size: 0.8rem;"></i>
+      </button>
+
+      <!-- CONTEXT MENU POPOVER -->
+      <div id="cardContextMenu_local" class="card-context-menu" style="display: none;">
+        <button class="menu-item" onclick="WebRTC.toggleCamera()">
+          <i class="fas ${this.isCameraOff ? 'fa-video' : 'fa-video-slash'}" style="color: #5b5fc7;"></i> ${this.isCameraOff ? 'Kamerayı Aç' : 'Kamerayı Kapat'}
+        </button>
+        <button class="menu-item" onclick="WebRTC.toggleMic()">
+          <i class="fas ${this.isMicMuted ? 'fa-microphone' : 'fa-microphone-slash'}" style="color: #10b981;"></i> ${this.isMicMuted ? 'Mikrofonu Aç' : 'Mikrofonu Kapat'}
+        </button>
+        <button class="menu-item" onclick="WebRTC.togglePin('localParticipantTile')">
+          <i class="fas ${isPinned ? 'fa-compress' : 'fa-expand'}" style="color: #0ea5e9;"></i> ${isPinned ? 'Odaklamayı Kaldır' : 'Odakla / Büyüt'}
+        </button>
+        <button class="menu-item" onclick="WebRTC.toggleFullscreen('localParticipantTile')">
+          <i class="fas fa-expand-arrows-alt" style="color: #8b5cf6;"></i> Tam Ekran
+        </button>
+      </div>
+
+      <!-- TRANSLUCENT DARK OVERLAY PILL WITH WHITE TEXT AT BOTTOM-LEFT -->
+      <div class="tile-overlay-pill">
+        <i class="fas fa-thumbtack" style="font-size: 0.72rem; color: #ffffff; opacity: 0.85;"></i>
+        <strong style="color: #ffffff; font-weight: 700;">${name} (Siz)</strong>
+        <i class="fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${this.isMicMuted ? '#f87171' : '#ffffff'}; font-size: 0.8rem;"></i>
       </div>
     `;
 
@@ -902,11 +1081,12 @@ const WebRTC = {
       videoEl.srcObject = this.localStream;
       videoEl.style.display = this.isCameraOff ? 'none' : 'block';
     }
-    this.reflowVideoGrid();
+    this.reflowActiveLayout();
   },
 
   renderRemoteTile(remoteUserId, stream = null) {
-    const activeContainer = (document.getElementById('screenShareArea')?.style.display === 'flex')
+    const isScreenShareActive = (document.getElementById('screenShareArea')?.style.display === 'flex');
+    const activeContainer = isScreenShareActive
       ? document.getElementById('topCarouselBar')
       : document.getElementById('videoGrid');
 
@@ -916,38 +1096,72 @@ const WebRTC = {
     const name = info.name || 'Katılımcı';
     const initials = (name[0] || 'K').toUpperCase();
     const avatarUrl = info.avatar_url;
-    const isCameraOff = (info.isCameraOff !== false);
+    const isCameraOff = Boolean(info.isCameraOff);
     const isHostUser = (remoteUserId === this.meetingInfo?.created_by);
 
     let tile = document.getElementById(`remoteTile_${remoteUserId}`);
+    const isPinned = (this.pinnedTileId === `remoteTile_${remoteUserId}`);
+    const currentVol = (this.remoteVolumes[remoteUserId] ?? 1.0);
+    const isLocalMuted = !!this.remoteMuted[remoteUserId];
+    const isSpeaking = !!info.isSpeaking;
+
     if (!tile) {
       tile = document.createElement('div');
       tile.id = `remoteTile_${remoteUserId}`;
-      tile.className = 'participant-tile';
+      tile.className = `participant-tile ${isPinned ? 'pinned-tile' : ''} ${isSpeaking ? 'active-speaker' : ''}`;
       activeContainer.appendChild(tile);
-    } else if (tile.parentElement !== activeContainer) {
-      activeContainer.appendChild(tile);
+    } else {
+      tile.className = `participant-tile ${isPinned ? 'pinned-tile' : ''} ${isSpeaking ? 'active-speaker' : ''}`;
+      if (tile.parentElement !== activeContainer) {
+        activeContainer.appendChild(tile);
+      }
     }
 
     tile.innerHTML = `
       <audio id="remoteAudio_${remoteUserId}" autoplay playsinline style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; z-index: -1;"></audio>
       <video id="remoteVideo_${remoteUserId}" autoplay playsinline style="display: ${isCameraOff ? 'none' : 'block'}; width: 100%; height: 100%; object-fit: cover;"></video>
-      <div id="remoteAvatar_${remoteUserId}" style="display: ${isCameraOff ? 'flex' : 'none'}; flex-direction: column; align-items: center; justify-content: center; width: 84px; height: 84px; border-radius: 50%; background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); color: #4f46e5; border: 2px solid #ffffff; font-size: 2.2rem; font-weight: 800; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.15); margin: auto;">
+      <div id="remoteAvatar_${remoteUserId}" style="display: ${isCameraOff ? 'flex' : 'none'}; flex-direction: column; align-items: center; justify-content: center; width: 76px; height: 76px; border-radius: 50%; background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); color: #5b5fc7; border: 2px solid #ffffff; font-size: 2rem; font-weight: 800; box-shadow: 0 4px 15px rgba(91, 95, 199, 0.15); margin: auto;">
         ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials}
       </div>
-      <div class="tile-overlay" style="position: absolute; bottom: 0.75rem; left: 0.75rem; right: 0.75rem; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(6px); border-radius: 8px; padding: 0.35rem 0.75rem; display: flex; align-items: center; justify-content: space-between; color: #fff;">
-        <span title="${name}">
-          <strong style="color: #fff; font-weight: 700; font-size: 0.85rem; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</strong>
-          <span class="role-badge ${isHostUser ? 'role-badge-admin' : 'role-badge-user'}" style="font-size: 0.6rem; padding: 0.1rem 0.35rem;">${isHostUser ? 'Yönetici' : 'Katılımcı'}</span>
-        </span>
-        <div style="display: flex; gap: 0.5rem; align-items: center; margin-left: auto;">
-          <i class="fas ${info.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${info.isMicMuted ? '#f43f5e' : '#10b981'}; font-size: 0.85rem;"></i>
-          ${this.isHost ? `
-            <button onclick="WebRTC.kickParticipant('${remoteUserId}')" class="btn btn-danger" style="padding: 0.15rem 0.35rem; font-size: 0.65rem;" title="Çıkar">
-              <i class="fas fa-user-minus"></i>
-            </button>
-          ` : ''}
+      
+      <!-- TOP-LEFT ACTIVE SPEAKER PILL BADGE -->
+      ${isSpeaking ? `
+        <div class="active-speaker-badge">
+          <div class="sound-wave-bars"><span></span><span></span><span></span></div>
+          Konuşan: ${name}
         </div>
+      ` : ''}
+
+      <!-- TOP-RIGHT 3-DOTS CONTEXT MENU BUTTON -->
+      <button class="tile-more-btn" onclick="WebRTC.toggleCardContextMenu(event, '${remoteUserId}')" title="Katılımcı Seçenekleri" style="position: absolute; top: 0.65rem; right: 0.65rem; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; z-index: 15; backdrop-filter: blur(4px);">
+        <i class="fas fa-ellipsis-v" style="font-size: 0.8rem;"></i>
+      </button>
+
+      <!-- CONTEXT MENU POPOVER -->
+      <div id="cardContextMenu_${remoteUserId}" class="card-context-menu" style="display: none;">
+        <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; padding: 0.2rem 0.4rem;">SES AYARI</div>
+        <div style="padding: 0.2rem 0.4rem; display: flex; align-items: center; gap: 0.5rem;">
+          <input type="range" min="0" max="100" value="${Math.round(currentVol * 100)}" 
+                 oninput="WebRTC.setRemoteVolume('${remoteUserId}', this.value)" style="width: 100%; accent-color: #5b5fc7;">
+          <span id="cardVolumeLabel_${remoteUserId}" style="font-size: 0.75rem; font-weight: 800; color: #475569; min-width: 32px;">${Math.round(currentVol * 100)}%</span>
+        </div>
+        <button class="menu-item" onclick="WebRTC.toggleRemoteMute('${remoteUserId}')">
+          <i class="fas ${isLocalMuted ? 'fa-volume-up' : 'fa-volume-mute'}" style="color: #f43f5e;"></i> ${isLocalMuted ? 'Sesi Aç' : 'Sessize Al'}
+        </button>
+        <div style="height: 1px; background: #e2e8f0; margin: 0.2rem 0;"></div>
+        <button class="menu-item" onclick="WebRTC.togglePin('remoteTile_${remoteUserId}')">
+          <i class="fas ${isPinned ? 'fa-compress' : 'fa-expand'}" style="color: #0ea5e9;"></i> ${isPinned ? 'Odaklamayı Kaldır' : 'Odakla / Büyüt'}
+        </button>
+        <button class="menu-item" onclick="WebRTC.toggleFullscreen('remoteTile_${remoteUserId}')">
+          <i class="fas fa-expand-arrows-alt" style="color: #8b5cf6;"></i> Tam Ekran
+        </button>
+      </div>
+
+      <!-- TRANSLUCENT DARK OVERLAY PILL WITH WHITE TEXT AT BOTTOM-LEFT -->
+      <div class="tile-overlay-pill">
+        <i class="fas fa-thumbtack" style="font-size: 0.72rem; color: #ffffff; opacity: 0.85;"></i>
+        <strong style="color: #ffffff; font-weight: 700;">${name}</strong>
+        <i class="fas ${info.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${info.isMicMuted ? '#f87171' : '#ffffff'}; font-size: 0.8rem;"></i>
       </div>
     `;
 
@@ -958,6 +1172,8 @@ const WebRTC = {
         if (audioEl.srcObject !== streamToUse) {
           audioEl.srcObject = streamToUse;
         }
+        audioEl.volume = currentVol;
+        audioEl.muted = isLocalMuted;
         audioEl.play().catch(e => console.warn(`[WebRTC] Uzaktan ses (${remoteUserId}) oynatılamadı:`, e));
       }
 
@@ -970,7 +1186,7 @@ const WebRTC = {
       }
     }
 
-    this.reflowVideoGrid();
+    this.reflowActiveLayout();
   },
 
   renderAllParticipantTiles() {
@@ -979,7 +1195,7 @@ const WebRTC = {
         this.renderRemoteTile(uid);
       }
     });
-    this.reflowVideoGrid();
+    this.reflowActiveLayout();
   },
 
   setRemoteStream(remoteUserId, stream) {
@@ -992,64 +1208,360 @@ const WebRTC = {
     }
   },
 
-  enableScreenShareLayout(presenterName, stream) {
-    const topBar = document.getElementById('topCarouselBar');
+  enableScreenShareLayout(presenterName, stream, secondStream = null, secondPresenterName = null) {
     const shareArea = document.getElementById('screenShareArea');
     const grid = document.getElementById('videoGrid');
+    const topBar = document.getElementById('topCarouselBar');
+    const headerShareBadge = document.getElementById('headerScreenShareBadge');
 
-    if (!topBar || !shareArea || !grid) return;
+    if (!shareArea || !grid) return;
 
-    topBar.style.display = 'flex';
-    shareArea.style.display = 'flex';
-    grid.style.display = 'none';
+    // 1. Izgara ve Ekran Sahnesinin Kesin Dikey Ayrıştırılması (X ekseninde yan yana durması kesinlikle engellenir)
+    grid.style.setProperty('display', 'none', 'important');
+    shareArea.style.setProperty('display', 'flex', 'important');
+    if (topBar) topBar.style.setProperty('display', 'flex', 'important');
+    if (headerShareBadge) headerShareBadge.style.display = 'inline-flex';
 
-    // Katılımcı kartlarını üst karuselle sorunsuz taşı
-    const tiles = document.querySelectorAll('.participant-tile');
-    tiles.forEach(tile => topBar.appendChild(tile));
+    // 2. Tüm katılımcı kartlarını (lokal + uzaktan) üst şeride (topCarouselBar) taşı
+    const tiles = document.querySelectorAll('.participant-tile:not(.overflow-tile)');
+    tiles.forEach(tile => {
+      if (topBar && tile.parentElement !== topBar) {
+        topBar.appendChild(tile);
+      }
+    });
+
+    this.reflowTopCarouselBar();
 
     const presenterEl = document.getElementById('screenSharePresenterName');
-    if (presenterEl) presenterEl.textContent = `${presenterName} tarafından ekran paylaşılıyor`;
+    if (presenterEl) presenterEl.textContent = `${presenterName} ekranını paylaşıyor`;
+
+    const stopBtn = document.getElementById('btnStopMyShareOverlay');
+    if (stopBtn) {
+      stopBtn.style.display = (this.screenSharePresenterId === this.currentUser?.id) ? 'inline-block' : 'none';
+    }
+
+    const tile2 = document.getElementById('screenShareTile_2');
+    if (secondStream && tile2) {
+      tile2.style.display = 'block';
+      const shareVid2 = document.getElementById('screenShareVideo2');
+      if (shareVid2) {
+        shareVid2.srcObject = secondStream;
+        shareVid2.play().catch(e => console.warn(e));
+      }
+      if (presenterEl) presenterEl.textContent = `${presenterName} ve ${secondPresenterName || '2. Kullanıcı'} ekranlarını paylaşıyor`;
+    } else if (tile2) {
+      tile2.style.display = 'none';
+    }
 
     if (!stream && this.screenSharePresenterId) {
-      stream = this.peerStreams[this.screenSharePresenterId] || (document.getElementById(`remoteVideo_${this.screenSharePresenterId}`)?.srcObject);
+      stream = this.peerScreenStreams[this.screenSharePresenterId] || null;
     }
 
     const shareVid = document.getElementById('screenShareVideo');
     if (shareVid && stream) {
       shareVid.muted = (this.screenSharePresenterId === this.currentUser?.id);
       shareVid.srcObject = stream;
-      shareVid.style.transform = 'translate3d(0,0,0)';
-      shareVid.style.willChange = 'transform';
-      shareVid.play().then(() => {
-        console.log("[WebRTC] Ekran paylaşımı videosu GPU ivmelendirmesi ile 60 FPS oynatılıyor.");
-      }).catch(e => {
-        console.warn("[WebRTC] Ekran paylaşımı video oynatma hatası:", e);
-      });
+      shareVid.play().catch(e => console.warn(e));
+    }
+  },
+
+  toggleScreenShareAudio() {
+    const shareVid = document.getElementById('screenShareVideo');
+    const icon = document.getElementById('iconShareAudio');
+    if (shareVid) {
+      shareVid.muted = !shareVid.muted;
+      if (icon) {
+        icon.className = shareVid.muted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+        icon.style.color = shareVid.muted ? '#f87171' : '#ffffff';
+      }
+    }
+  },
+
+  showShareSettingsModal() {
+    if (typeof showToast === 'function') {
+      showToast('Ekran Paylaşım Ayarları: Yayın yüksek kalitede (1080p 60fps) iletiliyor.', 'info');
+    } else {
+      alert('Ekran Paylaşım Ayarları: Yayın yüksek kalitede (1080p 60fps) iletiliyor.');
     }
   },
 
   disableScreenShareLayout() {
-    const topBar = document.getElementById('topCarouselBar');
     const shareArea = document.getElementById('screenShareArea');
     const grid = document.getElementById('videoGrid');
+    const topBar = document.getElementById('topCarouselBar');
+    const headerShareBadge = document.getElementById('headerScreenShareBadge');
 
-    if (!topBar || !shareArea || !grid) return;
+    if (!shareArea || !grid) return;
 
-    topBar.style.display = 'none';
-    shareArea.style.display = 'none';
-    grid.style.display = 'grid';
+    shareArea.style.setProperty('display', 'none', 'important');
+    grid.style.setProperty('display', 'grid', 'important');
+    if (topBar) topBar.style.setProperty('display', 'none', 'important');
+    if (headerShareBadge) headerShareBadge.style.display = 'none';
 
     const shareVid = document.getElementById('screenShareVideo');
     if (shareVid) shareVid.srcObject = null;
 
-    // Tüm kartları tekrar ana video ızgarasına taşı
-    const tiles = topBar.querySelectorAll('.participant-tile');
-    tiles.forEach(tile => grid.appendChild(tile));
+    const shareVid2 = document.getElementById('screenShareVideo2');
+    if (shareVid2) shareVid2.srcObject = null;
 
-    // Yerel ve uzaktaki katılımcı kartlarını yeniden hesapla
+    const tile2 = document.getElementById('screenShareTile_2');
+    if (tile2) tile2.style.display = 'none';
+
+    // Katılımcı kartlarını ana grid alanına (videoGrid) geri taşı
+    const tiles = document.querySelectorAll('.participant-tile:not(.overflow-tile)');
+    tiles.forEach(tile => {
+      if (grid && tile.parentElement !== grid) {
+        grid.appendChild(tile);
+      }
+    });
+
+    this.screenSharePresenterId = null;
+    this.isScreenSharing = false;
+    this.updateScreenShareButtonState(false);
+
     this.renderLocalTile();
     this.renderAllParticipantTiles();
     this.reflowVideoGrid();
+  },
+
+  reflowActiveLayout() {
+    const isScreenShareActive = (document.getElementById('screenShareArea')?.style.display === 'flex');
+    if (isScreenShareActive) {
+      this.reflowTopCarouselBar();
+    } else {
+      this.reflowVideoGrid();
+    }
+  },
+
+  reflowTopCarouselBar() {
+    const topBar = document.getElementById('topCarouselBar');
+    if (!topBar || topBar.style.display === 'none') return;
+
+    const existingOverflow = topBar.querySelector('.overflow-tile');
+    if (existingOverflow) existingOverflow.remove();
+
+    const tiles = Array.from(topBar.querySelectorAll('.participant-tile:not(.overflow-tile)'));
+    const count = tiles.length;
+
+    tiles.forEach(tile => tile.style.display = 'flex');
+
+    const maxVisibleInBar = 6;
+
+    if (count > maxVisibleInBar) {
+      const overflowCount = count - (maxVisibleInBar - 1);
+      tiles.forEach((tile, index) => {
+        if (index < (maxVisibleInBar - 1)) {
+          tile.style.display = 'flex';
+        } else {
+          tile.style.display = 'none';
+        }
+      });
+
+      const overflowTile = document.createElement('div');
+      overflowTile.className = 'participant-tile overflow-tile';
+      overflowTile.style.cssText = 'height: 100%; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; background: #f1f5f9; border: 2px dashed #cbd5e1; border-radius: 12px; cursor: pointer; flex-shrink: 0;';
+      overflowTile.onclick = () => {
+        if (typeof toggleSidebarTab === 'function') {
+          toggleSidebarTab('participants');
+        }
+      };
+      overflowTile.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem; text-align: center;">
+          <div style="font-size: 1.3rem; font-weight: 800; color: #5b5fc7;">+${overflowCount}</div>
+          <div style="font-size: 0.75rem; font-weight: 700; color: #475569;">Daha fazla</div>
+        </div>
+      `;
+      topBar.appendChild(overflowTile);
+    }
+  },
+
+  // ==========================================================================
+  // SMART GALLERY (AKILLI GALERİ) MOTORU V1.0
+  // ==========================================================================
+  smartGalleryState: {
+    lastSpokenMap: {},    // userId -> timestamp (ms) when last spoke
+    cameraStateMap: {},   // userId -> timestamp (ms) when camera turned on
+    audioAnalyzers: {},   // userId -> AudioContext/Analyser
+  },
+
+  updateParticipantSpeakingState(userId, isSpeaking) {
+    if (!this.participantsMap[userId]) {
+      this.participantsMap[userId] = {};
+    }
+    this.participantsMap[userId].isSpeaking = isSpeaking;
+    if (isSpeaking) {
+      this.smartGalleryState.lastSpokenMap[userId] = Date.now();
+    }
+    
+    // Highlight tile border
+    const tileId = (userId === this.currentUser?.id || userId === 'local') ? 'localParticipantTile' : `remoteTile_${userId}`;
+    const tile = document.getElementById(tileId);
+    if (tile) {
+      if (isSpeaking) {
+        tile.classList.add('active-speaker');
+      } else {
+        tile.classList.remove('active-speaker');
+      }
+    }
+
+    // Trigger Smart Gallery Re-sorting
+    this.reflowActiveLayout();
+  },
+
+  getParticipantPriorityScore(userId) {
+    const now = Date.now();
+    let score = 0;
+
+    // 1. Local user / Self view always prioritized in grid
+    if (userId === this.currentUser?.id || userId === 'local') {
+      score += 100000;
+    }
+
+    // 2. Pinned tile gets top priority
+    const tileId = (userId === this.currentUser?.id || userId === 'local') ? 'localParticipantTile' : `remoteTile_${userId}`;
+    if (this.pinnedTileId === tileId) {
+      score += 50000;
+    }
+
+    // 3. Currently Speaking (Active Speaker) -> Highest dynamic priority
+    const isSpeaking = (userId === this.currentUser?.id || userId === 'local') ? !this.isMicMuted : !!this.participantsMap[userId]?.isSpeaking;
+    if (isSpeaking) {
+      score += 20000;
+    }
+
+    // 4. Recently Spoken (within last 30 seconds) -> Exponential/Linear decay
+    const lastSpoken = this.smartGalleryState.lastSpokenMap[userId] || 0;
+    const secondsAgo = (now - lastSpoken) / 1000;
+    if (secondsAgo <= 30) {
+      score += (30 - secondsAgo) * 100; // max +3000 pts
+    }
+
+    // 5. Camera On
+    const isCameraOff = (userId === this.currentUser?.id || userId === 'local') ? this.isCameraOff : (this.participantsMap[userId]?.isCameraOff !== false);
+    if (!isCameraOff) {
+      score += 1000;
+    }
+
+    // 6. Tie-breaker: camera toggled timestamp
+    const camTime = this.smartGalleryState.cameraStateMap[userId] || 0;
+    score += (camTime / 100000000000);
+
+    return score;
+  },
+
+  reflowVideoGrid() {
+    const grid = document.getElementById('videoGrid');
+    if (!grid) return;
+
+    // Reset inline grid styles
+    grid.style.gridTemplateColumns = '';
+    grid.style.gridTemplateRows = '';
+    grid.style.gridTemplateAreas = '';
+
+    // Reset layout classes
+    grid.classList.remove('grid-1', 'grid-2', 'grid-3', 'grid-4', 'grid-5', 'grid-6', 'grid-8', 'grid-12', 'grid-multi');
+
+    // Remove existing overflow tile
+    const existingOverflow = grid.querySelector('.overflow-tile');
+    if (existingOverflow) existingOverflow.remove();
+
+    // Get all participant tiles currently in grid
+    const allTiles = Array.from(grid.querySelectorAll('.participant-tile:not(.overflow-tile)'));
+    const totalCount = allTiles.length;
+
+    if (totalCount === 0) {
+      grid.classList.add('grid-1');
+      return;
+    }
+
+    // Sort all tiles based on Smart Gallery Priority Score (Highest score first)
+    allTiles.sort((tileA, tileB) => {
+      const idA = tileA.id.replace('remoteTile_', '').replace('localParticipantTile', this.currentUser?.id || 'local');
+      const idB = tileB.id.replace('remoteTile_', '').replace('localParticipantTile', this.currentUser?.id || 'local');
+      return this.getParticipantPriorityScore(idB) - this.getParticipantPriorityScore(idA);
+    });
+
+    // Re-append sorted tiles back into grid in priority order
+    allTiles.forEach(tile => grid.appendChild(tile));
+
+    if (totalCount <= 1) {
+      grid.classList.add('grid-1');
+      allTiles.forEach(tile => {
+        tile.style.setProperty('display', 'flex', 'important');
+        const vid = tile.querySelector('video');
+        if (vid && vid.paused) vid.play().catch(e => {});
+      });
+    } else if (totalCount === 2) {
+      grid.classList.add('grid-2');
+      allTiles.forEach(tile => {
+        tile.style.setProperty('display', 'flex', 'important');
+        const vid = tile.querySelector('video');
+        if (vid && vid.paused) vid.play().catch(e => {});
+      });
+    } else if (totalCount === 3) {
+      grid.classList.add('grid-3');
+      allTiles.forEach(tile => {
+        tile.style.setProperty('display', 'flex', 'important');
+        const vid = tile.querySelector('video');
+        if (vid && vid.paused) vid.play().catch(e => {});
+      });
+    } else if (totalCount === 4) {
+      grid.classList.add('grid-4');
+      allTiles.forEach(tile => {
+        tile.style.setProperty('display', 'flex', 'important');
+        const vid = tile.querySelector('video');
+        if (vid && vid.paused) vid.play().catch(e => {});
+      });
+    } else if (totalCount <= 8) {
+      grid.classList.add('grid-8');
+      allTiles.forEach(tile => {
+        tile.style.setProperty('display', 'flex', 'important');
+        const vid = tile.querySelector('video');
+        if (vid && vid.paused) vid.play().catch(e => {});
+      });
+    } else if (totalCount <= 12) {
+      grid.classList.add('grid-12');
+      allTiles.forEach(tile => {
+        tile.style.setProperty('display', 'flex', 'important');
+        const vid = tile.querySelector('video');
+        if (vid && vid.paused) vid.play().catch(e => {});
+      });
+    } else {
+      // 13+ participants: STRICTLY CAP AT 12 SLOTS (3 ROWS x 4 COLS)
+      // Exactly 11 participant tiles + 1 overflow tile = 12 total tiles on screen!
+      grid.classList.add('grid-12');
+      const maxVisibleParticipantTiles = 11;
+      const overflowCount = totalCount - maxVisibleParticipantTiles;
+
+      allTiles.forEach((tile, index) => {
+        const vid = tile.querySelector('video');
+        if (index < maxVisibleParticipantTiles) {
+          tile.style.setProperty('display', 'flex', 'important');
+          // Bandwidth/CPU optimization: play video for visible tiles
+          if (vid && vid.paused) vid.play().catch(e => {});
+        } else {
+          tile.style.setProperty('display', 'none', 'important');
+          // Bandwidth/CPU optimization: pause video for hidden tiles
+          if (vid && !vid.paused) vid.pause();
+        }
+      });
+
+      // Append 12th slot as "+N Daha fazla" overflow tile
+      const overflowTile = document.createElement('div');
+      overflowTile.className = 'participant-tile overflow-tile';
+      overflowTile.onclick = () => {
+        if (typeof toggleSidebarTab === 'function') {
+          toggleSidebarTab('participants');
+        }
+      };
+      overflowTile.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem; text-align: center;">
+          <div class="overflow-count" style="font-size: 1.6rem; font-weight: 800; color: #5b5fc7;">+${overflowCount}</div>
+          <div class="overflow-label" style="font-size: 0.82rem; font-weight: 700; color: #475569;">Daha fazla</div>
+        </div>
+      `;
+      grid.appendChild(overflowTile);
+    }
   },
 
   sendChatMessage(text) {
@@ -1114,10 +1626,6 @@ const WebRTC = {
     const card = document.createElement('div');
     card.className = 'note-card';
     card.innerHTML = `
-      <div class="note-card-header">
-        <span><i class="fas fa-user-edit" style="color: var(--accent-amber);"></i> <strong>${data.author || 'Yönetici'}</strong></span>
-        <span>${data.created_at || 'Şimdi'}</span>
-      </div>
       <div class="note-card-body">${data.content}</div>
     `;
 
@@ -1133,24 +1641,122 @@ const WebRTC = {
     if (tile) tile.remove();
   },
 
+  toggleMyMic() {
+    this.toggleMic();
+  },
+
+  toggleMyCamera() {
+    this.toggleCamera();
+  },
+
+  toggleMyScreenShare() {
+    this.toggleScreenShare();
+  },
+
+  showLobbyApprovalNotification(userInfo) {
+    if (!this.isUserHost()) return;
+
+    const userId = String(userInfo?.id || userInfo?.user_id || '');
+    if (!userId) return;
+
+    const name = userInfo?.name || 'Bir katılımcı';
+    const bannerId = `lobbyBanner_${userId}`;
+
+    if (document.getElementById(bannerId)) return;
+
+    try {
+      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+      audio.volume = 0.6;
+      audio.play().catch(() => {});
+    } catch (e) {}
+
+    // Top notification container placed cleanly below navbar (top: 80px)
+    let bannerContainer = document.getElementById('lobbyTopBannerContainer');
+    if (!bannerContainer) {
+      bannerContainer = document.createElement('div');
+      bannerContainer.id = 'lobbyTopBannerContainer';
+      bannerContainer.style.cssText = 'position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 999999; display: flex; flex-direction: column; gap: 10px; pointer-events: auto;';
+      document.body.appendChild(bannerContainer);
+    }
+
+    const banner = document.createElement('div');
+    banner.id = bannerId;
+    banner.style.cssText = 'background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid #5b5fc7; border-radius: 14px; padding: 0.85rem 1.25rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12); color: #0f172a; min-width: 400px; justify-content: space-between;';
+
+    banner.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 0.85rem; overflow: hidden;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #e0e7ff; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; font-weight: 800; flex-shrink: 0;">
+          <i class="fas fa-user-clock"></i>
+        </div>
+        <div style="overflow: hidden;">
+          <div style="font-weight: 800; font-size: 0.9rem; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${name}</div>
+          <div style="font-size: 0.78rem; color: #64748b;">Toplantıya katılmak için onay bekliyor</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
+        <button type="button" onclick="WebRTC.rejectLobbyParticipant('${userId}')" style="background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; border-radius: 8px; padding: 0.45rem 1rem; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.2s;">
+          Reddet
+        </button>
+        <button type="button" onclick="WebRTC.approveLobbyParticipant('${userId}')" style="background: #10b981; color: #ffffff; border: none; border-radius: 8px; padding: 0.45rem 1.2rem; font-size: 0.82rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); transition: all 0.2s;">
+          Kabul Et
+        </button>
+      </div>
+    `;
+
+    bannerContainer.appendChild(banner);
+  },
+
+  approveLobbyParticipant(userId) {
+    this.sendSignal({
+      type: 'lobby-approve',
+      target_id: userId
+    });
+    const bannerEl = document.getElementById(`lobbyBanner_${userId}`);
+    if (bannerEl) bannerEl.remove();
+  },
+
+  rejectLobbyParticipant(userId) {
+    this.sendSignal({
+      type: 'lobby-reject',
+      target_id: userId
+    });
+    const bannerEl = document.getElementById(`lobbyBanner_${userId}`);
+    if (bannerEl) bannerEl.remove();
+  },
+
   updateMicUI() {
+    sessionStorage.setItem('meeting_mic_muted', this.isMicMuted ? '1' : '0');
     const mainBtn = document.getElementById('btnRoomMicMain') || document.getElementById('btnRoomMic');
     const mainIcon = document.getElementById('btnRoomMicIcon');
-    const micIcon = document.getElementById('localMicStatusIcon');
+    const navBtnMic = document.getElementById('navBtnMic');
+    const navIconMic = document.getElementById('navIconMic');
+    const micGroup = mainBtn?.closest('.teams-split-btn-group');
 
-    if (mainBtn) {
-      if (this.isMicMuted) {
-        mainBtn.classList.add('muted-off');
-      } else {
-        mainBtn.classList.remove('muted-off');
-      }
-    }
     if (mainIcon) {
       mainIcon.className = `fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}`;
+      mainIcon.style.color = this.isMicMuted ? '#71717a' : '#5b5fc7';
     }
-    if (micIcon) {
-      micIcon.className = `fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}`;
-      micIcon.style.color = this.isMicMuted ? 'var(--accent-rose)' : 'var(--accent-emerald)';
+    if (navIconMic) {
+      navIconMic.className = `fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}`;
+    }
+    if (navBtnMic) {
+      if (this.isMicMuted) {
+        navBtnMic.classList.remove('active-on-purple');
+        navBtnMic.classList.add('active-off-gray');
+      } else {
+        navBtnMic.classList.remove('active-off-gray');
+        navBtnMic.classList.add('active-on-purple');
+      }
+    }
+
+    if (micGroup) {
+      if (this.isMicMuted) {
+        micGroup.classList.remove('active-on-purple');
+        micGroup.classList.add('active-off-gray');
+      } else {
+        micGroup.classList.remove('active-off-gray');
+        micGroup.classList.add('active-on-purple');
+      }
     }
 
     if (this.currentUser?.id && this.participantsMap[this.currentUser.id]) {
@@ -1215,20 +1821,40 @@ const WebRTC = {
   },
 
   updateCameraUI() {
+    sessionStorage.setItem('meeting_cam_off', this.isCameraOff ? '1' : '0');
     const mainBtn = document.getElementById('btnRoomCamMain') || document.getElementById('btnRoomCam');
     const mainIcon = document.getElementById('btnRoomCamIcon');
+    const navBtnCam = document.getElementById('navBtnCam');
+    const navIconCam = document.getElementById('navIconCam');
+    const camGroup = mainBtn?.closest('.teams-split-btn-group');
     const videoEl = document.getElementById('localVideo');
     const avatarEl = document.getElementById('localAvatar');
 
-    if (mainBtn) {
-      if (this.isCameraOff) {
-        mainBtn.classList.add('muted-off');
-      } else {
-        mainBtn.classList.remove('muted-off');
-      }
-    }
     if (mainIcon) {
       mainIcon.className = `fas ${this.isCameraOff ? 'fa-video-slash' : 'fa-video'}`;
+      mainIcon.style.color = this.isCameraOff ? '#71717a' : '#5b5fc7';
+    }
+    if (navIconCam) {
+      navIconCam.className = `fas ${this.isCameraOff ? 'fa-video-slash' : 'fa-video'}`;
+    }
+    if (navBtnCam) {
+      if (this.isCameraOff) {
+        navBtnCam.classList.remove('active-on-purple');
+        navBtnCam.classList.add('active-off-gray');
+      } else {
+        navBtnCam.classList.remove('active-off-gray');
+        navBtnCam.classList.add('active-on-purple');
+      }
+    }
+
+    if (camGroup) {
+      if (this.isCameraOff) {
+        camGroup.classList.remove('active-on-purple');
+        camGroup.classList.add('active-off-gray');
+      } else {
+        camGroup.classList.remove('active-off-gray');
+        camGroup.classList.add('active-on-purple');
+      }
     }
 
     if (videoEl) {
@@ -1255,6 +1881,35 @@ const WebRTC = {
       isMicMuted: this.isMicMuted,
       isCameraOff: this.isCameraOff
     });
+  },
+
+  leaveMeeting() {
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(t => t.stop());
+    }
+    if (this.socket) {
+      this.socket.close();
+    }
+    if (typeof Notifications !== 'undefined') {
+      Notifications.show("Toplantıdan başarıyla ayrıldınız.", "info", "Ayrıldınız");
+    }
+    setTimeout(() => {
+      window.location.replace('/meetings');
+    }, 400);
+  },
+
+  endMeetingForAll() {
+    if (!this.isHost) {
+      this.leaveMeeting();
+      return;
+    }
+    this.sendSignal({ type: 'end-meeting' });
+    if (typeof Notifications !== 'undefined') {
+      Notifications.show("Toplantı tüm katılımcılar için sonlandırılıyor.", "danger", "Sonlandırıldı");
+    }
+    setTimeout(() => {
+      this.leaveMeeting();
+    }, 600);
   },
 
   async toggleCamera() {
@@ -1306,9 +1961,191 @@ const WebRTC = {
     this.updateCameraUI();
   },
 
+  toggleCardContextMenu(event, id) {
+    if (event) event.stopPropagation();
+    const menu = document.getElementById(`cardContextMenu_${id}`);
+    if (!menu) return;
+    const isShown = (menu.style.display === 'flex');
+    document.querySelectorAll('.card-context-menu').forEach(m => m.style.display = 'none');
+    menu.style.display = isShown ? 'none' : 'flex';
+  },
+
+  toggleCardAudioPopover(remoteUserId) {
+    const pop = document.getElementById(`cardAudioPopover_${remoteUserId}`);
+    if (!pop) return;
+    const isShown = (pop.style.display === 'flex');
+    document.querySelectorAll('.card-audio-popover').forEach(p => p.style.display = 'none');
+    pop.style.display = isShown ? 'none' : 'flex';
+  },
+
+  isScreenAudioMuted: false,
+
+  toggleScreenAudioMute() {
+    const videoEl = document.getElementById('screenShareVideo');
+    if (!videoEl) return;
+    this.isScreenAudioMuted = !this.isScreenAudioMuted;
+    videoEl.muted = this.isScreenAudioMuted;
+    const btnIcon = document.getElementById('btnScreenAudioIcon');
+    const btnText = document.getElementById('btnScreenAudioText');
+    if (btnIcon) {
+      btnIcon.className = `fas ${this.isScreenAudioMuted ? 'fa-volume-mute' : 'fa-volume-up'}`;
+      btnIcon.style.color = this.isScreenAudioMuted ? '#f43f5e' : '#6366f1';
+    }
+    if (btnText) {
+      btnText.textContent = this.isScreenAudioMuted ? 'Ekran Sesi Kapalı' : 'Ekran Paylaşımı Sesi';
+    }
+  },
+
+  setRemoteVolume(remoteUserId, value) {
+    const vol = parseFloat(value) / 100;
+    this.remoteVolumes[remoteUserId] = vol;
+    const audioEl = document.getElementById(`remoteAudio_${remoteUserId}`);
+    if (audioEl) {
+      audioEl.volume = vol;
+      audioEl.muted = (vol === 0 || !!this.remoteMuted[remoteUserId]);
+    }
+    const label = document.getElementById(`cardVolumeLabel_${remoteUserId}`);
+    if (label) label.textContent = `${Math.round(vol * 100)}%`;
+  },
+
+  setSpeakingTile(tileId, isSpeaking) {
+    const tile = document.getElementById(tileId);
+    if (!tile) return;
+    if (isSpeaking) {
+      tile.classList.add('active-speaker');
+    } else {
+      tile.classList.remove('active-speaker');
+    }
+  },
+
+  toggleRemoteMute(remoteUserId) {
+    this.remoteMuted[remoteUserId] = !this.remoteMuted[remoteUserId];
+    const isMuted = this.remoteMuted[remoteUserId];
+    const audioEl = document.getElementById(`remoteAudio_${remoteUserId}`);
+    if (audioEl) {
+      audioEl.muted = isMuted;
+    }
+    this.renderRemoteTile(remoteUserId);
+  },
+
+  isSpeakerGlowEnabled: true,
+
+  toggleSpeakerGlow() {
+    this.isSpeakerGlowEnabled = !this.isSpeakerGlowEnabled;
+    const body = document.body;
+    if (body) {
+      if (this.isSpeakerGlowEnabled) {
+        body.classList.remove('active-speaker-glow-off');
+      } else {
+        body.classList.add('active-speaker-glow-off');
+      }
+    }
+    if (typeof Notifications !== 'undefined') {
+      Notifications.show(
+        `Konuşmacı yeşil ışık vurgusu ${this.isSpeakerGlowEnabled ? 'açıldı' : 'kapatıldı'}.`,
+        "info",
+        "Vurgu Ayarı"
+      );
+    }
+  },
+
+  renderParticipantsList(searchQuery = '') {
+    const container = document.getElementById('participantsListContainer');
+    if (!container) return;
+
+    const list = Object.values(this.participantsMap);
+    const countBadges = document.querySelectorAll('.participant-count-badge');
+    countBadges.forEach(el => el.textContent = `${list.length}`);
+
+    const filtered = list.filter(p => {
+      const pName = (p.name || '').toLowerCase();
+      return pName.includes((searchQuery || '').toLowerCase());
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div style="text-align: center; color: #616161; padding: 1.5rem; font-size: 0.85rem; font-weight: 600;">Katılımcı bulunamadı</div>`;
+      return;
+    }
+
+    container.innerHTML = filtered.map(p => {
+      const isSelf = (p.id === this.currentUser?.id);
+      const isHostUser = (p.id === this.meetingInfo?.created_by || p.role === 'host');
+      const isSpeaking = !!p.isSpeaking;
+      const initials = (p.name?.[0] || 'K').toUpperCase();
+      const isMicMuted = !!p.isMicMuted;
+      const isCameraOff = (p.isCameraOff !== false);
+
+      return `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.4rem; border-bottom: 1px solid #f3f2f8; transition: background 0.15s ease; border-radius: 8px;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="position: relative; width: 34px; height: 34px; border-radius: 50%; background: #5b5fc7; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; flex-shrink: 0;">
+              ${p.avatar_url ? `<img src="${p.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : initials}
+              ${isSpeaking ? `<span style="position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; border-radius: 50%; background: #10b981; border: 2px solid #ffffff;"></span>` : ''}
+            </div>
+            <div style="display: flex; flex-direction: column;">
+              <span style="font-size: 0.85rem; font-weight: 800; color: #242424;">${p.name || 'Katılımcı'} ${isSelf ? '<small style="color: #616161;">(Siz)</small>' : ''}</span>
+              ${isSpeaking ? `<span style="font-size: 0.7rem; font-weight: 700; color: #10b981;">Konuşuyor</span>` : `
+                <span style="font-size: 0.7rem; font-weight: 700; color: ${isHostUser ? '#5b5fc7' : '#616161'};">${isHostUser ? 'Toplantı Sahibi' : 'Katılımcı'}</span>
+              `}
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.65rem; font-size: 0.85rem;">
+            <i class="fas ${isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${isMicMuted ? '#f43f5e' : '#10b981'};"></i>
+            <i class="fas ${isCameraOff ? 'fa-video-slash' : 'fa-video'}" style="color: ${isCameraOff ? '#f43f5e' : '#10b981'};"></i>
+            <i class="fas fa-ellipsis-v" onclick="WebRTC.toggleCardContextMenu(event, '${p.id}')" style="color: #94a3b8; cursor: pointer;" title="Seçenekler"></i>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  togglePin(tileId) {
+    if (this.pinnedTileId === tileId) {
+      this.pinnedTileId = null;
+    } else {
+      this.pinnedTileId = tileId;
+    }
+    const grid = document.getElementById('videoGrid');
+    if (grid) {
+      if (this.pinnedTileId) {
+        grid.classList.add('has-pinned-tile');
+      } else {
+        grid.classList.remove('has-pinned-tile');
+      }
+    }
+    this.renderLocalTile();
+    this.renderAllParticipantTiles();
+  },
+
+  toggleFullscreen(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      if (el.requestFullscreen) {
+        el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  },
+
   async switchVideoDevice(deviceId) {
     if (!deviceId) return;
     sessionStorage.setItem('meeting_cam_id', deviceId);
+
+    if (typeof Notifications !== 'undefined') {
+      Notifications.show("Kamera cihaz tercihi kaydedildi.", "success", "Kamera Tercihi");
+    }
+
+    // Kamera kapalıysa canlı akış başlatma, sadece tercihi kaydet
+    if (this.isCameraOff) {
+      return;
+    }
+
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { deviceId: { exact: deviceId } }
@@ -1326,7 +2163,7 @@ const WebRTC = {
         this.localStream = newStream;
       }
 
-      newTrack.enabled = !this.isCameraOff;
+      newTrack.enabled = true;
 
       Object.values(this.peers).forEach(pc => {
         const sender = pc.getSenders().find(s => s.track?.kind === 'video' || s.kind === 'video');
@@ -1338,10 +2175,7 @@ const WebRTC = {
       const videoEl = document.getElementById('localVideo');
       if (videoEl) {
         videoEl.srcObject = this.localStream;
-        if (!this.isCameraOff) videoEl.play().catch(console.warn);
-      }
-      if (typeof Notifications !== 'undefined') {
-        Notifications.show("Kamera cihazı değiştirildi.", "success", "Kamera");
+        videoEl.play().catch(console.warn);
       }
     } catch (e) {
       console.warn("Kamera değiştirilemedi:", e);
@@ -1351,6 +2185,16 @@ const WebRTC = {
   async switchAudioInput(deviceId) {
     if (!deviceId) return;
     sessionStorage.setItem('meeting_mic_id', deviceId);
+
+    if (typeof Notifications !== 'undefined') {
+      Notifications.show("Mikrofon cihaz tercihi kaydedildi.", "success", "Mikrofon Tercihi");
+    }
+
+    // Mikrofon kapalıysa canlı akış değiştirme, tercihi sakla
+    if (this.isMicMuted) {
+      return;
+    }
+
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
         audio: { deviceId: { exact: deviceId } }
@@ -1368,7 +2212,7 @@ const WebRTC = {
         this.localStream = newStream;
       }
 
-      newTrack.enabled = !this.isMicMuted;
+      newTrack.enabled = true;
 
       Object.values(this.peers).forEach(pc => {
         const sender = pc.getSenders().find(s => s.track?.kind === 'audio' || s.kind === 'audio');
@@ -1376,10 +2220,6 @@ const WebRTC = {
           sender.replaceTrack(newTrack);
         }
       });
-
-      if (typeof Notifications !== 'undefined') {
-        Notifications.show("Mikrofon cihazı değiştirildi.", "success", "Mikrofon");
-      }
     } catch (e) {
       console.warn("Mikrofon değiştirilemedi:", e);
     }
@@ -1434,6 +2274,8 @@ const WebRTC = {
     const shareBtn = document.getElementById('btnScreenShare');
     const shareText = document.getElementById('btnScreenShareText');
     const shareIcon = document.getElementById('btnScreenShareIcon');
+    const navBtnShare = document.getElementById('navBtnShare');
+    const navIconShare = document.getElementById('navIconShare');
 
     if (shareBtn) {
       if (isSharing) {
@@ -1447,7 +2289,20 @@ const WebRTC = {
       }
     }
     if (shareText) shareText.textContent = isSharing ? 'Paylaşımı Durdur' : 'Paylaş';
-    if (shareIcon) shareIcon.className = isSharing ? 'fas fa-circle-stop' : 'fas fa-arrow-up-from-bracket';
+    if (shareIcon) shareIcon.className = isSharing ? 'fas fa-circle-stop' : 'fas fa-desktop';
+
+    if (navBtnShare) {
+      if (isSharing) {
+        navBtnShare.classList.remove('active-off-gray');
+        navBtnShare.classList.add('active-on-purple');
+      } else {
+        navBtnShare.classList.remove('active-on-purple');
+        navBtnShare.classList.add('active-off-gray');
+      }
+    }
+    if (navIconShare) {
+      navIconShare.className = isSharing ? 'fas fa-stop-circle' : 'fas fa-desktop';
+    }
   },
 
   async startScreenShareFlow() {
@@ -1538,10 +2393,12 @@ const WebRTC = {
 
       this.sendSignal({
         type: 'screen-share-start',
-        presenter_name: fullName
+        presenter_name: fullName,
+        stream_id: screenStream.id
       });
 
       this.isScreenSharing = true;
+      sessionStorage.setItem('meeting_screen_sharing', '1');
       this.updateScreenShareButtonState(true);
 
       // Tarayıcının üst menüsündeki "Paylaşımı Durdur" butonuna tıklandığında tetiklenir
@@ -1549,6 +2406,7 @@ const WebRTC = {
 
       Notifications.show("Ekran paylaşımı başlatıldı.", "success", "Ekran Paylaşımı");
     } catch (e) {
+      sessionStorage.removeItem('meeting_screen_sharing');
       if (e.name === 'NotAllowedError' || e.name === 'AbortError') {
         Notifications.show("Ekran paylaşımı iptal edildi.", "info", "Ekran Paylaşımı");
       } else {
@@ -1589,13 +2447,64 @@ const WebRTC = {
 
   respondToScreenShareRequest(requesterId, approved) {
     const dialog = document.getElementById('screenShareApprovalToast');
-    if (dialog) dialog.style.display = 'none';
+    if (dialog) {
+      dialog.style.opacity = '0';
+      dialog.style.transform = 'translate(-50%, -20px)';
+      dialog.style.transition = 'all 0.25s ease';
+      setTimeout(() => {
+        if (dialog.parentNode) dialog.remove();
+      }, 250);
+    }
 
     this.sendSignal({
       type: 'screen-share-request-response',
       target_id: requesterId,
       approved: approved
     });
+  },
+
+  showScreenShareGrantedDialog() {
+    let dialog = document.getElementById('screenShareGrantedToast');
+    if (!dialog) {
+      dialog = document.createElement('div');
+      dialog.id = 'screenShareGrantedToast';
+      dialog.className = 'host-approval-toast';
+      document.body.appendChild(dialog);
+    }
+
+    dialog.style.display = 'flex';
+    dialog.innerHTML = `
+      <div class="approval-icon" style="background: rgba(91, 95, 199, 0.15); color: #5b5fc7; border-color: #c7d2fe;">
+        <i class="fas fa-desktop"></i>
+      </div>
+      <div class="approval-body">
+        <strong>Ekran Paylaşım İzniniz Onaylandı</strong>
+        <span>Yönetici ekran paylaşım talebinizi kabul etti. Ekranınızı seçip yayını başlatabilirsiniz.</span>
+      </div>
+      <div class="approval-actions">
+        <button class="btn-approve" onclick="WebRTC.acceptScreenShareApproval()">
+          <i class="fas fa-desktop"></i> Ekranı Paylaş
+        </button>
+      </div>
+    `;
+
+    try {
+      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+      audio.play().catch(() => {});
+    } catch (e) {}
+  },
+
+  acceptScreenShareApproval() {
+    const dialog = document.getElementById('screenShareGrantedToast');
+    if (dialog) {
+      dialog.style.opacity = '0';
+      dialog.style.transform = 'translate(-50%, -20px)';
+      dialog.style.transition = 'all 0.25s ease';
+      setTimeout(() => {
+        if (dialog.parentNode) dialog.remove();
+      }, 250);
+    }
+    this.startScreenShareFlow();
   },
 
   showGuestApprovalDialog(guestId, guestName) {
@@ -1698,6 +2607,7 @@ const WebRTC = {
     this.sendSignal({ type: 'screen-share-stop' });
 
     this.isScreenSharing = false;
+    sessionStorage.removeItem('meeting_screen_sharing');
     this.updateScreenShareButtonState(false);
     Notifications.show("Ekran paylaşımı sonlandırıldı.", "info", "Ekran Paylaşımı");
   },
@@ -1746,9 +2656,13 @@ const WebRTC = {
     }
   },
 
+  endMeetingForAll() {
+    this.endMeeting();
+  },
+
   leaveMeeting() {
     if (confirm("Toplantıdan ayrılmak istiyor musunuz?")) {
-      this.sendSignal({ type: 'user-left' });
+      this.sendSignal({ type: 'user-left', explicit: true });
       if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
       window.location.href = '/meetings';
     }
@@ -1808,22 +2722,6 @@ const WebRTC = {
     const endHostBtn = document.getElementById('btnEndMeetingHost');
     if (endHostBtn) {
       endHostBtn.onclick = () => this.endMeeting();
-    }
-  },
-
-  reflowVideoGrid() {
-    const grid = document.getElementById('videoGrid');
-    if (!grid) return;
-    const tiles = grid.querySelectorAll('.participant-tile');
-    const count = tiles.length;
-    if (count <= 1) {
-      grid.style.gridTemplateColumns = '1fr';
-    } else if (count === 2) {
-      grid.style.gridTemplateColumns = '1fr 1fr';
-    } else if (count <= 4) {
-      grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
-    } else {
-      grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
     }
   },
 

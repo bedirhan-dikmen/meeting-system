@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 class Meeting(Base):
     __tablename__ = "meetings"
+    __allow_unmapped__ = True
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     title: Mapped[str] = mapped_column(String, nullable=False, index=True)
@@ -43,4 +44,9 @@ class Meeting(Base):
     participants: Mapped[list["MeetingParticipant"]] = relationship("MeetingParticipant", back_populates="meeting", cascade="all, delete-orphan")
     sessions: Mapped[list["ParticipantSession"]] = relationship("ParticipantSession", back_populates="meeting", cascade="all, delete-orphan")
     notes: Mapped[list["MeetingNote"]] = relationship("MeetingNote", back_populates="meeting", cascade="all, delete-orphan")
-    actions: Mapped[list["MeetingAction"]] = relationship("MeetingAction", back_populates="meeting", cascade="all, delete-orphan")
+    actions: Mapped[list["MeetingAction"]] = relationship("MeetingAction", back_populates="meeting", cascade="all, delete-orphan")
+
+    # Dynamic / Transient fields (non-database mapped, used for response schemas)
+    active_participants: Optional[list[dict]] = None
+    active_count: Optional[int] = None
+    time_str: Optional[str] = None

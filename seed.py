@@ -10,7 +10,7 @@ def seed_database():
     try:
         print("[*] Veritabani doldurma islem (seeding) baslatildi...")
         
-        # 1. Önce "Yönetim" departmanını kontrol et veya oluştur
+        # 1. Departman
         dept = db.query(Department).filter(Department.name == "Yönetim").first()
         if not dept:
             dept = Department(
@@ -20,17 +20,14 @@ def seed_database():
             db.add(dept)
             db.commit()
             db.refresh(dept)
-            print(f"[+] 'Yonetim' departmani basariyla eklendi. (Yeni ID: {dept.id})")
-        else:
-            print(f"[*] 'Yonetim' departmani zaten mevcut. (ID: {dept.id})")
+            print(f"[+] 'Yonetim' departmani eklendi. (ID: {dept.id})")
         
-        # 2. İlk Admin kullanıcısını kontrol et veya oluştur
+        # 2. Sistem Yöneticisi
         admin_email = "admin@yebsoft.net"
         admin_user = db.query(User).filter(User.email == admin_email).first()
+        hashed_pwd = get_password_hash("1")
         
         if not admin_user:
-            hashed_pwd = get_password_hash("YEBsoft2026!")
-            
             admin_user = User(
                 first_name="Yebsoft",
                 last_name="Yönetici",
@@ -43,9 +40,11 @@ def seed_database():
             )
             db.add(admin_user)
             db.commit()
-            print(f"[+] Ilk sistem yoneticisi basariyla veritabanina eklendi: {admin_email} / YEBsoft2026!")
+            print(f"[+] Sistem yoneticisi eklendi: {admin_email} / 1")
         else:
-            print("[*] Sistem yoneticisi zaten mevcut, ekleme adimi atlandi.")
+            admin_user.password_hash = hashed_pwd
+            db.commit()
+            print(f"[+] Sistem yoneticisinin sifresi '1' olarak guncellendi.")
             
     except Exception as e:
         db.rollback()

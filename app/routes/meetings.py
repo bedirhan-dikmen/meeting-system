@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.models.meeting import Meeting
 from app.models.user import User
 from app.schemas.meetings import MeetingCreate, MeetingOut, MeetingUpdate
 from app.services.meetings import (
@@ -30,6 +31,19 @@ def create_meeting(
         raise HTTPException(status_code=401, detail="Kullanıcı kimliği doğrulanamadı.")
     return create_new_meeting(db, meeting_data=payload, host_id=host_id)
 
+from app.services.signaling import signaling_manager
+
+def enrich_meeting_active_users(m: Meeting) -> Meeting:
+    """Toplantı nesnesine anlık aktif WebRTC odası katılımcılarını ve saat metnini ekler."""
+    active_parts = signaling_manager.get_active_participants(m.meeting_code)
+    m.active_participants = active_parts
+    m.active_count = len(active_parts)
+    
+    s_time = m.scheduled_start.strftime("%H:%M") if m.scheduled_start else ""
+    e_time = m.scheduled_end.strftime("%H:%M") if m.scheduled_end else ""
+    m.time_str = f"{s_time} - {e_time}".strip(" -")
+    return m
+
 @router.get("/", response_model=List[MeetingOut])
 def read_meetings(
     skip: int = 0,
@@ -37,21 +51,41 @@ def read_meetings(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Sistemdeki aktif toplantıları listeler."""
-    return get_meetings_list(db, skip=skip, limit=limit)
+    """Sistemdeki kullanıcının ilişkili olduğu aktif toplantıları listeler."""
+    is_admin = getattr(current_user, "role", None) in ["admin", "manager"] or getattr(current_user, "is_superuser", False)
+    meetings = get_meetings_list(db, skip=skip, limit=limit, user_id=current_user.id, is_admin=is_admin)
+    return [enrich_meeting_active_users(m) for m in meetings]
 
 @router.get("/active/live", response_model=List[MeetingOut])
 def read_active_live_meetings(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Halen devam eden (canlı/başlamış) toplantıları listeler."""
+    """Halen devam eden (canlı/başlamış) kullanıcının veya tüm sistemin toplantılarını listeler."""
     from app.models.meeting import Meeting
-    active_meetings = db.query(Meeting).filter(
+    from app.models.meeting_participant import MeetingParticipant
+    from app.models.participant_session import ParticipantSession
+    from sqlalchemy import func
+
+    is_admin = getattr(current_user, "role", None) in ["admin", "manager"] or getattr(current_user, "is_superuser", False)
+    query = db.query(Meeting).filter(
         Meeting.is_active == True,
-        Meeting.status.in_(["ACTIVE", "başladı"])
-    ).all()
-    return active_meetings
+        func.lower(Meeting.status).in_(["canlı", "canli", "active", "live", "başladı", "basladi"])
+    )
+
+    if not is_admin:
+        user_id = current_user.id
+        user_meeting_ids = db.query(MeetingParticipant.meeting_id).filter(
+            MeetingParticipant.user_id == user_id
+        ).union(
+            db.query(ParticipantSession.meeting_id).filter(
+                ParticipantSession.user_id == user_id
+            )
+        )
+        query = query.filter((Meeting.created_by == user_id) | (Meeting.id.in_(user_meeting_ids)))
+
+    active_meetings = query.order_by(Meeting.scheduled_start.desc()).all()
+    return [enrich_meeting_active_users(m) for m in active_meetings]
 
 @router.get("/past/history")
 def read_meeting_history(
@@ -60,13 +94,28 @@ def read_meeting_history(
 ):
     """Tüm geçmiş toplantı kayıtlarını detaylı analitik metrikleri ile döndürür."""
     from app.models.meeting import Meeting
+    from app.models.meeting_participant import MeetingParticipant
     from app.models.participant_session import ParticipantSession
     from app.models.meeting_note import MeetingNote
     from app.models.meeting_action import MeetingAction
     from app.models.user import User
     from sqlalchemy import func
 
-    meetings = db.query(Meeting).filter(Meeting.status.in_(["tamamlandı", "completed"])).order_by(Meeting.created_at.desc()).all()
+    is_admin = getattr(current_user, "role", None) in ["admin", "manager"] or getattr(current_user, "is_superuser", False)
+    query = db.query(Meeting).filter(Meeting.status.in_(["tamamlandı", "completed"]))
+
+    if not is_admin:
+        user_id = current_user.id
+        user_meeting_ids = db.query(MeetingParticipant.meeting_id).filter(
+            MeetingParticipant.user_id == user_id
+        ).union(
+            db.query(ParticipantSession.meeting_id).filter(
+                ParticipantSession.user_id == user_id
+            )
+        )
+        query = query.filter((Meeting.created_by == user_id) | (Meeting.id.in_(user_meeting_ids)))
+
+    meetings = query.order_by(Meeting.created_at.desc()).all()
     history_data = []
 
     for m in meetings:
@@ -159,6 +208,30 @@ def update_meeting(
         
     updated_meeting = update_meeting_details(db, meeting_id=meeting_id, update_data=payload)
     return updated_meeting
+
+@router.delete("/{meeting_id}")
+def cancel_meeting_endpoint(
+    meeting_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Toplantıyı iptal eder ve durumunu 'iptal edildi' olarak günceller."""
+    meeting = get_meeting_by_id(db, meeting_id=meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Toplantı bulunamadı.")
+    
+    user_id = getattr(current_user, "id", None)
+    user_role = getattr(current_user, "role", None)
+    
+    if meeting.created_by != user_id and user_role not in ["admin", "manager", "host"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bu toplantıyı iptal etme yetkiniz bulunmuyor."
+        )
+        
+    meeting.status = "iptal edildi"
+    db.commit()
+    return {"message": "Toplantı başarıyla iptal edildi.", "meeting_id": str(meeting_id)}
 
 from app.routes.guest import GuestTokenRequest, GuestTokenResponse, create_guest_token as create_guest_token_route
 

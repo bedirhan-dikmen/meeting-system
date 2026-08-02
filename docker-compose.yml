@@ -3,6 +3,8 @@ services:
     image: postgres:16-alpine
     container_name: meeting_system_db
     restart: always
+    ports:
+      - "5442:5432"
     environment:
       POSTGRES_USER: yebsoft_user
       POSTGRES_PASSWORD: YebsoftSecretPassword2026!
@@ -30,7 +32,9 @@ services:
       - DB_POOL_RECYCLE=3600
       - DB_POOL_SIZE=20
       - DB_POOL_TIMEOUT=30
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     volumes:
+      - ./app:/workspace/app
       - ./avatars_data:/workspace/app/static/avatars
       - ./uploads_data:/workspace/uploads
     depends_on:

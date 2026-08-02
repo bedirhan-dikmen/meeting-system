@@ -6,10 +6,12 @@ from typing import Optional
 class NotificationBase(BaseModel):
     title: str
     message: str
+    meeting_code: Optional[str] = None
 
 class NotificationOut(NotificationBase):
     id: UUID
     user_id: UUID
+    meeting_code: Optional[str] = None
     is_read: bool
     created_at: datetime
 

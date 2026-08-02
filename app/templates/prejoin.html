@@ -37,66 +37,71 @@
           </div>
         </div>
 
-        <!-- PREVIEW BOTTOM TOGGLE BUTTON -->
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 1rem; padding: 0 0.25rem;">
-          <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 700; color: #475569;">
-            <i class="fas fa-camera" style="color: #5b5fc7;"></i> Kamera Ayarı
+        <!-- PREVIEW BOTTOM TOGGLE BUTTON & DEVICE SELECT -->
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 1rem; padding: 0 0.25rem;">
+          <div style="display: flex; align-items: center; gap: 0.4rem; flex: 1; overflow: hidden;">
+            <i class="fas fa-camera" style="color: #5b5fc7; font-size: 0.9rem;"></i>
+            <select id="cameraSelect" class="form-select" style="font-size: 0.82rem; width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.35rem 0.5rem; background: #f8fafc; font-weight: 700; color: #0f172a; outline: none;">
+              <option value="">Kamera Aranıyor...</option>
+            </select>
           </div>
-          <button id="btnToggleCamPrejoin" type="button" class="btn-teams-secondary" style="padding: 0.45rem 1.1rem; font-size: 0.85rem; border-radius: 8px; font-weight: 700;">
-            <i class="fas fa-video-slash"></i> Kamerayı Aç
+          <button id="btnToggleCamPrejoin" type="button" style="padding: 0.45rem 1rem; font-size: 0.82rem; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; border: none; background: #5b5fc7; color: #ffffff;">
+            <i class="fas fa-video"></i> Kamerayı Kapat
           </button>
         </div>
       </div>
 
       <!-- RIGHT COLUMN: AUDIO & DEVICE SETUP CARD (HEIGHT: 380px) -->
-      <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; height: 380px; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04); box-sizing: border-box;">
-        <div style="display: flex; flex-direction: column; gap: 0.85rem; overflow-y: auto;">
-          
-          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 1rem; background: #ffffff;">
-            <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 800; font-size: 0.92rem; color: #5b5fc7; cursor: pointer; margin-bottom: 0.85rem;">
-              <input type="radio" name="audioOption" checked style="accent-color: #5b5fc7; width: 18px; height: 18px;">
-              <span>Bilgisayar sesi</span>
-            </label>
-
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; padding-left: 1.5rem;">
-              <!-- MİKROFON SEÇİMİ -->
-              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.5rem 0.75rem;">
-                <label style="font-size: 0.75rem; font-weight: 800; color: #64748b; display: block; margin-bottom: 0.2rem;">
-                  <i class="fas fa-microphone" style="color: #10b981; margin-right: 0.3rem;"></i> MİKROFON
-                </label>
-                <select id="micSelect" class="form-select" style="font-size: 0.85rem; width: 100%; border: none; background: transparent; font-weight: 700; color: #0f172a; outline: none;">
-                  <option value="">Mikrofon Aranıyor...</option>
-                </select>
+      <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; height: 380px; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04); box-sizing: border-box; overflow: hidden;">
+        
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; flex: 1;">
+          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.85rem; background: #ffffff; display: flex; flex-direction: column; gap: 0.65rem;">
+            
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.1rem;">
+              <div style="font-weight: 800; font-size: 0.9rem; color: #1e1e1e; display: flex; align-items: center; gap: 0.4rem;">
+                <i class="fas fa-sliders-h" style="color: #5b5fc7;"></i> Ses ve Cihaz Ayarları
               </div>
-
-              <!-- HOPARLÖR ÇIKIŞI SEÇİMİ -->
-              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.5rem 0.75rem;">
-                <label style="font-size: 0.75rem; font-weight: 800; color: #64748b; display: block; margin-bottom: 0.2rem;">
-                  <i class="fas fa-volume-up" style="color: #0ea5e9; margin-right: 0.3rem;"></i> HOPARLÖR ÇIKIŞI
-                </label>
-                <select id="speakerSelect" class="form-select" style="font-size: 0.85rem; width: 100%; border: none; background: transparent; font-weight: 700; color: #0f172a; outline: none;">
-                  <option value="">Hoparlör Aranıyor...</option>
-                </select>
-              </div>
-
-              <!-- TEST AUDIO BUTTON -->
-              <div style="text-align: right;">
-                <button type="button" onclick="testAudioDevices()" style="background: none; border: none; color: #5b5fc7; font-size: 0.8rem; font-weight: 700; cursor: pointer;">
-                  Mikrofonu ve hoparlörü test et
-                </button>
-              </div>
+              <button type="button" onclick="testAudioDevices()" style="background: none; border: none; color: #5b5fc7; font-size: 0.78rem; font-weight: 700; cursor: pointer; padding: 0;">
+                <i class="fas fa-volume-up" style="margin-right: 0.2rem;"></i> Ses Testi
+              </button>
             </div>
+
+            <!-- MİKROFON SEÇİMİ -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.45rem 0.7rem;">
+              <label style="font-size: 0.72rem; font-weight: 800; color: #64748b; display: block; margin-bottom: 0.15rem;">
+                <i class="fas fa-microphone" style="color: #10b981; margin-right: 0.3rem;"></i> MİKROFON
+              </label>
+              <select id="micSelect" class="form-select" style="font-size: 0.82rem; width: 100%; border: none; background: transparent; font-weight: 700; color: #0f172a; outline: none;">
+                <option value="">Mikrofon Aranıyor...</option>
+              </select>
+            </div>
+
+            <!-- HOPARLÖR ÇIKIŞI SEÇİMİ -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.45rem 0.7rem;">
+              <label style="font-size: 0.72rem; font-weight: 800; color: #64748b; display: block; margin-bottom: 0.15rem;">
+                <i class="fas fa-volume-up" style="color: #0ea5e9; margin-right: 0.3rem;"></i> HOPARLÖR ÇIKIŞI
+              </label>
+              <select id="speakerSelect" class="form-select" style="font-size: 0.82rem; width: 100%; border: none; background: transparent; font-weight: 700; color: #0f172a; outline: none;">
+                <option value="">Hoparlör Aranıyor...</option>
+              </select>
+            </div>
+
           </div>
-
         </div>
 
-        <!-- BOTTOM ACTION BUTTONS -->
-        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid #e2e8f0; padding-top: 0.85rem; margin-top: 0.5rem;">
-          <a href="/meetings" style="padding: 0.6rem 1.25rem; font-size: 0.88rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; text-decoration: none; font-weight: 700;">İptal</a>
-          <button id="btnProceedToRoom" type="button" style="padding: 0.6rem 1.4rem; font-size: 0.88rem; border-radius: 8px; background: #5b5fc7; color: #ffffff; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(91, 95, 199, 0.35);">
-            Şimdi katıl
+        <!-- BOTTOM ACTION BUTTONS WITH MIC TOGGLE ON THE LEFT -->
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; border-top: 1px solid #e2e8f0; padding-top: 0.75rem; margin-top: 0.5rem;">
+          <button id="btnToggleMicPrejoin" type="button" style="padding: 0.45rem 0.95rem; font-size: 0.82rem; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; border: none; background: #5b5fc7; color: #ffffff;">
+            <i class="fas fa-microphone"></i> Mikrofonu Kapat
           </button>
+          <div style="display: flex; gap: 0.5rem;">
+            <a href="/meetings" style="padding: 0.45rem 1rem; font-size: 0.82rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; text-decoration: none; font-weight: 700;">İptal</a>
+            <button id="btnProceedToRoom" type="button" style="padding: 0.45rem 1.2rem; font-size: 0.82rem; border-radius: 8px; background: #5b5fc7; color: #ffffff; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(91, 95, 199, 0.35);">
+              Şimdi katıl
+            </button>
+          </div>
         </div>
+
       </div>
 
     </div>
@@ -104,17 +109,31 @@
 
   <!-- WAITING ROOM LOBBY STATE (Shown when waiting for host approval) -->
   <div id="waitingLobbyContainer" style="display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; background: #f8fafc; text-align: center;">
-    <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; padding: 3rem 2.5rem; max-width: 480px; width: 100%; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);">
-      <div style="width: 64px; height: 64px; border-radius: 50%; background: #e0e7ff; color: #4f46e5; display: inline-flex; align-items: center; justify-content: center; font-size: 1.8rem; margin-bottom: 1.25rem;">
-        <i class="fas fa-spinner fa-spin"></i>
+    <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 20px; padding: 3rem 2.5rem; max-width: 480px; width: 100%; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);">
+      <div style="position: relative; width: 80px; height: 80px; margin: 0 auto 1.5rem auto; display: flex; align-items: center; justify-content: center;">
+        <div style="position: absolute; inset: 0; border-radius: 50%; background: #e0e7ff; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite; opacity: 0.75;"></div>
+        <div style="position: relative; width: 68px; height: 68px; border-radius: 50%; background: #5b5fc7; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 8px 20px rgba(91, 95, 199, 0.3);">
+          <i class="fas fa-user-clock"></i>
+        </div>
       </div>
-      <h3 style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin: 0 0 0.5rem 0;">Yöneticinin Kabul Etmesi Bekleniyor</h3>
+      
+      <div style="display: inline-block; background: #e0e7ff; color: #4338ca; font-size: 0.78rem; font-weight: 800; padding: 0.35rem 0.9rem; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1rem;">
+        Bekleme Odası (Lobi)
+      </div>
+
+      <h3 style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin: 0 0 0.6rem 0;">Toplantı Yöneticisinin Kabul Etmesi Bekleniyor</h3>
       <p style="font-size: 0.88rem; color: #64748b; margin: 0 0 1.75rem 0; line-height: 1.5;">
-        Toplantı yöneticisine katılım talebiniz iletildi. Katılım onaylandığında otomatik olarak canlı odaya yönlendirileceksiniz.
+        Toplantı yöneticisine katılım talebiniz başarıyla iletildi. Onay verildiğinde otomatik olarak canlı toplantı odasına aktarılacaksınız.
       </p>
+
+      <div style="display: flex; justify-content: center; align-items: center; gap: 0.5rem; background: #f1f5f9; padding: 0.75rem; border-radius: 12px; margin-bottom: 1.75rem;">
+        <i class="fas fa-spinner fa-spin" style="color: #5b5fc7; font-size: 0.9rem;"></i>
+        <span style="font-size: 0.82rem; font-weight: 700; color: #475569;">Yönetici Yanıtı Bekleniyor...</span>
+      </div>
+
       <div style="display: flex; justify-content: center;">
-        <a href="/meetings" class="btn btn-secondary" style="font-size: 0.85rem; font-weight: 700; padding: 0.6rem 1.4rem; border-radius: 8px;">
-          Katılımı İptal Et
+        <a href="/meetings" class="btn btn-secondary" style="font-size: 0.85rem; font-weight: 700; padding: 0.65rem 1.6rem; border-radius: 10px;">
+          <i class="fas fa-times me-2"></i>Katılımı İptal Et
         </a>
       </div>
     </div>
@@ -130,19 +149,12 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
       await Prejoin.init();
+      await Prejoin.fetchMeetingInfo(MEETING_CODE);
 
       document.getElementById('btnProceedToRoom').addEventListener('click', () => {
-        if (typeof Prejoin !== 'undefined' && Prejoin.savePrejoinState) {
-          Prejoin.savePrejoinState();
+        if (typeof Prejoin !== 'undefined' && Prejoin.proceedToRoom) {
+          Prejoin.proceedToRoom(MEETING_CODE);
         }
-        // Show waiting lobby transition or directly redirect to live room
-        document.getElementById('prejoinSetupContainer').style.display = 'none';
-        document.getElementById('waitingLobbyContainer').style.display = 'flex';
-
-        // Simulate host approval check / direct admission
-        setTimeout(() => {
-          window.location.href = `/room/${MEETING_CODE}`;
-        }, 1200);
       });
     });
 

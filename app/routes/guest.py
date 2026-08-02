@@ -103,12 +103,12 @@ def get_public_meeting_info(meeting_code: str):
         if meeting.status == "tamamlandı":
             raise HTTPException(status_code=410, detail="Bu toplantı sona erdi.")
         return MeetingPublicInfo(
-            title=str(meeting.title),
-            meeting_code=str(meeting.meeting_code),
-            meeting_type=str(meeting.meeting_type or "Genel Toplantı"),
+            title=meeting.title,
+            meeting_code=meeting.meeting_code,
+            meeting_type=meeting.meeting_type or "Genel Toplantı",
             passcode_required=bool(meeting.passcode),
-            lobby_enabled=bool(meeting.lobby_enabled),
-            status=str(meeting.status),
+            lobby_enabled=meeting.lobby_enabled,
+            status=meeting.status,
         )
     finally:
         db.close()
@@ -147,16 +147,16 @@ def create_guest_token(payload: GuestTokenRequest):
             guest_name=guest_name_str,
             guest_id=guest_id,
             duration_minutes=240,
-            meeting_code=str(meeting.meeting_code)
+            meeting_code=meeting.meeting_code
         )
 
         return GuestTokenResponse(
             guest_token=token,
             guest_id=guest_id,
             guest_name=guest_name_str,
-            meeting_title=str(meeting.title),
-            meeting_code=str(meeting.meeting_code),
-            lobby_enabled=bool(meeting.lobby_enabled),
+            meeting_title=meeting.title,
+            meeting_code=meeting.meeting_code,
+            lobby_enabled=meeting.lobby_enabled,
         )
     finally:
         db.close()

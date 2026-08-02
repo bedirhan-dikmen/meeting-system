@@ -16,226 +16,291 @@
     <!-- LIVE MEETING ROOM SCREEN -->
     <div id="liveRoomScreen" style="display: flex; flex-direction: column; height: 100vh; background: #f8fafc;">
 
-      <!-- TEAMS SPLIT CONTROLS TOP TOOLBAR -->
-      <header class="yeb-room-topbar">
-        <div style="display: flex; align-items: center; gap: 0.75rem; min-width: 0;">
-          <div
-            style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: #5b5fc7; color: #fff; border-radius: 8px; font-size: 0.9rem; font-weight: 800; flex-shrink: 0;">
-            <i class="fas fa-video"></i>
+      <!-- SINGLE TOP HEADER BAR (Logo, Room Title, Timer, Screen Share Badge & Action Pills) -->
+      <!-- TOP HEADER NAVBAR (72px HEIGHT, MATCHING HOMEPAGE BRANDING & CLEAN FLAT DESIGN) -->
+      <header id="mainAppTopHeader" class="top-header" style="height: 72px; background: #ffffff; border-bottom: 1px solid #e2e8f0; padding: 0 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; position: relative; z-index: 999999; box-shadow: none; overflow: visible;">
+
+        <!-- LEFT: BRAND LOGO (Matches Homepage 100%) + ROOM TITLE & TIMER -->
+        <div class="header-left" style="display: flex; align-items: center; gap: 1.25rem;">
+          <a href="/meetings" class="brand-logo-link" style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none;">
+            <div class="brand-icon" style="box-shadow: none;">
+              <i class="fas fa-video"></i>
+            </div>
+            <span class="brand-text">YebMeeting</span>
+          </a>
+
+          <div style="width: 1px; height: 24px; background: #cbd5e1;"></div>
+
+          <div style="display: flex; flex-direction: column; justify-content: center;">
+            <h2 id="roomTitle" style="font-size: 0.95rem; font-weight: 800; color: #0f172a; margin: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Toplantı Odası</h2>
+            <span id="roomTimer" style="font-family: monospace; font-size: 0.78rem; color: #64748b; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;">
+              <i class="far fa-clock" style="font-size: 0.75rem; color: #5b5fc7;"></i> <span id="timerText">00:24:18</span>
+            </span>
           </div>
-          <h2 id="roomTitle"
-            style="font-size: 0.92rem; font-weight: 800; color: #0f172a; margin: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
-            title="{{ meeting_code }}">Toplantı Odası</h2>
-          <span
-            style="font-family: monospace; background: #e0f2fe; border: 1px solid #bae6fd; padding: 0.15rem 0.55rem; border-radius: 6px; color: #0369a1; font-weight: 800; font-size: 0.78rem; flex-shrink: 0;">{{
-            meeting_code }}</span>
-          <span id="roomTimer"
-            style="font-family: monospace; font-size: 0.85rem; color: #475569; font-weight: 700; flex-shrink: 0; background: #f1f5f9; padding: 0.2rem 0.6rem; border-radius: 20px; border: 1px solid #cbd5e1;"><i
-              class="far fa-clock" style="color: #6366f1; margin-right: 0.3rem;"></i>00:00:00</span>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <!-- MAIN VIEW SWITCHER -->
-          <button id="btnViewStage" class="yeb-toolbar-btn active" onclick="switchMainView('stage')"
-            title="Canlı Görüntü Sahnesi">
-            <i class="fas fa-video" style="color: #4f46e5;"></i>
-            <span>Sahne</span>
-          </button>
-          <button id="btnViewNotes" class="yeb-toolbar-btn" onclick="switchMainView('notes')"
-            title="Toplantı & Kişisel Notlar">
-            <i class="far fa-sticky-note" style="color: #10b981;"></i>
-            <span>Notlar</span>
+        <!-- CENTER: MAIN MEETING CONTROLS (Kişiler, Sohbet, Notlar | Paylaş, Mikrofon, Kamera, Ayarlar) -->
+        <div class="header-center-controls" style="display: flex; align-items: center; gap: 0.45rem; background: transparent; padding: 0; border: none; box-shadow: none;">
+
+          <!-- Kişiler Tab Toggle Button -->
+          <button onclick="toggleSidebarTab('participants')" id="navBtnPeople" class="meeting-nav-pill" title="Katılımcılar" style="height: 38px;">
+            <i class="fas fa-user-friends" style="color: #10b981;"></i> Kişiler
           </button>
 
-          <div style="width: 1px; height: 24px; background: #cbd5e1; margin: 0 0.2rem;"></div>
-
-          <!-- SIDEBAR TOGGLES -->
-          <button class="yeb-toolbar-btn" onclick="toggleSidebarTab('chat')" title="Canlı Sohbet">
-            <i class="far fa-comment-dots" style="color: #0ea5e9;"></i>
-            <span>Sohbet</span>
-          </button>
-          <button class="yeb-toolbar-btn" onclick="toggleSidebarTab('participants')" title="Katılımcı Listesi">
-            <i class="far fa-user" style="color: #8b5cf6;"></i>
-            <span>Kişiler</span>
+          <!-- Sohbet Tab Toggle Button -->
+          <button onclick="toggleSidebarTab('chat')" id="navBtnChat" class="meeting-nav-pill" title="Canlı Sohbet" style="height: 38px;">
+            <i class="fas fa-comment-alt" style="color: #0ea5e9;"></i> Sohbet
           </button>
 
-          <div style="width: 1px; height: 24px; background: #cbd5e1; margin: 0 0.2rem;"></div>
+          <!-- Notlar Tab Toggle Button -->
+          <button onclick="toggleSidebarTab('notes')" id="navBtnNotes" class="meeting-nav-pill" title="Toplantı Notları" style="height: 38px;">
+            <i class="fas fa-sticky-note" style="color: #6366f1;"></i> Notlar
+          </button>
 
-          <!-- TEAMS SPLIT CAMERA CONTROL -->
-          <div class="teams-split-btn-group">
-            <button id="btnRoomCamMain" type="button" class="teams-split-main"
-              onclick="WebRTC.toggleCamera()">
-              <i id="btnRoomCamIcon" class="fas fa-video"></i>
-              <span>Kamera</span>
+          <div style="width: 1px; height: 20px; background: #cbd5e1; margin: 0 0.15rem;"></div>
+
+          <!-- Paylaş Toggle Button -->
+          <button onclick="WebRTC.toggleMyScreenShare()" id="navBtnShare" class="meeting-nav-pill active-off-gray" title="Ekran Paylaşımı Başlat / Durdur" style="height: 38px;">
+            <i class="fas fa-desktop" id="navIconShare"></i> <span id="navTextShare">Paylaş</span>
+          </button>
+
+          <!-- Mikrofon Toggle Button -->
+          <button onclick="WebRTC.toggleMyMic()" id="navBtnMic" class="meeting-nav-pill active-on-purple" title="Mikrofon Sesi Aç / Kapat" style="height: 38px;">
+            <i class="fas fa-microphone" id="navIconMic"></i> <span id="navTextMic">Mikrofon</span>
+          </button>
+
+          <!-- Kamera Toggle Button -->
+          <button onclick="WebRTC.toggleMyCamera()" id="navBtnCam" class="meeting-nav-pill active-on-purple" title="Kamera Aç / Kapat" style="height: 38px;">
+            <i class="fas fa-video" id="navIconCam"></i> <span id="navTextCam">Kamera</span>
+          </button>
+
+          <!-- AYARLAR (DIRECT MEETING NAV PILL WITH ABSOLUTE POPOVER) -->
+          <div style="position: relative; display: inline-flex;">
+            <button onclick="togglePopoverMenu('navSettingsPopover', event)" id="navBtnSettings" class="meeting-nav-pill" title="Ses & Kamera Cihaz Seçimi" style="height: 38px;">
+              <i class="fas fa-cog" style="color: #64748b;"></i> Ayarlar
             </button>
-            <button type="button" class="teams-split-chevron" onclick="togglePopoverMenu('camPopover')">
-              <i class="fas fa-chevron-down"></i>
-            </button>
-
-            <div id="camPopover" class="teams-dropdown-popover">
-              <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; padding: 0.2rem 0.5rem;">KAMERA SEÇİMİ
+            <div id="navSettingsPopover" class="teams-dropdown-popover" style="top: calc(100% + 8px); right: 0; width: 280px; padding: 0.85rem; display: none; z-index: 9999999; box-shadow: none; border: 1.5px solid #cbd5e1; background: #ffffff;">
+              <div style="font-size: 0.78rem; font-weight: 800; color: #5b5fc7; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
+                <i class="fas fa-sliders-h"></i> Ses &amp; Görüntü Cihazları
               </div>
-              <div id="camDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.2rem;"></div>
+
+              <div style="margin-bottom: 0.75rem;">
+                <label style="font-size: 0.76rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">
+                  <i class="fas fa-camera" style="color: #6366f1; margin-right: 0.3rem;"></i> KAMERA SEÇİMİ
+                </label>
+                <div id="camDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.25rem;"></div>
+              </div>
+
+              <div style="margin-bottom: 0.75rem;">
+                <label style="font-size: 0.76rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">
+                  <i class="fas fa-microphone" style="color: #10b981; margin-right: 0.3rem;"></i> MİKROFON SEÇİMİ
+                </label>
+                <div id="micDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.25rem;"></div>
+              </div>
+
+              <div>
+                <label style="font-size: 0.76rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">
+                  <i class="fas fa-volume-up" style="color: #0ea5e9; margin-right: 0.3rem;"></i> HOPARLÖR ÇIKIŞI
+                </label>
+                <div id="speakerDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.25rem;"></div>
+              </div>
             </div>
           </div>
 
-          <!-- TEAMS SPLIT MIC CONTROL -->
-          <div class="teams-split-btn-group">
-            <button id="btnRoomMicMain" type="button" class="teams-split-main" onclick="WebRTC.toggleMic()">
-              <i id="btnRoomMicIcon" class="fas fa-microphone"></i>
-              <span>Mikrofon</span>
-            </button>
-            <button type="button" class="teams-split-chevron" onclick="togglePopoverMenu('micPopover')">
-              <i class="fas fa-chevron-down"></i>
-            </button>
+        </div>
 
-            <div id="micPopover" class="teams-dropdown-popover">
-              <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; padding: 0.2rem 0.5rem;">MİKROFON SEÇİMİ
-              </div>
-              <div id="micDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.2rem;"></div>
+        <!-- RIGHT: ACTIVE SCREEN SHARE BADGE + THREE-DOTS MENU + AYRIL BUTTON -->
+        <div class="header-right" style="display: flex; align-items: center; gap: 0.45rem; position: relative; z-index: 999999; overflow: visible;">
 
-              <div
-                style="font-size: 0.75rem; font-weight: 800; color: #64748b; padding: 0.4rem 0.5rem 0.2rem 0.5rem; border-top: 1px solid #e2e8f0; margin-top: 0.3rem;">
-                HOPARLÖR ÇIKIŞI</div>
-              <div id="speakerDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.2rem;"></div>
-            </div>
+          <!-- Active Screen Share Badge -->
+          <div id="headerScreenShareBadge" style="display: none; align-items: center; gap: 0.5rem; background: #eef2ff; border: 1px solid #c7d2fe; padding: 0 0.85rem; height: 38px; border-radius: 10px; font-size: 0.78rem; font-weight: 700; color: #5b5fc7;">
+            <i class="fas fa-desktop"></i> Ekran Paylaşılıyor
           </div>
 
-          <!-- SCREEN SHARE BUTTON -->
-          <button id="btnScreenShare" type="button" class="yeb-toolbar-btn" title="Ekran Paylaş" onclick="WebRTC.toggleScreenShare()">
-            <i id="btnScreenShareIcon" class="fas fa-arrow-up-from-bracket"></i>
-            <span id="btnScreenShareText">Paylaş</span>
-          </button>
-
-          <div style="width: 1px; height: 24px; background: #cbd5e1; margin: 0 0.2rem;"></div>
-
-          <!-- THREE-DOTS (...) ROOM OPTIONS & SETTINGS POPOVER -->
-          <div class="teams-split-btn-group">
-            <button type="button" class="teams-split-main" onclick="togglePopoverMenu('moreOptionsPopover')"
-              title="Daha Fazla Seçenek & Oda Ayarları">
-              <i class="fas fa-ellipsis-v"></i>
+          <!-- THREE-DOTS (...) MORE OPTIONS POPOVER MENU -->
+          <div style="position: relative; display: inline-flex;">
+            <button onclick="togglePopoverMenu('headerMorePopover', event)" class="meeting-nav-pill" style="width: 38px; height: 38px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Daha Fazla Seçenek">
+              <i class="fas fa-ellipsis-v" style="font-size: 0.95rem; color: #334155;"></i>
             </button>
-
-            <div id="moreOptionsPopover" class="teams-dropdown-popover" style="right: 0; width: 230px;">
-              <div
-                style="font-size: 0.75rem; font-weight: 800; color: #64748b; padding: 0.3rem 0.6rem; border-bottom: 1px solid #e2e8f0; margin-bottom: 0.2rem;">
-                ODA SEÇENEKLERİ</div>
-              <button type="button" class="teams-popover-item" onclick="copyRoomLink()">
+            <div id="headerMorePopover" class="teams-dropdown-popover" style="top: calc(100% + 8px); right: 0; width: 240px; display: none; z-index: 9999999; box-shadow: none; border: 1.5px solid #cbd5e1; background: #ffffff;">
+              <button type="button" class="teams-popover-item" onclick="copyRoomLink(); document.getElementById('headerMorePopover').style.display='none';">
                 <i class="fas fa-link" style="color: #0ea5e9;"></i> Oda Bağlantısını Kopyala
               </button>
-              <button id="btnOptionInviteUser" type="button" class="teams-popover-item" onclick="openRoomInviteModal()">
-                <i class="fas fa-user-plus" style="color: #10b981;"></i> Odaya Katılımcı Davet Et
+              <button type="button" class="teams-popover-item" onclick="openRoomInviteModal(); document.getElementById('headerMorePopover').style.display='none';">
+                <i class="fas fa-user-plus" style="color: #10b981;"></i> Odaya Davet Et
               </button>
-              <button id="btnOptionEditSettings" type="button" class="teams-popover-item" onclick="openRoomSettingsModal()">
-                <i class="fas fa-sliders-h" style="color: #6366f1;"></i> Oda Ayarlarını Düzenle
+              <button type="button" class="teams-popover-item" onclick="openRoomSettingsModal(); document.getElementById('headerMorePopover').style.display='none';">
+                <i class="fas fa-sliders-h" style="color: #5b5fc7;"></i> Oda Bilgilerini Düzenle
               </button>
             </div>
           </div>
 
-          <!-- TEAMS SPLIT LEAVE / END CONTROL -->
-          <div class="teams-split-btn-group" style="background: #fff1f2; border-color: #fecdd3;">
-            <button type="button" class="teams-split-main" onclick="WebRTC.leaveMeeting()" style="color: #e11d48;">
-              <i class="fas fa-phone-slash" style="color: #e11d48;"></i>
-              <span>Ayrıl</span>
-            </button>
-
-            <button id="btnLeaveChevron" type="button" class="teams-split-chevron"
-              onclick="togglePopoverMenu('leavePopover')" style="border-left-color: #fecdd3; color: #e11d48;">
-              <i class="fas fa-chevron-down"></i>
-            </button>
-
-            <div id="leavePopover" class="teams-dropdown-popover" style="right: 0;">
-              <button type="button" class="teams-popover-item" onclick="WebRTC.leaveMeeting()">
-                <i class="fas fa-sign-out-alt" style="color: #e11d48;"></i> Toplantıdan Ayrıl
+          <!-- AYRIL / SONLANDIR SOFT RED SPLIT BUTTON -->
+          <div style="position: relative; display: inline-flex; height: 38px; overflow: visible;">
+            <div style="display: inline-flex; height: 38px; border-radius: 10px; overflow: hidden; background: #fef2f2; border: 1px solid #fecdd3;">
+              <button onclick="WebRTC.leaveMeeting()" type="button" style="padding: 0 0.9rem; height: 100%; background: transparent; color: #e11d48; font-weight: 800; font-size: 0.85rem; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.45rem; transition: background 0.2s;" onmouseover="this.style.background='#ffe4e6'" onmouseout="this.style.background='transparent'">
+                <i class="fas fa-phone-slash" style="font-size: 0.85rem; color: #e11d48;"></i> Ayrıl
               </button>
-              <button id="btnEndMeetingHostPopover" type="button" class="teams-popover-item"
-                onclick="WebRTC.endMeeting()" style="display: none; color: #be123c;">
-                <i class="fas fa-power-off" style="color: #be123c;"></i> Toplantıyı Herkes İçin Sonlandır
+              <button onclick="togglePopoverMenu('headerLeaveOptionsPopover', event)" type="button" style="padding: 0 0.65rem; height: 100%; background: transparent; color: #e11d48; border: none; border-left: 1px solid #fecdd3; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='#ffe4e6'" onmouseout="this.style.background='transparent'">
+                <i class="fas fa-chevron-down" style="font-size: 0.75rem; color: #e11d48;"></i>
+              </button>
+            </div>
+
+            <div id="headerLeaveOptionsPopover" class="teams-dropdown-popover" style="top: calc(100% + 8px); right: 0; width: 230px; display: none; z-index: 9999999; box-shadow: none; border: 1.5px solid #fecdd3; background: #ffffff; padding: 0.4rem;">
+              <button type="button" class="teams-popover-item" onclick="WebRTC.leaveMeeting()" style="width: 100%; text-align: left; padding: 0.5rem 0.75rem; border-radius: 8px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; color: #334155; font-size: 0.84rem; font-weight: 700;">
+                <i class="fas fa-sign-out-alt" style="color: #f43f5e;"></i> Toplantıdan Ayrıl
+              </button>
+              <button type="button" class="teams-popover-item" onclick="WebRTC.endMeetingForAll()" style="width: 100%; text-align: left; padding: 0.5rem 0.75rem; border-radius: 8px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; color: #e11d48; font-size: 0.84rem; font-weight: 700;">
+                <i class="fas fa-power-off" style="color: #e11d48;"></i> Toplantıyı Herkes İçin Sonlandır
               </button>
             </div>
           </div>
 
         </div>
+
       </header>
 
-      <!-- DYNAMIC TOP CAROUSEL BAR (Shown during Screen Share) -->
-      <div id="topCarouselBar" class="top-carousel-bar"
-        style="display: none; background: #ffffff; border-bottom: 1px solid #cbd5e1;">
-      </div>
-
-      <!-- VIEW MODE 1: FLEXIBLE RESIZING STAGE & SIDEBAR CONTAINER -->
-      <div id="meetingStageContainer" class="room-main"
-        style="display: flex; width: 100%; height: calc(100vh - 60px); position: relative; overflow: hidden;">
-
-        <!-- SCREEN SHARE AREA -->
-        <div id="screenShareArea" class="screenshare-container"
-          style="display: none; position: relative; background: #f8fafc; border-right: 1px solid #e1dfdd; flex: 1; height: 100%;">
-          <video id="screenShareVideo" autoplay playsinline
-            style="width: 100%; height: 100%; object-fit: contain; background: #000;"></video>
-          <div
-            style="position: absolute; top: 1rem; left: 1rem; background: rgba(15,23,42,0.85); padding: 0.4rem 0.85rem; border-radius: 20px; font-size: 0.85rem; color: #38bdf8; display: flex; align-items: center; gap: 0.5rem; backdrop-filter: blur(8px);">
-            <i class="fas fa-desktop"></i> <span id="screenSharePresenterName">Canlı Ekran Paylaşımı</span>
-          </div>
-        </div>
-
-        <!-- VIDEO TILES GRID -->
-        <div id="videoGrid" class="video-grid"
-          style="background: #f8fafc; flex: 1; height: 100%; width: 100%; transition: all 0.3s ease;">
-        </div>
-
-        <!-- INLINE RESIZING ROOM SIDEBAR -->
-        <div id="roomSidebar" class="room-sidebar"
-          style="display: none; background: #ffffff; border-left: 1px solid #cbd5e1; width: 350px; height: 100%; flex-shrink: 0;">
-          <div class="sidebar-tabs" style="background: #f8fafc; border-bottom: 1px solid #cbd5e1; display: flex;">
-            <button id="tabBtnChat" type="button" class="sidebar-tab active" onclick="switchSidebarTab('chat')"
-              style="font-weight: 700; color: #4f46e5; flex: 1; padding: 0.85rem;">
-              <i class="fas fa-comments"></i> Sohbet
-            </button>
-            <button id="tabBtnParticipants" type="button" class="sidebar-tab" onclick="switchSidebarTab('participants')"
-              style="font-weight: 700; color: #475569; flex: 1; padding: 0.85rem;">
-              <i class="fas fa-users"></i> Katılımcılar
-            </button>
-            <button type="button" onclick="closeSidebar()"
-              style="background: none; border: none; padding: 0.85rem; color: #64748b; cursor: pointer;"><i
-                class="fas fa-times"></i></button>
+      <!-- VIEW MODE 1: DYNAMIC WEBRTC STAGE CONTAINER (MICROSOFT TEAMS CANVAS) -->
+      <div id="meetingStageContainer" class="room-main room-stage-bg" style="display: flex; width: 100%; height: calc(100vh - 56px); position: relative; overflow: hidden; background: #f3f2f8; padding: 0.85rem;">
+        
+        <!-- STAGE MAIN CONTENT AREA -->
+        <div id="stageMainArea" style="flex: 1; display: flex; flex-direction: column; height: 100%; gap: 0.75rem; min-width: 0; position: relative; overflow: hidden;">
+          
+          <!-- TOP CAROUSEL BAR FOR PARTICIPANTS (12-Grid 3X proportion: ~24vh height ratio, 4:3 squarish cards) -->
+          <div id="topCarouselBar" class="top-carousel-bar" style="display: none; height: 24vh; min-height: 145px; max-height: 180px; flex-shrink: 0; gap: 0.85rem; overflow-x: auto; overflow-y: hidden; padding: 0.3rem 0; align-items: center; justify-content: center;">
           </div>
 
-          <!-- TAB 1: SOHBET -->
-          <div id="tabContentChat" class="tab-content"
-            style="display: flex; flex-direction: column; height: calc(100% - 48px);">
-            <div id="chatMessagesContainer" class="chat-messages"
-              style="flex: 1; padding: 1.25rem; overflow-y: auto; background: #ffffff; display: flex; flex-direction: column; gap: 0.85rem;">
-              <div
-                style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem 1rem; font-size: 0.82rem; color: #64748b; text-align: center;">
-                <i class="fas fa-lock" style="color: #6366f1; margin-right: 0.3rem;"></i> Canlı sohbet odası aktif.
+          <!-- CENTER STAGE SECTION: Video Grid (NO screen share) OR Screen Share Area (WITH screen share) -->
+          <div id="stageCenterSection" style="flex: 1; display: flex; align-items: center; justify-content: center; margin: 0 auto; gap: 0.85rem; min-height: 0; width: 100%; position: relative; overflow: hidden;">
+
+            <!-- MAIN DYNAMIC VIDEO GRID (When NO screen share is active) -->
+            <div id="videoGrid" class="video-grid grid-1" style="flex: 1; height: 100%; width: 100%; transition: all 0.3s ease; display: grid; gap: 0.85rem; border-radius: 14px; overflow-y: auto;">
+            </div>
+
+            <!-- DYNAMIC FLOATING SCREEN SHARE CARD (Height-Constrained 16:9 Card with Hover Scale & Interactive Controls) -->
+            <div id="screenShareArea" class="screenshare-container" style="display: none; flex: 1; min-width: 0; position: relative; background: transparent; border: none; overflow: hidden; height: 100%; width: 100%; align-items: center; justify-content: center; margin: 0 auto; padding: 0.25rem;">
+              <div id="screenShareGrid" style="display: flex; width: 100%; height: 100%; gap: 0.75rem; align-items: center; justify-content: center;">
+                
+                <div id="screenShareTile_1" style="flex: 1; height: 100%; width: 100%; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                  
+                  <!-- HOVERABLE 16:9 CARD FRAME THAT PRESERVES MAXIMUM HEIGHT AND LEAVES STAGE CANVAS BLANK -->
+                  <div id="screenShareCardFrame" class="screenshare-card-frame">
+                    <video id="screenShareVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: contain; display: block; background: #000000; border-radius: 15px;"></video>
+
+                    <!-- Presenter Overlay Pill at Bottom Center -->
+                    <div style="position: absolute; bottom: 0.75rem; left: 50%; transform: translateX(-50%); background: rgba(15,23,42,0.88); padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; color: #ffffff; display: flex; align-items: center; gap: 0.65rem; backdrop-filter: blur(8px); z-index: 35; box-shadow: 0 4px 14px rgba(0,0,0,0.35); white-space: nowrap;">
+                      <i class="fas fa-desktop" style="color: #5b5fc7;"></i>
+                      <span id="screenSharePresenterName">Bedirhan Dikmen ekranını paylaşıyor</span>
+                      <button onclick="WebRTC.stopMyScreenShare()" id="btnStopMyShareOverlay" style="display: none; background: #5b5fc7; color: #fff; border: none; padding: 0.2rem 0.55rem; border-radius: 10px; font-size: 0.72rem; font-weight: 700; cursor: pointer;">Paylaşımı Durdur</button>
+                    </div>
+
+                    <!-- TOP-RIGHT INTERACTIVE HOVER CONTROLS BAR (Audio Mute, Fullscreen, Settings) -->
+                    <div class="screenshare-hover-actions" style="position: absolute; top: 0.75rem; right: 0.75rem; z-index: 40; display: flex; align-items: center; gap: 0.4rem; background: rgba(15,23,42,0.88); padding: 0.3rem 0.6rem; border-radius: 20px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.18); box-shadow: 0 4px 14px rgba(0,0,0,0.3);">
+                      
+                      <!-- Audio Mute / Unmute Toggle Button -->
+                      <button id="btnToggleShareAudio" onclick="WebRTC.toggleScreenShareAudio()" class="tile-action-btn" title="Paylaşım Sesini Aç / Kapat" style="background: transparent; color: #ffffff; border: none; padding: 0.25rem 0.45rem; border-radius: 10px; font-size: 0.85rem; cursor: pointer;">
+                        <i class="fas fa-volume-up" id="iconShareAudio"></i>
+                      </button>
+                      
+                      <div style="width: 1px; height: 14px; background: rgba(255,255,255,0.25);"></div>
+
+                      <!-- Fullscreen Toggle Button -->
+                      <button onclick="WebRTC.toggleFullscreen('screenShareArea')" class="tile-action-btn" title="Tam Ekran Modu" style="background: transparent; color: #ffffff; border: none; padding: 0.25rem 0.45rem; border-radius: 10px; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
+                        <i class="fas fa-expand"></i>
+                        <span style="font-size: 0.75rem; font-weight: 700;">Tam Ekran</span>
+                      </button>
+
+                      <div style="width: 1px; height: 14px; background: rgba(255,255,255,0.25);"></div>
+
+                      <!-- Settings Icon Button -->
+                      <button onclick="WebRTC.showShareSettingsModal()" class="tile-action-btn" title="Paylaşım Ayarları" style="background: transparent; color: #ffffff; border: none; padding: 0.25rem 0.45rem; border-radius: 10px; font-size: 0.85rem; cursor: pointer;">
+                        <i class="fas fa-cog"></i>
+                      </button>
+
+                    </div>
+                  </div>
+
+                </div>
+
+                <div id="screenShareTile_2" style="display: none; flex: 1; height: 100%; width: 100%; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                  <div class="screenshare-card-frame">
+                    <video id="screenShareVideo2" autoplay playsinline style="width: 100%; height: 100%; object-fit: contain; display: block; background: #000000; border-radius: 15px;"></video>
+                  </div>
+                </div>
+
               </div>
             </div>
 
-            <div class="yeb-chat-footer">
-              <input id="chatInputText" type="text" class="yeb-chat-input" placeholder="Mesajınızı yazın..."
-                onkeypress="handleChatKeyPress(event)">
-              <button id="btnSendChat" type="button" class="yeb-chat-send-btn" onclick="sendRoomChatMessage()">
+          </div>
+
+        </div>
+
+        <!-- INLINE ROOM SIDEBAR (Katılımcılar, Sohbet & Notlar Drawer - 1.5X Wider: 480px) -->
+        <div id="roomSidebar" class="room-sidebar" style="display: none; background: #ffffff; border: 1px solid #e1dfdd; border-radius: 14px; width: 480px; height: 100%; flex-shrink: 0; margin-left: 0.85rem; box-shadow: 0 4px 20px rgba(0,0,0,0.06); overflow: hidden;">
+          <div class="sidebar-tabs" style="background: #ffffff; border-bottom: 1px solid #e1dfdd; display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 1rem;">
+            <div style="display: flex; gap: 0.5rem;">
+              <button id="tabBtnParticipants" type="button" class="sidebar-tab active" onclick="switchSidebarTab('participants')" style="font-weight: 800; font-size: 0.85rem; color: #5b5fc7; background: #eef2ff; border: 1px solid #c7d2fe; padding: 0.45rem 0.95rem; border-radius: 8px; cursor: pointer;">
+                <i class="fas fa-users"></i> Kişiler <span class="participant-count-badge">(12)</span>
+              </button>
+              <button id="tabBtnChat" type="button" class="sidebar-tab" onclick="switchSidebarTab('chat')" style="font-weight: 800; font-size: 0.85rem; color: #616161; background: transparent; border: none; padding: 0.45rem 0.95rem; cursor: pointer;">
+                <i class="fas fa-comments"></i> Sohbet
+              </button>
+              <button id="tabBtnNotes" type="button" class="sidebar-tab" onclick="switchSidebarTab('notes')" style="font-weight: 800; font-size: 0.85rem; color: #616161; background: transparent; border: none; padding: 0.45rem 0.95rem; cursor: pointer;">
+                <i class="far fa-sticky-note"></i> Notlar
+              </button>
+            </div>
+            <button type="button" onclick="closeSidebar()" style="background: none; border: none; padding: 0.4rem; color: #616161; font-size: 1.1rem; cursor: pointer;">✕</button>
+          </div>
+
+          <!-- TAB 1: KATILIMCILAR -->
+          <div id="tabContentParticipants" class="tab-content" style="display: flex; flex-direction: column; height: calc(100% - 52px); padding: 1rem; background: #ffffff;">
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 0.75rem;">
+              <div style="position: relative;">
+                <i class="fas fa-search" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.8rem;"></i>
+                <input type="text" placeholder="Katılımcı ara..." oninput="WebRTC.renderParticipantsList(this.value)" style="width: 100%; padding: 0.45rem 0.75rem 0.45rem 2.2rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 0.82rem; outline: none;">
+              </div>
+              <button class="btn btn-secondary" onclick="WebRTC.muteAllParticipants()" style="width: 100%; padding: 0.45rem; border-radius: 8px; font-size: 0.8rem; font-weight: 700; color: #5b5fc7; background: #eef2ff; border: 1px solid #c7d2fe; cursor: pointer;">
+                Tümünü Sessize Al
+              </button>
+            </div>
+            
+            <div id="participantsListContainer" style="display: flex; flex-direction: column; gap: 0.5rem; flex: 1; overflow-y: auto;">
+            </div>
+          </div>
+
+          <!-- TAB 2: SOHBET -->
+          <div id="tabContentChat" class="tab-content" style="display: none; flex-direction: column; height: calc(100% - 52px);">
+            <div id="chatMessagesContainer" class="chat-messages" style="flex: 1; padding: 1rem; overflow-y: auto; background: #ffffff; display: flex; flex-direction: column; gap: 0.85rem;">
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.8rem; color: #64748b; text-align: center;">
+                <i class="fas fa-lock" style="color: #5b5fc7; margin-right: 0.3rem;"></i> Canlı sohbet odası aktif.
+              </div>
+            </div>
+
+            <div class="yeb-chat-footer" style="padding: 0.75rem; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; gap: 0.5rem;">
+              <input id="chatInputText" type="text" class="yeb-chat-input" placeholder="Mesajınızı yazın..." onkeypress="handleChatKeyPress(event)" style="flex: 1; padding: 0.5rem 0.85rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none;">
+              <button id="btnSendChat" type="button" class="yeb-chat-send-btn" onclick="sendRoomChatMessage()" style="padding: 0.5rem 0.85rem; border-radius: 8px; background: #5b5fc7; color: #fff; border: none; cursor: pointer;">
                 <i class="fas fa-paper-plane"></i>
               </button>
             </div>
           </div>
 
-          <!-- TAB 2: KATILIMCILAR -->
-          <div id="tabContentParticipants" class="tab-content"
-            style="display: none; flex-direction: column; height: calc(100% - 48px); padding: 1.25rem; background: #ffffff;">
-            <div id="participantsListContainer"
-              style="display: flex; flex-direction: column; gap: 0.85rem; flex: 1; overflow-y: auto;">
+          <!-- TAB 3: NOTLAR SIDEBAR TAB -->
+          <div id="tabContentNotes" class="tab-content" style="display: none; flex-direction: column; height: calc(100% - 52px); padding: 1rem; background: #ffffff;">
+            <div style="font-size: 0.85rem; font-weight: 800; color: #242424; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
+              <i class="far fa-sticky-note" style="color: #5b5fc7;"></i> Canlı Toplantı Notları
             </div>
-
-            <div id="hostAdminActions"
-              style="margin-top: auto; padding-top: 1rem; border-top: 1px solid #e2e8f0; display: none;">
-              <button id="btnEndMeetingHost" type="button" class="btn btn-danger"
-                style="width: 100%; border-radius: 8px; font-weight: 700; padding: 0.75rem;">
-                <i class="fas fa-power-off"></i> Toplantıyı Sonlandır
+            <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem;">
+              <textarea id="sidebarNoteText" placeholder="Toplantı kararı veya canlı not yazın..." style="width: 100%; height: 75px; padding: 0.55rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 0.82rem; outline: none; resize: none;"></textarea>
+              <button type="button" onclick="publishLiveNote()" style="width: 100%; padding: 0.45rem; border-radius: 8px; background: #5b5fc7; color: #ffffff; border: none; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
+                <i class="fas fa-paper-plane"></i> Notu Yayınla & Kaydet
               </button>
+            </div>
+            <div id="notesFeedContainer" style="display: flex; flex-direction: column; gap: 0.65rem; flex: 1; overflow-y: auto; padding-right: 0.2rem;">
             </div>
           </div>
         </div>
+
+      </div>
 
       </div>
 
@@ -354,8 +419,84 @@
             </div>
           </div>
 
+      <!-- FLOATING BOTTOM CONTROL DOCK BAR (Teams & Zoom Style Modern Floating Control Bar) -->
+      <div id="floatingBottomDock" class="yeb-floating-dock-wrapper">
+        <!-- TEAMS SPLIT MIC CONTROL -->
+        <div class="teams-split-btn-group mic-is-on">
+          <button id="btnRoomMicMain" type="button" class="teams-split-main" onclick="WebRTC.toggleMic()">
+            <i id="btnRoomMicIcon" class="fas fa-microphone" style="color: #10b981;"></i>
+            <span>Mikrofon</span>
+          </button>
+          <button type="button" class="teams-split-chevron" onclick="togglePopoverMenu('micPopover')">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+
+          <div id="micPopover" class="teams-dropdown-popover">
+            <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; padding: 0.2rem 0.5rem;">MİKROFON SEÇİMİ</div>
+            <div id="micDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.2rem;"></div>
+            <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; padding: 0.4rem 0.5rem 0.2rem 0.5rem; border-top: 1px solid #e2e8f0; margin-top: 0.3rem;">HOPARLÖR ÇIKIŞI</div>
+            <div id="speakerDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.2rem;"></div>
+          </div>
         </div>
+
+        <!-- TEAMS SPLIT CAMERA CONTROL -->
+        <div class="teams-split-btn-group camera-is-on">
+          <button id="btnRoomCamMain" type="button" class="teams-split-main" onclick="WebRTC.toggleCamera()">
+            <i id="btnRoomCamIcon" class="fas fa-video" style="color: #10b981;"></i>
+            <span>Kamera</span>
+          </button>
+          <button type="button" class="teams-split-chevron" onclick="togglePopoverMenu('camPopover')">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+
+          <div id="camPopover" class="teams-dropdown-popover">
+            <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; padding: 0.2rem 0.5rem;">KAMERA SEÇİMİ</div>
+            <div id="camDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.2rem;"></div>
+          </div>
+        </div>
+
+        <button class="yeb-dock-btn" onclick="toggleSidebarTab('participants')" title="Katılımcı Listesi">
+          <i class="far fa-user" style="color: #8b5cf6;"></i>
+          <span>Katılımcılar</span>
+        </button>
+
+        <button class="yeb-dock-btn" onclick="toggleSidebarTab('chat')" title="Sohbet">
+          <i class="far fa-comment-dots" style="color: #0ea5e9;"></i>
+          <span>Sohbet</span>
+        </button>
+
+        <button id="btnScreenShare" class="yeb-dock-btn" onclick="WebRTC.toggleScreenShare()" title="Ekran Paylaş">
+          <i id="btnScreenShareIcon" class="fas fa-arrow-up-from-bracket" style="color: #6366f1;"></i>
+          <span id="btnScreenShareText">Ekran Paylaş</span>
+        </button>
+
+        <!-- THREE-DOTS (...) ROOM OPTIONS POPOVER -->
+        <div class="teams-split-btn-group" style="background: transparent; border: none; box-shadow: none;">
+          <button class="yeb-dock-btn" onclick="togglePopoverMenu('moreOptionsPopover')" title="Daha Fazla Seçenek">
+            <i class="fas fa-ellipsis-h" style="color: #64748b;"></i>
+            <span>Daha Fazla</span>
+          </button>
+
+          <div id="moreOptionsPopover" class="teams-dropdown-popover" style="bottom: calc(100% + 12px); top: auto; right: 0; width: 230px;">
+            <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; padding: 0.3rem 0.6rem; border-bottom: 1px solid #e2e8f0; margin-bottom: 0.2rem;">ODA SEÇENEKLERİ</div>
+            <button type="button" class="teams-popover-item" onclick="copyRoomLink()">
+              <i class="fas fa-link" style="color: #0ea5e9;"></i> Oda Bağlantısını Kopyala
+            </button>
+            <button id="btnOptionInviteUser" type="button" class="teams-popover-item" onclick="openRoomInviteModal()">
+              <i class="fas fa-user-plus" style="color: #10b981;"></i> Katılımcı Davet Et
+            </button>
+            <button id="btnOptionEditSettings" type="button" class="teams-popover-item" onclick="openRoomSettingsModal()">
+              <i class="fas fa-sliders-h" style="color: #6366f1;"></i> Oda Ayarları
+            </button>
+          </div>
+        </div>
+
+        <button class="yeb-dock-btn btn-leave-red" onclick="WebRTC.leaveMeeting()" title="Toplantıdan Ayrıl">
+          <i class="fas fa-phone-slash"></i>
+          <span>Ayrıl</span>
+        </button>
       </div>
+
     </div>
   </div>
 
@@ -623,6 +764,34 @@
         </div>
       </div>
 
+      <!-- Ses & Kamera Cihaz Seçimi Bölümü -->
+      <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 1rem; margin-top: 0.5rem;">
+        <div style="font-weight: 700; color: #5b5fc7; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.85rem;">
+          <i class="fas fa-sliders-h"></i> Ses &amp; Görüntü Cihazları
+        </div>
+
+        <div style="margin-bottom: 0.85rem;">
+          <label style="font-size: 0.85rem; font-weight: 600; color: #334155; display: block; margin-bottom: 0.4rem;">
+            <i class="fas fa-camera" style="color: #6366f1; margin-right: 0.3rem;"></i> Kamera Seçimi
+          </label>
+          <div id="modalCamDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.3rem;"></div>
+        </div>
+
+        <div style="margin-bottom: 0.85rem;">
+          <label style="font-size: 0.85rem; font-weight: 600; color: #334155; display: block; margin-bottom: 0.4rem;">
+            <i class="fas fa-microphone" style="color: #10b981; margin-right: 0.3rem;"></i> Mikrofon Seçimi
+          </label>
+          <div id="modalMicDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.3rem;"></div>
+        </div>
+
+        <div>
+          <label style="font-size: 0.85rem; font-weight: 600; color: #334155; display: block; margin-bottom: 0.4rem;">
+            <i class="fas fa-volume-up" style="color: #0ea5e9; margin-right: 0.3rem;"></i> Hoparlör Çıkışı
+          </label>
+          <div id="modalSpeakerDeviceListContainer" style="display: flex; flex-direction: column; gap: 0.3rem;"></div>
+        </div>
+      </div>
+
     </form>
 
     <!-- PANEL FOOTER -->
@@ -662,6 +831,26 @@
     document.addEventListener('DOMContentLoaded', async () => {
       renderPersonalNotesList();
       populateDevicePopovers();
+
+      const user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+      let meetingInfo = null;
+      try {
+        const meetingRes = await fetch(`/api/v1/meetings/code/${MEETING_CODE}`, {
+          headers: (typeof Auth !== 'undefined' && Auth.getAuthHeaders) ? Auth.getAuthHeaders() : {}
+        });
+        if (meetingRes.ok) meetingInfo = await meetingRes.json();
+      } catch (e) {}
+
+      const isAdmin = Boolean(user && (user.role === 'admin' || user.is_superuser));
+      const isHost = Boolean(meetingInfo && user && (
+        String(meetingInfo.created_by).toLowerCase() === String(user.id || user.user_id || '').toLowerCase()
+      ));
+      const isLobbyApproved = sessionStorage.getItem('meeting_lobby_approved_' + MEETING_CODE) === '1';
+
+      if (!isAdmin && !isHost && !isLobbyApproved) {
+        window.location.href = `/prejoin/${MEETING_CODE}`;
+        return;
+      }
 
       const savedCamOff = sessionStorage.getItem('meeting_cam_off');
       const savedMicMuted = sessionStorage.getItem('meeting_mic_muted');
@@ -1073,6 +1262,9 @@
         const audioInputs = devices.filter(d => d.kind === 'audioinput');
         const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
 
+        const savedCamId = sessionStorage.getItem('meeting_cam_id');
+        const savedMicId = sessionStorage.getItem('meeting_mic_id');
+
         const camMainBtn = document.getElementById('btnRoomCamMain');
         const micMainBtn = document.getElementById('btnRoomMicMain');
 
@@ -1091,33 +1283,71 @@
         const micContainer = document.getElementById('micDeviceListContainer');
         const speakerContainer = document.getElementById('speakerDeviceListContainer');
 
-        if (camContainer) {
-          camContainer.innerHTML = videoDevices.length > 0 ? videoDevices.map(d => `
-            <button class="teams-popover-item" onclick="WebRTC.switchVideoDevice('${d.deviceId}')">
-              <i class="fas fa-camera" style="color: #6366f1;"></i> ${d.label || 'Kamera ' + (d.deviceId.substr(0, 4))}
-            </button>
-          `).join('') : '<div style="padding:0.4rem; color:#94a3b8; font-size:0.8rem;">Kamera algılanamadı</div>';
-        }
+        const modalCamContainer = document.getElementById('modalCamDeviceListContainer');
+        const modalMicContainer = document.getElementById('modalMicDeviceListContainer');
+        const modalSpeakerContainer = document.getElementById('modalSpeakerDeviceListContainer');
 
-        if (micContainer) {
-          micContainer.innerHTML = audioInputs.length > 0 ? audioInputs.map(d => `
-            <button class="teams-popover-item" onclick="WebRTC.switchAudioInput('${d.deviceId}')">
-              <i class="fas fa-microphone" style="color: #10b981;"></i> ${d.label || 'Mikrofon ' + (d.deviceId.substr(0, 4))}
+        const camHTML = videoDevices.length > 0 ? videoDevices.map(d => {
+          const isSelected = savedCamId ? (savedCamId === d.deviceId) : false;
+          return `
+            <button type="button" class="teams-popover-item ${isSelected ? 'active' : ''}" onclick="WebRTC.switchVideoDevice('${d.deviceId}'); populateDevicePopovers();">
+              <i class="fas fa-camera" style="color: #6366f1;"></i> 
+              <span style="flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis;">${d.label || 'Kamera ' + (d.deviceId.substr(0, 4))}</span>
+              ${isSelected ? '<i class="fas fa-check" style="color:#10b981; margin-left:auto;"></i>' : ''}
             </button>
-          `).join('') : '<div style="padding:0.4rem; color:#94a3b8; font-size:0.8rem;">Mikrofon algılanamadı</div>';
-        }
+          `;
+        }).join('') : '<div style="padding:0.4rem; color:#94a3b8; font-size:0.8rem;">Kamera algılanamadı</div>';
 
-        if (speakerContainer) {
-          speakerContainer.innerHTML = audioOutputs.length > 0 ? audioOutputs.map(d => `
-            <button class="teams-popover-item" onclick="WebRTC.switchAudioOutput('${d.deviceId}')">
-              <i class="fas fa-volume-up" style="color: #0ea5e9;"></i> ${d.label || 'Hoparlör'}
+        const micHTML = audioInputs.length > 0 ? audioInputs.map(d => {
+          const isSelected = savedMicId ? (savedMicId === d.deviceId) : false;
+          return `
+            <button type="button" class="teams-popover-item ${isSelected ? 'active' : ''}" onclick="WebRTC.switchAudioInput('${d.deviceId}'); populateDevicePopovers();">
+              <i class="fas fa-microphone" style="color: #10b981;"></i> 
+              <span style="flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis;">${d.label || 'Mikrofon ' + (d.deviceId.substr(0, 4))}</span>
+              ${isSelected ? '<i class="fas fa-check" style="color:#10b981; margin-left:auto;"></i>' : ''}
             </button>
-          `).join('') : '<div style="padding:0.4rem; color:#94a3b8; font-size:0.8rem;">Hoparlör algılanamadı</div>';
-        }
+          `;
+        }).join('') : '<div style="padding:0.4rem; color:#94a3b8; font-size:0.8rem;">Mikrofon algılanamadı</div>';
+
+        const speakerHTML = audioOutputs.length > 0 ? audioOutputs.map(d => `
+          <button type="button" class="teams-popover-item" onclick="WebRTC.switchAudioOutput('${d.deviceId}')">
+            <i class="fas fa-volume-up" style="color: #0ea5e9;"></i> ${d.label || 'Hoparlör'}
+          </button>
+        `).join('') : '<div style="padding:0.4rem; color:#94a3b8; font-size:0.8rem;">Hoparlör algılanamadı</div>';
+
+        if (camContainer) camContainer.innerHTML = camHTML;
+        if (micContainer) micContainer.innerHTML = micHTML;
+        if (speakerContainer) speakerContainer.innerHTML = speakerHTML;
+
+        if (modalCamContainer) modalCamContainer.innerHTML = camHTML;
+        if (modalMicContainer) modalMicContainer.innerHTML = micHTML;
+        if (modalSpeakerContainer) modalSpeakerContainer.innerHTML = speakerHTML;
       } catch (e) {
         console.warn("Cihaz listesi alınamadı:", e);
       }
     }
+
+    function togglePopoverMenu(menuId, event) {
+      if (event) event.stopPropagation();
+      const popover = document.getElementById(menuId);
+      if (!popover) return;
+
+      const isVisible = (popover.style.display === 'block');
+      document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.style.display = 'none');
+
+      if (!isVisible) {
+        popover.style.display = 'block';
+        if (typeof populateDevicePopovers === 'function') {
+          populateDevicePopovers();
+        }
+      }
+    }
+
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.teams-split-btn-group') && !e.target.closest('.meeting-nav-pill')) {
+        document.querySelectorAll('.teams-dropdown-popover').forEach(p => p.style.display = 'none');
+      }
+    });
 
     function switchMainView(viewMode) {
       activeMainView = viewMode;
@@ -1154,17 +1384,35 @@
 
     function switchSidebarTab(tabName) {
       activeSidebarTab = tabName;
-      document.getElementById('tabBtnChat')?.classList.remove('active');
-      document.getElementById('tabBtnParticipants')?.classList.remove('active');
-      document.getElementById('tabContentChat').style.display = 'none';
-      document.getElementById('tabContentParticipants').style.display = 'none';
+      ['tabBtnChat', 'tabBtnParticipants', 'tabBtnNotes'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+          btn.classList.remove('active');
+          btn.style.background = 'transparent';
+          btn.style.color = '#616161';
+          btn.style.border = 'none';
+        }
+      });
 
-      if (tabName === 'chat') {
-        document.getElementById('tabBtnChat')?.classList.add('active');
-        document.getElementById('tabContentChat').style.display = 'flex';
-      } else if (tabName === 'participants') {
-        document.getElementById('tabBtnParticipants')?.classList.add('active');
-        document.getElementById('tabContentParticipants').style.display = 'flex';
+      ['tabContentChat', 'tabContentParticipants', 'tabContentNotes'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+
+      const activeBtnId = (tabName === 'chat') ? 'tabBtnChat' : (tabName === 'notes' ? 'tabBtnNotes' : 'tabBtnParticipants');
+      const activeContentId = (tabName === 'chat') ? 'tabContentChat' : (tabName === 'notes' ? 'tabContentNotes' : 'tabContentParticipants');
+
+      const btn = document.getElementById(activeBtnId);
+      if (btn) {
+        btn.classList.add('active');
+        btn.style.background = '#eef2ff';
+        btn.style.color = '#5b5fc7';
+        btn.style.border = '1px solid #c7d2fe';
+      }
+
+      const content = document.getElementById(activeContentId);
+      if (content) {
+        content.style.display = 'flex';
       }
     }
 
@@ -1173,6 +1421,33 @@
       if (sidebar) sidebar.style.display = 'none';
       WebRTC.reflowVideoGrid();
     }
+
+    function publishLiveNote() {
+      const textInput = document.getElementById('sidebarNoteText');
+      if (!textInput || !textInput.value.trim()) return;
+      if (typeof WebRTC !== 'undefined' && WebRTC.broadcastNote) {
+        WebRTC.broadcastNote(textInput.value.trim());
+        textInput.value = '';
+      }
+    }
+
+    // Auto-Hiding Floating Control Dock (Mouse Hover & Near Bottom Trigger)
+    window.addEventListener('mousemove', function(e) {
+      const dock = document.getElementById('floatingBottomDock');
+      if (!dock) return;
+      
+      const popovers = dock.querySelectorAll('.teams-dropdown-popover');
+      let hasOpenPopover = false;
+      popovers.forEach(p => {
+        if (p.style.display === 'flex' || p.style.display === 'block') hasOpenPopover = true;
+      });
+
+      if (e.clientY >= window.innerHeight - 95 || dock.matches(':hover') || hasOpenPopover) {
+        dock.classList.add('dock-visible');
+      } else {
+        dock.classList.remove('dock-visible');
+      }
+    });
 
     function switchNotesTab(tabName) {
       const officialBtn = document.getElementById('tabBtnOfficialNotes');
@@ -1191,6 +1466,16 @@
         officialCont.style.display = 'none';
         personalCont.style.display = 'block';
       }
+    }
+
+    function toggleHeaderCollapse() {
+      const header = document.getElementById('mainAppTopHeader');
+      const icon = document.getElementById('headerCollapseIcon');
+      const text = document.getElementById('headerCollapseText');
+      if (!header) return;
+      const isCollapsed = header.classList.toggle('header-collapsed');
+      if (icon) icon.className = `fas ${isCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}`;
+      if (text) text.textContent = isCollapsed ? 'Genişlet' : 'Daralt';
     }
 
     function handleChatKeyPress(e) {

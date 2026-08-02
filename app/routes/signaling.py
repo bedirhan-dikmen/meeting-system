@@ -9,6 +9,7 @@ from app.core.database import SessionLocal
 from app.core.tz import get_tr_now
 # Sizin security dosyanızda kesinlikle var olan get_current_user fonksiyonunu çağırıyoruz
 from app.core.security import get_current_user
+from app.models.user import User
 from app.models.meeting import Meeting
 from app.models.participant_session import ParticipantSession
 from app.models.meeting_participant import MeetingParticipant
@@ -67,9 +68,11 @@ async def websocket_endpoint(
         try:
             current_user = get_current_user(db=db, token=token)
             if not current_user:
+                print("[WS AUTH] get_current_user returned None for token.")
                 await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
                 return
-        except Exception:
+        except Exception as err:
+            print(f"[WS AUTH ERROR] JWT verification failed: {err}")
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
         finally:
@@ -102,35 +105,41 @@ async def websocket_endpoint(
 
     if not is_guest:
         # Kayıtlı kullanıcı: oturum ve katılımcı kaydı
-        if meeting.status in ["planlandı", "taslak"]:
-            meeting.status = "ACTIVE"
-            if meeting.actual_start is None:
-                meeting.actual_start = get_tr_now()
-            db.commit()
+        try:
+            user_uuid = UUID(user_id_str)
+            if meeting.status in ["planlandı", "taslak"]:
+                meeting.status = "ACTIVE"
+                if meeting.actual_start is None:
+                    meeting.actual_start = get_tr_now()
+                db.commit()
 
-        session_entry = ParticipantSession(
-            meeting_id=meeting.id,
-            user_id=UUID(user_id_str),
-            joined_at=get_tr_now()
-        )
-        db.add(session_entry)
-
-        existing_p = db.query(MeetingParticipant).filter(
-            MeetingParticipant.meeting_id == meeting.id,
-            MeetingParticipant.user_id == UUID(user_id_str)
-        ).first()
-        if not existing_p:
-            db.add(MeetingParticipant(
+            session_entry = ParticipantSession(
                 meeting_id=meeting.id,
-                user_id=UUID(user_id_str),
-                role="host" if meeting.created_by == UUID(user_id_str) else "participant",
-                status="joined"
-            ))
+                user_id=user_uuid,
+                joined_at=get_tr_now()
+            )
+            db.add(session_entry)
 
-        db.commit()
-        session_id = session_entry.id
+            existing_p = db.query(MeetingParticipant).filter(
+                MeetingParticipant.meeting_id == meeting.id,
+                MeetingParticipant.user_id == user_uuid
+            ).first()
+            if not existing_p:
+                db.add(MeetingParticipant(
+                    meeting_id=meeting.id,
+                    user_id=user_uuid,
+                    role="host" if meeting.created_by == user_uuid else "participant",
+                    status="joined"
+                ))
 
-    db.close()
+            db.commit()
+            session_id = session_entry.id
+        except Exception:
+            db.rollback()
+
+    if not user_id_str:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
 
     # ── WebSocket bağlantısını kur ───────────────────────────────────────────
     await signaling_manager.connect(
@@ -143,16 +152,30 @@ async def websocket_endpoint(
     try:
         while True:
             data_text = await websocket.receive_text()
-            data = json.loads(data_text)
+            try:
+                data = json.loads(data_text)
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+            if not isinstance(data, dict):
+                continue
 
             target_id = data.get("target_id")
             data["sender_id"] = user_id_str
 
-            if data.get("type") == "user-joined" and data.get("user_info"):
-                await signaling_manager.update_user_info(meeting_code, user_id_str, data["user_info"])
+            if data.get("type") == "user-joined":
+                user_info_val = data.get("user_info")
+                # F5 Yenileme durumunu kontrol et ve is_reconnect bayrağını koru
+                disc_key = f"{meeting_code}:{user_id_str}"
+                is_reconn = data.get("is_reconnect", False) or (user_id_str in signaling_manager.active_rooms.get(meeting_code, {}))
+                data["is_reconnect"] = is_reconn
+                if isinstance(user_info_val, dict):
+                    await signaling_manager.update_user_info(meeting_code, user_id_str, user_info_val)
 
             if data.get("type") == "user-state-update":
-                await signaling_manager.update_user_info(meeting_code, user_id_str, data)
+                state_info_val = data.get("user_info") if isinstance(data.get("user_info"), dict) else data
+                if isinstance(state_info_val, dict):
+                    await signaling_manager.update_user_info(meeting_code, user_id_str, state_info_val)
 
             if data.get("type") == "screen-share-start":
                 signaling_manager.active_screen_shares[meeting_code] = {
@@ -163,6 +186,23 @@ async def websocket_endpoint(
             if data.get("type") == "screen-share-stop":
                 if meeting_code in signaling_manager.active_screen_shares:
                     del signaling_manager.active_screen_shares[meeting_code]
+
+            if data.get("type") == "lobby-join-request":
+                user_info_val = data.get("user_info") if isinstance(data.get("user_info"), dict) else user_info
+                await signaling_manager.add_pending_lobby_request(
+                    meeting_code=meeting_code,
+                    user_id=user_id_str,
+                    user_info=user_info_val
+                )
+                continue
+
+            if data.get("type") == "lobby-approve" and target_id:
+                await signaling_manager.approve_lobby_user(meeting_code, target_id)
+                continue
+
+            if data.get("type") == "lobby-reject" and target_id:
+                await signaling_manager.reject_lobby_user(meeting_code, target_id)
+                continue
 
             if data.get("type") == "guest-join-response":
                 if data.get("approved") is False and target_id:
@@ -176,12 +216,16 @@ async def websocket_endpoint(
             # Host toplantıyı bitirdiğinde DB güncellemesi
             if data.get("type") == "meeting-ended":
                 db_end = SessionLocal()
-                m_end = db_end.query(Meeting).filter(Meeting.meeting_code == meeting_code).first()
-                if m_end:
-                    m_end.status = "tamamlandı"
-                    m_end.actual_end = get_tr_now()
-                    db_end.commit()
-                db_end.close()
+                try:
+                    m_end = db_end.query(Meeting).filter(Meeting.meeting_code == meeting_code).first()
+                    if m_end:
+                        m_end.status = "tamamlandı"
+                        m_end.actual_end = get_tr_now()
+                        db_end.commit()
+                except Exception:
+                    db_end.rollback()
+                finally:
+                    db_end.close()
 
             if target_id:
                 await signaling_manager.send_targeted_message(
@@ -196,20 +240,24 @@ async def websocket_endpoint(
                     exclude_user=user_id_str
                 )
 
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, Exception):
         await signaling_manager.disconnect(meeting_code=meeting_code, user_id=user_id_str)
         # Katılımcı Oturum Bitiş Logu
         if session_id:
             db_disc = SessionLocal()
-            s_entry = db_disc.query(ParticipantSession).filter(ParticipantSession.id == session_id).first()
-            if s_entry and not s_entry.left_at:
-                now_tr = get_tr_now()
-                s_entry.left_at = now_tr
-                joined = s_entry.joined_at
-                if joined:
-                    s_entry.duration_seconds = max(0, int((now_tr - joined).total_seconds()))
-                db_disc.commit()
-            db_disc.close()
+            try:
+                s_entry = db_disc.query(ParticipantSession).filter(ParticipantSession.id == session_id).first()
+                if s_entry and not s_entry.left_at:
+                    now_tr = get_tr_now()
+                    s_entry.left_at = now_tr
+                    joined = s_entry.joined_at
+                    if joined:
+                        s_entry.duration_seconds = max(0, int((now_tr - joined).total_seconds()))
+                    db_disc.commit()
+            except Exception:
+                db_disc.rollback()
+            finally:
+                db_disc.close()
 
 
 @router.get("/ws-info", tags=["Canlı Sinyalleşme"])
@@ -219,7 +267,7 @@ def websocket_info():
     
     Bu modül, canlı toplantı odalarındaki WebRTC el sıkışmalarını (SDP Offer, Answer ve ICE Candidate) gerçek zamanlı yönetir.
     
-    * **WebSocket Adresi:** `ws://127.0.0.1:8000/api/v1/ws/{meeting_code}?token={jwt_token}`
+    * **WebSocket Adresi:** `ws://127.0.0.1:8000/api/v1/signaling/ws/{meeting_code}?token={jwt_token}`
     * **meeting_code:** Toplantıya ait benzersiz kod (Örn: `yeb-xxxx-xxxx`)
     * **token:** Sisteme giriş yaptıktan sonra aldığınız JWT Access Token string'i.
     
@@ -233,7 +281,18 @@ def websocket_info():
     ```
     """
     return {
-        "websocket_url": "ws://127.0.0.1:8000/api/v1/ws/{meeting_code}",
+        "websocket_url": "ws://127.0.0.1:8000/api/v1/signaling/ws/{meeting_code}",
         "protocol": "WebSocket",
         "requires_auth": True
     }
+
+
+@router.get("/lobby/{meeting_code}")
+def get_pending_lobby_requests(
+    meeting_code: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Toplantı odasında onay bekleyen lobi katılımcılarının listesini döner."""
+    requests = list(signaling_manager.pending_lobby_requests.get(meeting_code, {}).values())
+    return {"pending_requests": requests}
