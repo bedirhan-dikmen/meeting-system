@@ -22,7 +22,7 @@ services:
     container_name: meeting_system_db
     restart: always
     ports:
-      - "5442:5432"
+      - "5443:5432"
     environment:
       POSTGRES_USER: yebsoft_user
       POSTGRES_PASSWORD: YebsoftSecretPassword2026!
