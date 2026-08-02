@@ -69,13 +69,7 @@ services:
       - "5349:5349/tcp"
       - "5349:5349/udp"
       - "49152-49200:49152-49200/udp"
-    command:
-      - -n
-      - --log-file=stdout
-      - --lt-cred-mech
-      - --fingerprint
-      - --realm=turn.yebsoft.com
-      - --user=yebsoft_turn_user:yebsoft_turn_password_2026
+    command: ["turnserver", "-n", "--log-file=stdout", "--lt-cred-mech", "--fingerprint", "--realm=turn.yebsoft.com", "--user=yebsoft_turn_user:yebsoft_turn_password_2026"]
 
   nginx:
     image: nginx:alpine
