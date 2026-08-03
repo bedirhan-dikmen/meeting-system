@@ -868,6 +868,8 @@ const WebRTC = {
 
   attachLocalTracksToPeer(pc) {
     if (!pc || !this.localStream) return;
+    this.localStream.getVideoTracks().forEach(t => t.enabled = !this.isCameraOff);
+    this.localStream.getAudioTracks().forEach(t => t.enabled = !this.isMicMuted);
     const senders = pc.getSenders();
     this.localStream.getTracks().forEach(track => {
       const exists = senders.some(s => s.track === track || (s.track && s.track.kind === track.kind));
@@ -968,9 +970,8 @@ const WebRTC = {
         // Normal Kamera Akışı
         console.log(`[WebRTC] Doğrulanmış KAMERA akışı bağlandı (${remoteUserId})`);
         this.peerStreams[remoteUserId] = incomingStream;
-        if (this.participantsMap[remoteUserId]) {
-          this.participantsMap[remoteUserId].isCameraOff = false;
-        }
+        // Güvenlik & Tek Doğruluk Kaynağı: Katılımcının kamerasının açık/kapalı durumu 
+        // sinyalleşme ile kontrol edilir. Gelen WebRTC parçası isCameraOff durumunu ezemez.
         this.renderRemoteTile(remoteUserId, incomingStream);
         return;
       }
@@ -2137,13 +2138,17 @@ const WebRTC = {
     if (!deviceId) return;
     sessionStorage.setItem('meeting_cam_id', deviceId);
 
-    if (typeof Notifications !== 'undefined') {
-      Notifications.show("Kamera cihaz tercihi kaydedildi.", "success", "Kamera Tercihi");
+    // Güvenlik Katmanı: Kamera kapalıysa kesinlikle canlı medya başlatma veya akranlara akış gönderme
+    if (this.isCameraOff) {
+      console.log("[WebRTC Security] Kamera kapalı olduğu için cihaz tercihi saklandı, canlı video akışı başlatılmadı.");
+      if (typeof Notifications !== 'undefined') {
+        Notifications.show("Kamera cihaz tercihi kaydedildi (Kameranız kapalı).", "info", "Cihaz Tercihi");
+      }
+      return;
     }
 
-    // Kamera kapalıysa canlı akış başlatma, sadece tercihi kaydet
-    if (this.isCameraOff) {
-      return;
+    if (typeof Notifications !== 'undefined') {
+      Notifications.show("Kamera cihazı başarıyla değiştirildi.", "success", "Kamera Değişimi");
     }
 
     try {
@@ -2725,62 +2730,5 @@ const WebRTC = {
     }
   },
 
-  async switchVideoDevice(deviceId) {
-    try {
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: deviceId } },
-        audio: !this.isMicMuted
-      });
-      const newTrack = newStream.getVideoTracks()[0];
-      if (this.localStream) {
-        const oldTrack = this.localStream.getVideoTracks()[0];
-        if (oldTrack) this.localStream.removeTrack(oldTrack);
-        this.localStream.addTrack(newTrack);
-      }
-      const localVid = document.getElementById('localVideo');
-      if (localVid) localVid.srcObject = this.localStream;
-      for (const pc of Object.values(this.peers)) {
-        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) await sender.replaceTrack(newTrack);
-      }
-      Notifications.show("Kamera cihazı başarıyla değiştirildi.", "success", "Cihaz Değişimi");
-    } catch (e) {
-      console.warn("Kamera değiştirme hatası:", e);
-    }
-  },
 
-  async switchAudioInput(deviceId) {
-    try {
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        audio: { deviceId: { exact: deviceId } }
-      });
-      const newTrack = newStream.getAudioTracks()[0];
-      if (this.localStream) {
-        const oldTrack = this.localStream.getAudioTracks()[0];
-        if (oldTrack) this.localStream.removeTrack(oldTrack);
-        this.localStream.addTrack(newTrack);
-      }
-      for (const pc of Object.values(this.peers)) {
-        const sender = pc.getSenders().find(s => s.track?.kind === 'audio');
-        if (sender) await sender.replaceTrack(newTrack);
-      }
-      Notifications.show("Mikrofon cihazı başarıyla değiştirildi.", "success", "Cihaz Değişimi");
-    } catch (e) {
-      console.warn("Mikrofon değiştirme hatası:", e);
-    }
-  },
-
-  async switchAudioOutput(deviceId) {
-    try {
-      const audioElements = document.querySelectorAll('audio, video');
-      for (const el of audioElements) {
-        if (typeof el.setSinkId === 'function') {
-          await el.setSinkId(deviceId);
-        }
-      }
-      Notifications.show("Hoparlör çıkış cihazı değiştirildi.", "success", "Cihaz Değişimi");
-    } catch (e) {
-      console.warn("Hoparlör değiştirme hatası:", e);
-    }
-  }
 };

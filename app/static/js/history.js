@@ -8,6 +8,17 @@ const History = {
   async init() {
     if (typeof Auth !== 'undefined') {
       Auth.requireAuth();
+      const user = Auth.getUser();
+      const isAdmin = user && (user.role === 'admin' || user.role === 'manager' || user.role === 'host' || user.is_superuser);
+      if (!isAdmin) {
+        if (typeof Notifications !== 'undefined') {
+          Notifications.show("Kayıtlar sayfası yalnızca yönetici rolüne sahip kullanıcılara özeldir.", "danger", "Yetkisiz Erişim");
+        }
+        setTimeout(() => {
+          window.location.replace('/profile');
+        }, 1000);
+        return;
+      }
     }
     await this.fetchHistory();
   },
@@ -34,6 +45,15 @@ const History = {
       });
 
       if (!res.ok) {
+        if (res.status === 403) {
+          if (typeof Notifications !== 'undefined') {
+            Notifications.show("Kayıtlar arşivine erişim yetkiniz bulunmuyor. Profilinize yönlendiriliyorsunuz.", "danger", "Yetkisiz Erişim");
+          }
+          setTimeout(() => {
+            window.location.replace('/profile');
+          }, 1000);
+          return;
+        }
         throw new Error("Toplantı geçmişi yüklenirken bir hata oluştu.");
       }
 

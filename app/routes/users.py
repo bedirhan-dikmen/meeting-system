@@ -40,14 +40,16 @@ def read_current_user_profile_overview(
     from app.models.meeting_participant import MeetingParticipant
     from app.models.participant_session import ParticipantSession
 
-    session_meeting_ids = db.query(ParticipantSession.meeting_id).filter(
-        ParticipantSession.user_id == current_user.id
-    ).all()
-    session_m_ids = list(set([m_id for (m_id,) in session_meeting_ids]))
+    participant_m_ids = [m_id for (m_id,) in db.query(MeetingParticipant.meeting_id).filter(MeetingParticipant.user_id == current_user.id).all()]
+    session_m_ids = [m_id for (m_id,) in db.query(ParticipantSession.meeting_id).filter(ParticipantSession.user_id == current_user.id).all()]
+    all_user_m_ids = list(set(participant_m_ids + session_m_ids))
 
-    attended_meetings = db.query(Meeting).filter(
-        Meeting.id.in_(session_m_ids)
-    ).all() if session_m_ids else []
+    if all_user_m_ids:
+        attended_meetings = db.query(Meeting).filter(
+            (Meeting.created_by == current_user.id) | (Meeting.id.in_(all_user_m_ids))
+        ).all()
+    else:
+        attended_meetings = db.query(Meeting).filter(Meeting.created_by == current_user.id).all()
 
     all_user_meetings_dict = {m.id: m for m in attended_meetings}
     

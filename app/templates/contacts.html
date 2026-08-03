@@ -1,28 +1,38 @@
 {% extends "base.html" %}
 
-{% block title %}Kişiler & Mesajlaşma - Toplantı Yönetim Sistemi{% endblock %}
+{% block title %}Kişiler - YebMeeting{% endblock %}
 
 {% block content %}
-<div style="padding: 1.5rem 0;">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+<div class="dashboard-page-wrapper" style="padding: 0.5rem 0 1.5rem 0;">
+
+  <!-- PAGE HEADER ROW (UNIFIED POSITIONING) -->
+  <div class="dashboard-top-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.15rem; flex-wrap: wrap; gap: 0.75rem;">
     <div>
-      <h1 style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.25rem;">
-        <i class="fas fa-address-book" style="color: var(--accent-primary);"></i> Kurumsal Kişiler & Ekip
+      <h1 style="font-size: 1.45rem; font-weight: 800; color: #0f172a; margin: 0 0 0.15rem 0; line-height: 1.2; display: flex; align-items: center; gap: 0.55rem;">
+        Kurumsal Kişiler & Ekip
       </h1>
-      <p style="color: var(--text-muted); font-size: 0.9rem;">Şirket içi çalışma arkadaşlarınıza hızlıca ulaşın ve mesaj gönderin.</p>
+      <p style="color: #64748b; font-size: 0.82rem; font-weight: 500; margin: 0; line-height: 1.35;">
+        Şirket içi çalışma arkadaşlarınıza hızlıca ulaşın ve iletişim kurun.
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="/profile" class="btn-action-soft" style="background: #ffffff; color: #4f46e5; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.5rem 1.05rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.45rem; height: 38px; text-decoration: none; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+        <i class="fas fa-user-circle" style="color: #6366f1;"></i> Profil Bilgilerim
+      </a>
     </div>
   </div>
 
-  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 2rem; box-shadow: var(--shadow-sm); min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-    <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(91, 95, 199, 0.1); color: var(--accent-primary); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin-bottom: 1rem;">
+  <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 2rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.03); min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+    <div style="width: 64px; height: 64px; border-radius: 50%; background: #e0e7ff; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin-bottom: 1rem;">
       <i class="fas fa-comments"></i>
     </div>
-    <h3 style="font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">Kişisel Mesajlaşma Modülü Hazırlanıyor</h3>
-    <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 450px; margin-bottom: 1.5rem;">
+    <h3 style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin-bottom: 0.5rem;">Kişisel Mesajlaşma Modülü Hazırlanıyor</h3>
+    <p style="color: #64748b; font-size: 0.85rem; max-width: 450px; margin-bottom: 1.5rem;">
       Ekip arkadaşlarınıza özel mesaj gönderme ve anlık sohbet özellikleri geliştirme aşamasındadır.
     </p>
-    <a href="/profile" class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none;">
-      <i class="fas fa-user-circle"></i> Profil Bilgilerime Git
+    <a href="/profile" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.6rem 1.3rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+      <i class="fas fa-user-circle" style="color: #5b5fc7;"></i> Profil Bilgilerime Git
     </a>
   </div>
 </div>

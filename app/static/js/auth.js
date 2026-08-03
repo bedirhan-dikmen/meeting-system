@@ -142,14 +142,11 @@ const Auth = {
     const user = this.getUser();
     if (!user) return;
 
-    const dashNavItem = document.getElementById('navItemDashboard');
-    const historyNavItem = document.getElementById('navItemHistory');
+    const isAdmin = Boolean(user.role === 'admin' || user.role === 'manager' || user.role === 'host' || user.is_superuser);
+    const historyNavItem = document.getElementById('navItemHistory') || document.querySelector('a[href="/history"]');
 
-    if (dashNavItem) {
-      dashNavItem.style.display = 'block';
-    }
     if (historyNavItem) {
-      historyNavItem.style.display = 'block';
+      historyNavItem.style.display = isAdmin ? 'inline-block' : 'none';
     }
   },
 

@@ -3,21 +3,21 @@
 {% block title %}Toplantı Geçmişi ve Arşivi | Yönetici Paneli{% endblock %}
 
 {% block content %}
-<div class="history-page-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+<div class="dashboard-page-wrapper" style="padding: 0.5rem 0 1.5rem 0;">
   
-  <!-- PAGE HEADER -->
-  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+  <!-- PAGE HEADER ROW (UNIFIED POSITIONING) -->
+  <div class="dashboard-top-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.15rem; flex-wrap: wrap; gap: 0.75rem;">
     <div>
-      <h1 style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 0.6rem;">
-        <i class="fas fa-history" style="color: #6366f1;"></i> Toplantı Geçmişi & Arşivi
+      <h1 style="font-size: 1.45rem; font-weight: 800; color: #0f172a; margin: 0 0 0.15rem 0; line-height: 1.2; display: flex; align-items: center; gap: 0.55rem;">
+        Toplantı Geçmişi & Arşivi
       </h1>
-      <p style="font-size: 0.88rem; color: var(--text-muted); margin: 0.3rem 0 0 0;">
-        Sistem genelinde gerçekleştirilen ve tamamlanan tüm kurumsal toplantıların geçmiş kayıtlarını ve detaylı analitik verilerini inceleyin.
+      <p style="color: #64748b; font-size: 0.82rem; font-weight: 500; margin: 0; line-height: 1.35;">
+        Sistem genelinde gerçekleştirilen ve tamamlanan tüm toplantıların geçmiş kayıtlarını ve detaylı verilerini inceleyin.
       </p>
     </div>
-    <div style="display: flex; gap: 0.6rem;">
-      <button onclick="History.refresh()" class="btn btn-secondary" style="border-radius: 9px; font-weight: 600;">
-        <i class="fas fa-sync-alt"></i> Yenile
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <button onclick="History.refresh()" class="btn-action-soft" style="background: #ffffff; color: #4f46e5; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.5rem 1.05rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.45rem; height: 38px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+        <i class="fas fa-sync-alt" style="color: #6366f1;"></i> Yenile
       </button>
     </div>
   </div>

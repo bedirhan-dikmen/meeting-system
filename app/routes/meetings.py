@@ -101,20 +101,15 @@ def read_meeting_history(
     from app.models.user import User
     from sqlalchemy import func
 
-    is_admin = getattr(current_user, "role", None) in ["admin", "manager"] or getattr(current_user, "is_superuser", False)
-    query = db.query(Meeting).filter(Meeting.status.in_(["tamamlandı", "completed"]))
-
+    is_admin = getattr(current_user, "role", None) in ["admin", "manager", "host"] or getattr(current_user, "is_superuser", False)
     if not is_admin:
-        user_id = current_user.id
-        user_meeting_ids = db.query(MeetingParticipant.meeting_id).filter(
-            MeetingParticipant.user_id == user_id
-        ).union(
-            db.query(ParticipantSession.meeting_id).filter(
-                ParticipantSession.user_id == user_id
-            )
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Kayıtlar ve tüm geçmiş toplantı arşivi yalnızca yönetici rolüne sahip kullanıcılara özeldir."
         )
-        query = query.filter((Meeting.created_by == user_id) | (Meeting.id.in_(user_meeting_ids)))
 
+    query = db.query(Meeting).filter(Meeting.status.in_(["tamamlandı", "completed"]))
     meetings = query.order_by(Meeting.created_at.desc()).all()
     history_data = []
 

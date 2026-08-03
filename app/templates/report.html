@@ -3,28 +3,30 @@
 {% block title %}Toplantı Katılım ve Sonuç Raporu - YebMeeting{% endblock %}
 
 {% block content %}
-<!-- EXECUTIVE REPORT HERO BANNER -->
-<div class="executive-hero no-print">
-  <div>
-    <div class="executive-badge executive-badge-emerald">
-      <i class="fas fa-file-contract"></i> Executive Report Portal
+<div class="dashboard-page-wrapper no-print" style="padding: 0.5rem 0 1.25rem 0;">
+
+  <!-- PAGE HEADER ROW (UNIFIED POSITIONING) -->
+  <div class="dashboard-top-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.15rem; flex-wrap: wrap; gap: 0.75rem;">
+    <div>
+      <h1 style="font-size: 1.45rem; font-weight: 800; color: #0f172a; margin: 0 0 0.15rem 0; line-height: 1.2; display: flex; align-items: center; gap: 0.55rem;">
+        Toplantı Katılım & Tutanak Raporu
+      </h1>
+      <p style="color: #64748b; font-size: 0.82rem; font-weight: 500; margin: 0; line-height: 1.35;">
+        Sonlanan oturum tutanağı, kesinleşen kararlar, katılım süreleri ve onaylanmış aksiyonlar.
+      </p>
     </div>
-    <h1 class="executive-title">Toplantı Katılım & Resmi Tutanak Raporu</h1>
-    <p class="executive-subtitle">Sonlanan oturum tutanağı, kesinleşen kararlar, katılım süreleri ve onaylanmış
-      aksiyonlar</p>
-  </div>
-  <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-    <a id="btnBackToMeetings" href="/meetings" class="btn"
-      style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; padding: 0.75rem 1.25rem; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem;">
-      <i class="fas fa-arrow-left"></i> Toplantılara Dön
-    </a>
-    <button id="btnGuestLogout" onclick="Report.guestExit()" class="btn"
-      style="display: none; background: #e11d48; border: none; color: #ffffff; padding: 0.75rem 1.25rem; border-radius: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer; align-items: center; gap: 0.5rem;">
-      <i class="fas fa-sign-out-alt"></i> Oturumu Kapat / Çıkış Yap
-    </button>
-    <button onclick="Report.printReport()" class="btn-emerald">
-      <i class="fas fa-file-pdf"></i> Raporu Yazdır / PDF İndir
-    </button>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+      <a id="btnBackToMeetings" href="/meetings" class="btn-action-soft" style="background: #ffffff; color: #4f46e5; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.5rem 1.05rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.45rem; height: 38px; text-decoration: none; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+        <i class="fas fa-arrow-left" style="color: #6366f1;"></i> Toplantılara Dön
+      </a>
+      <button id="btnGuestLogout" onclick="Report.guestExit()" style="display: none; background: #ffe4e6; color: #e11d48; border: 1px solid #fecdd3; border-radius: 10px; padding: 0.5rem 1.05rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; align-items: center; gap: 0.45rem; height: 38px;">
+        <i class="fas fa-sign-out-alt"></i> Oturumu Kapat / Çıkış Yap
+      </button>
+      <button onclick="Report.printReport()" class="btn-action-purple" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 10px; padding: 0.5rem 1.15rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.55rem; height: 38px; box-shadow: 0 4px 12px rgba(91, 95, 199, 0.22); transition: all 0.2s ease;">
+        <i class="fas fa-file-pdf"></i> Raporu Yazdır / PDF İndir
+      </button>
+    </div>
   </div>
 </div>
 

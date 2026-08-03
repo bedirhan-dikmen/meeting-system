@@ -3,26 +3,26 @@
 {% block title %}Toplantılarım - YebMeeting{% endblock %}
 
 {% block content %}
-<div class="dashboard-page-wrapper" style="padding: 1.5rem 0 3rem 0;">
+<div class="dashboard-page-wrapper" style="padding: 0.5rem 0 1.5rem 0;">
 
-  <!-- PAGE HEADER ROW (MATCHING SCREENSHOTS 1:1) -->
-  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.75rem; flex-wrap: wrap; gap: 1rem;">
+  <!-- PAGE HEADER ROW (UNIFIED POSITIONING) -->
+  <div class="dashboard-top-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.15rem; flex-wrap: wrap; gap: 0.75rem;">
     <div>
-      <h1 style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem;">
+      <h1 style="font-size: 1.45rem; font-weight: 800; color: #0f172a; margin: 0 0 0.15rem 0; line-height: 1.2; display: flex; align-items: center; gap: 0.55rem;">
         Toplantılarım
       </h1>
-      <p style="color: #64748b; font-size: 0.9rem; font-weight: 500;">
+      <p style="color: #64748b; font-size: 0.82rem; font-weight: 500; margin: 0; line-height: 1.35;">
         Tüm toplantılarınızı yönetin ve planlayın.
       </p>
     </div>
 
-    <div style="display: flex; align-items: center; gap: 0.85rem;">
-      <button onclick="Meetings.openQuickMeetingModal()" class="btn-action-soft" style="background: #ffffff; color: #4f46e5; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.65rem 1.2rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <button onclick="Meetings.openQuickMeetingModal()" class="btn-action-soft" style="background: #ffffff; color: #4f46e5; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.5rem 1.05rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.45rem; height: 38px; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
         <i class="fas fa-bolt" style="color: #6366f1;"></i> Hızlı Toplantı
       </button>
 
-      <button onclick="Meetings.openCreateModal()" class="btn-action-purple" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 10px; padding: 0.65rem 1.25rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 0.65rem; box-shadow: 0 4px 12px rgba(91, 95, 199, 0.25); transition: all 0.2s ease;">
-        <i class="far fa-calendar-plus"></i> Toplantı Planla <i class="fas fa-chevron-down" style="font-size: 0.75rem;"></i>
+      <button onclick="Meetings.openCreateModal()" class="btn-action-purple" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 10px; padding: 0.5rem 1.15rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.55rem; height: 38px; box-shadow: 0 4px 12px rgba(91, 95, 199, 0.22); transition: all 0.2s ease;">
+        <i class="far fa-calendar-plus"></i> Toplantı Planla <i class="fas fa-chevron-down" style="font-size: 0.7rem;"></i>
       </button>
     </div>
   </div>

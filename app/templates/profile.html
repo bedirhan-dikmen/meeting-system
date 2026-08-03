@@ -3,16 +3,25 @@
 {% block title %}Profilim - YebMeeting{% endblock %}
 
 {% block content %}
-<!-- EXECUTIVE PROFILE HERO BANNER -->
-<div class="executive-hero">
-  <div>
-    <div class="executive-badge executive-badge-purple">
-      <i class="fas fa-user-shield"></i> Executive Profile Portal
+<div class="dashboard-page-wrapper" style="padding: 0.5rem 0 1.5rem 0;">
+
+  <!-- PAGE HEADER ROW (UNIFIED POSITIONING) -->
+  <div class="dashboard-top-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.15rem; flex-wrap: wrap; gap: 0.75rem;">
+    <div>
+      <h1 style="font-size: 1.45rem; font-weight: 800; color: #0f172a; margin: 0 0 0.15rem 0; line-height: 1.2; display: flex; align-items: center; gap: 0.55rem;">
+        Profil & Ayarlar
+      </h1>
+      <p style="color: #64748b; font-size: 0.82rem; font-weight: 500; margin: 0; line-height: 1.35;">
+        Kullanıcı bilgilerinizi, katılım detaylarınızı ve hesap tercihlerinizi yönetin.
+      </p>
     </div>
-    <h1 class="executive-title">Kullanıcı Profili & Toplantı Geçmişim</h1>
-    <p class="executive-subtitle">Katıldığınız tüm kurumsal oturum detaylarını, kişisel katılım sürelerinizi ve resmi raporlarınızı yönetin</p>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <button onclick="Auth.openProfileModal()" class="btn-action-soft" style="background: #ffffff; color: #4f46e5; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.5rem 1.05rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.45rem; height: 38px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+        <i class="fas fa-pen" style="color: #6366f1;"></i> Profili Düzenle
+      </button>
+    </div>
   </div>
-</div>
 
 <!-- USER PROFILE OVERVIEW HEADER CARD -->
 <div class="card" style="margin-bottom: 1.5rem; padding: 1.5rem; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
@@ -104,6 +113,7 @@
         </tr>
       </tbody>
     </table>
+  </div>
   </div>
 </div>
 {% endblock %}
