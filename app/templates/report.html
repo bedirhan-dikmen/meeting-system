@@ -126,10 +126,27 @@
   <div style="margin-bottom: 2.25rem;">
     <h3
       style="font-size: 1.05rem; font-weight: 700; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.5rem; margin-bottom: 1rem;">
-      2. Toplantı Notları ve Kararlar
+      2. Toplantı Kararları ve Notları
     </h3>
-    <div id="repNotesList" style="display: flex; flex-direction: column; gap: 0.75rem;">
-      <!-- Populated by report.js -->
+
+    <!-- Genel Notlar -->
+    <div style="margin-bottom: 1.25rem;">
+      <h4 style="font-size: 0.92rem; font-weight: 700; color: #4f46e5; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
+        <i class="fas fa-bullhorn"></i> Genel Toplantı Kararları & Duyurular
+      </h4>
+      <div id="repGeneralNotesList" style="display: flex; flex-direction: column; gap: 0.65rem;">
+        <!-- Populated by report.js -->
+      </div>
+    </div>
+
+    <!-- Kişisel Notlar -->
+    <div id="repPersonalNotesWrapper" style="margin-top: 1.25rem;">
+      <h4 style="font-size: 0.92rem; font-weight: 700; color: #059669; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
+        <i class="fas fa-user-lock"></i> Sadece Bana Özel Kişisel Notlarım
+      </h4>
+      <div id="repPersonalNotesList" style="display: flex; flex-direction: column; gap: 0.65rem;">
+        <!-- Populated by report.js -->
+      </div>
     </div>
   </div>
 

@@ -12,7 +12,7 @@ from app.models.user import User
 
 from app.core.tz import get_tr_now
 
-def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict]:
+def generate_meeting_report_data(db: Session, meeting_id: UUID, current_user_id: Optional[UUID] = None) -> Optional[dict]:
     """Toplantıya ait tüm analitik verileri toplayıp rapor sözlüğü üretir."""
     # 1. Toplantıyı getir
     meeting = db.get(Meeting, meeting_id)
@@ -59,18 +59,33 @@ def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict
     )
     notes_list = db.scalars(stmt_notes).all()
     notes_summary = []
+    general_notes = []
+    personal_notes = []
+
     for note in notes_list:
+        note_type = getattr(note, 'note_type', 'general') or 'general'
+        if note_type == 'personal':
+            if not current_user_id or note.author_id != current_user_id:
+                continue
+
         author_name = "Bilinmeyen Katılımcı"
         if note.author_id:
             author = db.get(User, note.author_id)
             if author:
-                author_name = f"{author.first_name} {author.last_name}"
-        notes_summary.append({
+                author_name = f"{author.first_name or ''} {author.last_name or ''}".strip() or author.email
+        
+        item = {
             "id": note.id,
             "author_name": author_name,
             "content": note.content,
+            "note_type": note_type,
             "created_at": note.created_at
-        })
+        }
+        notes_summary.append(item)
+        if note_type == 'personal':
+            personal_notes.append(item)
+        else:
+            general_notes.append(item)
 
     # 4. Başlangıç zamanını belirle
     scheduled_start_val = getattr(meeting, 'start_time', None)
@@ -103,6 +118,8 @@ def generate_meeting_report_data(db: Session, meeting_id: UUID) -> Optional[dict
         "total_notes_count": len(notes_summary),
         "participants_summary": participants_summary,
         "notes": notes_summary,
+        "general_notes": general_notes,
+        "personal_notes": personal_notes,
     }
     return report_data
-
+

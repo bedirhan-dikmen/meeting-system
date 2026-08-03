@@ -108,18 +108,18 @@ const Report = {
 
     if (r.actual_start) {
       const start = this.parseDate(r.actual_start);
-      const startStr = start.toLocaleString('tr-TR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+      const startStr = start.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
       let rangeStr = startStr;
       if (r.actual_end) {
         const end = this.parseDate(r.actual_end);
-        const endStr = end.toLocaleTimeString('tr-TR', { hour:'2-digit', minute:'2-digit' });
+        const endStr = end.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
         rangeStr = `${startStr} – ${endStr}`;
       }
       if (timeRow) timeRow.style.display = 'block';
       if (timeRange) timeRange.textContent = rangeStr;
     } else if (r.scheduled_start) {
       const start = this.parseDate(r.scheduled_start);
-      const startStr = start.toLocaleString('tr-TR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+      const startStr = start.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
       if (timeRow) timeRow.style.display = 'block';
       if (timeRange) timeRange.textContent = startStr + ' (Planlanan)';
     }
@@ -146,18 +146,41 @@ const Report = {
       }
     }
 
-    // TOPLANTI NOTLARI
-    const notesContainer = document.getElementById('repNotesList');
-    if (notesContainer) {
-      if (!r.notes || r.notes.length === 0) {
-        notesContainer.innerHTML = `<div style="padding: 0.85rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 0.85rem;">Herhangi bir toplantı notu kaydedilmemiştir.</div>`;
+    // TOPLANTI NOTLARI (Genel vs Kişisel)
+    const genNotesContainer = document.getElementById('repGeneralNotesList');
+    const persNotesContainer = document.getElementById('repPersonalNotesList');
+
+    const generalNotes = r.general_notes || (r.notes ? r.notes.filter(n => (n.note_type || 'general') === 'general') : []);
+    const personalNotes = r.personal_notes || (r.notes ? r.notes.filter(n => n.note_type === 'personal') : []);
+
+    if (genNotesContainer) {
+      if (generalNotes.length === 0) {
+        genNotesContainer.innerHTML = `<div style="padding: 0.75rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; color: #64748b; font-size: 0.85rem;">Genel karar veya duyuru kaydedilmemiştir.</div>`;
       } else {
-        notesContainer.innerHTML = r.notes.map(n => `
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.85rem 1rem; border-radius: 6px;">
-            <div style="font-size: 0.78rem; font-weight: 700; color: #5b5fc7; margin-bottom: 0.25rem;">
-              Yayınlayan: ${n.author_name} • ${this.parseDate(n.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+        genNotesContainer.innerHTML = generalNotes.map(n => `
+          <div style="background: #ffffff; border: 1px solid #c7d2fe; padding: 0.85rem 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="font-size: 0.78rem; font-weight: 700; color: #4f46e5; margin-bottom: 0.25rem;">
+              <i class="fas fa-bullhorn"></i> Yayınlayan: ${n.author_name} • ${this.parseDate(n.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
             </div>
-            <div style="font-size: 0.9rem; color: #1e293b; line-height: 1.4;">${n.content}</div>
+            <div style="font-size: 0.9rem; color: #1e293b; line-height: 1.5; white-space: pre-wrap;">${n.content}</div>
+          </div>
+        `).join('');
+      }
+    }
+
+    if (persNotesContainer) {
+      if (isGuest) {
+        const wrapper = document.getElementById('repPersonalNotesWrapper');
+        if (wrapper) wrapper.style.display = 'none';
+      } else if (personalNotes.length === 0) {
+        persNotesContainer.innerHTML = `<div style="padding: 0.75rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; color: #64748b; font-size: 0.85rem;">Bu toplantıda kaydettiğiniz kişisel özel notunuz bulunmuyor.</div>`;
+      } else {
+        persNotesContainer.innerHTML = personalNotes.map(n => `
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 0.85rem 1rem; border-radius: 8px;">
+            <div style="font-size: 0.78rem; font-weight: 700; color: #059669; margin-bottom: 0.25rem;">
+              <i class="fas fa-lock"></i> Özel Notum • ${this.parseDate(n.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+            <div style="font-size: 0.9rem; color: #14532d; line-height: 1.5; white-space: pre-wrap;">${n.content}</div>
           </div>
         `).join('');
       }

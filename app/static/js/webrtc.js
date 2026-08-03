@@ -68,7 +68,7 @@ const WebRTC = {
     const unlock = () => {
       document.querySelectorAll('audio, video').forEach(el => {
         if (el.srcObject && el.paused) {
-          el.play().catch(() => {});
+          el.play().catch(() => { });
         }
       });
     };
@@ -325,7 +325,7 @@ const WebRTC = {
             });
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     }, 3000);
   },
 
@@ -501,14 +501,19 @@ const WebRTC = {
         }
         if (data.active_screen_share && data.active_screen_share.presenter_id) {
           const presenterId = String(data.active_screen_share.presenter_id);
+          // stream_id'yi kaydet ki ontrack'te isScreenStreamIdMatch çalışsın
+          this.activeScreenStreamId = data.active_screen_share.stream_id || null;
+          this.screenSharePresenterId = presenterId;
           const presenterStream = this.peerStreams[presenterId] || (document.getElementById(`remoteVideo_${presenterId}`)?.srcObject) || null;
           if (presenterStream) {
-            this.screenSharePresenterId = presenterId;
             this.enableScreenShareLayout(data.active_screen_share.presenter_name || 'Katılımcı', presenterStream);
           } else {
-            this.disableScreenShareLayout();
+            // Stream henüz hazır değil — UI'ı gizle ama presenter ID'yi koru
+            // ontrack gelince isScreenStreamIdMatch ile layout tekrar açılacak
+            this.disableScreenShareLayout(true); // preservePresenterId=true
           }
         } else {
+          this.activeScreenStreamId = null;
           this.disableScreenShareLayout();
         }
         break;
@@ -718,7 +723,7 @@ const WebRTC = {
       case 'guest-rejected':
         Notifications.show(data.message || "Toplantı odası erişiminiz sonlandırıldı.", "danger", "Erişim Reddedildi");
         if (this.socket) {
-          try { this.socket.close(4003, "Kicked/Rejected"); } catch(e) {}
+          try { this.socket.close(4003, "Kicked/Rejected"); } catch (e) { }
         }
         setTimeout(() => {
           sessionStorage.removeItem('guest_token');
@@ -934,18 +939,17 @@ const WebRTC = {
         const trackLabel = (event.track?.label || '').toLowerCase();
         const contentHint = (event.track?.contentHint || '').toLowerCase();
 
-        // Ekran paylaşımı tespiti
-        const isExplicitScreen = streamIdLower.includes('screen') || streamIdLower.includes('display') || 
-                                 trackLabel.includes('screen') || trackLabel.includes('display') || 
-                                 trackLabel.includes('window') || trackLabel.includes('monitor') || 
-                                 trackLabel.includes('desktop') || trackLabel.includes('entire') ||
-                                 contentHint === 'motion';
+        // Ekran paylaşımı tespiti — yalnızca kesin stream_id eşleşmesi veya label/streamId bazlı
+        // NOT: contentHint==='motion' ve (isPresenter && hasExistingWebcam) heuristikleri kaldırıldı;
+        // bunlar kamera akışlarını yanlışlıkla ekran paylaşımı olarak tanımlayabiliyordu.
+        const isExplicitScreen = streamIdLower.includes('screen') || streamIdLower.includes('display') ||
+          trackLabel.includes('screen') || trackLabel.includes('display') ||
+          trackLabel.includes('window') || trackLabel.includes('monitor') ||
+          trackLabel.includes('desktop') || trackLabel.includes('entire');
 
         const isScreenStreamIdMatch = Boolean(this.activeScreenStreamId && streamId === this.activeScreenStreamId);
-        const isPresenter = (String(this.screenSharePresenterId) === String(remoteUserId));
-        const hasExistingWebcam = Boolean(this.peerStreams[remoteUserId] && this.peerStreams[remoteUserId].getVideoTracks().length > 0);
 
-        if (isScreenStreamIdMatch || isExplicitScreen || (isPresenter && hasExistingWebcam)) {
+        if (isScreenStreamIdMatch || isExplicitScreen) {
           console.log(`[WebRTC] Doğrulanmış EKRAN PAYLAŞIM akışı bağlandı (${remoteUserId})`);
           this.peerScreenStreams[remoteUserId] = incomingStream;
 
@@ -1286,7 +1290,7 @@ const WebRTC = {
     }
   },
 
-  disableScreenShareLayout() {
+  disableScreenShareLayout(preservePresenterId = false) {
     const shareArea = document.getElementById('screenShareArea');
     const grid = document.getElementById('videoGrid');
     const topBar = document.getElementById('topCarouselBar');
@@ -1316,7 +1320,9 @@ const WebRTC = {
       }
     });
 
-    this.screenSharePresenterId = null;
+    if (!preservePresenterId) {
+      this.screenSharePresenterId = null;
+    }
     this.isScreenSharing = false;
     this.updateScreenShareButtonState(false);
 
@@ -1393,7 +1399,7 @@ const WebRTC = {
     if (isSpeaking) {
       this.smartGalleryState.lastSpokenMap[userId] = Date.now();
     }
-    
+
     // Highlight tile border
     const tileId = (userId === this.currentUser?.id || userId === 'local') ? 'localParticipantTile' : `remoteTile_${userId}`;
     const tile = document.getElementById(tileId);
@@ -1490,42 +1496,42 @@ const WebRTC = {
       allTiles.forEach(tile => {
         tile.style.setProperty('display', 'flex', 'important');
         const vid = tile.querySelector('video');
-        if (vid && vid.paused) vid.play().catch(e => {});
+        if (vid && vid.paused) vid.play().catch(e => { });
       });
     } else if (totalCount === 2) {
       grid.classList.add('grid-2');
       allTiles.forEach(tile => {
         tile.style.setProperty('display', 'flex', 'important');
         const vid = tile.querySelector('video');
-        if (vid && vid.paused) vid.play().catch(e => {});
+        if (vid && vid.paused) vid.play().catch(e => { });
       });
     } else if (totalCount === 3) {
       grid.classList.add('grid-3');
       allTiles.forEach(tile => {
         tile.style.setProperty('display', 'flex', 'important');
         const vid = tile.querySelector('video');
-        if (vid && vid.paused) vid.play().catch(e => {});
+        if (vid && vid.paused) vid.play().catch(e => { });
       });
     } else if (totalCount === 4) {
       grid.classList.add('grid-4');
       allTiles.forEach(tile => {
         tile.style.setProperty('display', 'flex', 'important');
         const vid = tile.querySelector('video');
-        if (vid && vid.paused) vid.play().catch(e => {});
+        if (vid && vid.paused) vid.play().catch(e => { });
       });
     } else if (totalCount <= 8) {
       grid.classList.add('grid-8');
       allTiles.forEach(tile => {
         tile.style.setProperty('display', 'flex', 'important');
         const vid = tile.querySelector('video');
-        if (vid && vid.paused) vid.play().catch(e => {});
+        if (vid && vid.paused) vid.play().catch(e => { });
       });
     } else if (totalCount <= 12) {
       grid.classList.add('grid-12');
       allTiles.forEach(tile => {
         tile.style.setProperty('display', 'flex', 'important');
         const vid = tile.querySelector('video');
-        if (vid && vid.paused) vid.play().catch(e => {});
+        if (vid && vid.paused) vid.play().catch(e => { });
       });
     } else {
       // 13+ participants: STRICTLY CAP AT 12 SLOTS (3 ROWS x 4 COLS)
@@ -1539,7 +1545,7 @@ const WebRTC = {
         if (index < maxVisibleParticipantTiles) {
           tile.style.setProperty('display', 'flex', 'important');
           // Bandwidth/CPU optimization: play video for visible tiles
-          if (vid && vid.paused) vid.play().catch(e => {});
+          if (vid && vid.paused) vid.play().catch(e => { });
         } else {
           tile.style.setProperty('display', 'none', 'important');
           // Bandwidth/CPU optimization: pause video for hidden tiles
@@ -1621,16 +1627,34 @@ const WebRTC = {
   },
 
   renderLiveNote(data) {
-    const container = document.getElementById('notesFeedContainer');
-    if (!container) return;
+    const containers = [
+      document.getElementById('notesFeedContainer'),
+      document.getElementById('sidebarNotesFeedContainer')
+    ];
 
-    const card = document.createElement('div');
-    card.className = 'note-card';
-    card.innerHTML = `
-      <div class="note-card-body">${data.content}</div>
-    `;
+    containers.forEach(container => {
+      if (!container) return;
 
-    container.prepend(card);
+      const placeholder = container.querySelector('div[style*="dashed"]');
+      if (placeholder) placeholder.style.display = 'none';
+
+      const card = document.createElement('div');
+      card.className = 'note-card';
+      card.style.background = '#ffffff';
+      card.style.border = '1px solid #cbd5e1';
+      card.style.borderRadius = '10px';
+      card.style.padding = '0.85rem';
+      card.style.marginBottom = '0.65rem';
+      card.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)';
+      card.innerHTML = `
+        <div style="font-size: 0.75rem; font-weight: 700; color: #4f46e5; margin-bottom: 0.3rem;">
+          <i class="fas fa-bullhorn"></i> ${data.author || 'Toplantı Kararı'} • ${data.created_at || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </div>
+        <div class="note-card-body" style="font-size: 0.88rem; color: #0f172a; line-height: 1.5; white-space: pre-wrap;">${data.content}</div>
+      `;
+
+      container.prepend(card);
+    });
   },
 
   removePeer(remoteUserId) {
@@ -1668,8 +1692,8 @@ const WebRTC = {
     try {
       const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
       audio.volume = 0.6;
-      audio.play().catch(() => {});
-    } catch (e) {}
+      audio.play().catch(() => { });
+    } catch (e) { }
 
     // Top notification container placed cleanly below navbar (top: 80px)
     let bannerContainer = document.getElementById('lobbyTopBannerContainer');
@@ -1895,7 +1919,7 @@ const WebRTC = {
       Notifications.show("Toplantıdan başarıyla ayrıldınız.", "info", "Ayrıldınız");
     }
     setTimeout(() => {
-      window.location.replace('/meetings');
+      window.location.replace('/');
     }, 400);
   },
 
@@ -2495,8 +2519,8 @@ const WebRTC = {
 
     try {
       const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-      audio.play().catch(() => {});
-    } catch (e) {}
+      audio.play().catch(() => { });
+    } catch (e) { }
   },
 
   acceptScreenShareApproval() {
@@ -2542,8 +2566,8 @@ const WebRTC = {
     // Uyarı zili ve bildirim fırlat
     try {
       const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-      audio.play().catch(() => {});
-    } catch (e) {}
+      audio.play().catch(() => { });
+    } catch (e) { }
 
     if (window.Notifications) {
       Notifications.show(`Katılım Talebi: ${guestName} lobi bekleme odasında onay bekliyor.`, 'info', 'Lobi Bildirimi');
@@ -2589,7 +2613,7 @@ const WebRTC = {
       if (oldScreenAudioTrack) {
         const audioSender = senders.find(s => s.track === oldScreenAudioTrack);
         if (audioSender) {
-          try { pc.removeTrack(audioSender); } catch (e) {}
+          try { pc.removeTrack(audioSender); } catch (e) { }
         }
       }
       if (pc.signalingState === 'stable') {
@@ -2604,7 +2628,7 @@ const WebRTC = {
     const localVid = document.getElementById('localVideo');
     if (localVid && this.localStream) {
       localVid.srcObject = this.localStream;
-      localVid.play().catch(() => {});
+      localVid.play().catch(() => { });
     }
 
     this.renderLocalTile();
@@ -2666,11 +2690,9 @@ const WebRTC = {
   },
 
   leaveMeeting() {
-    if (confirm("Toplantıdan ayrılmak istiyor musunuz?")) {
-      this.sendSignal({ type: 'user-left', explicit: true });
-      if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
-      window.location.href = '/meetings';
-    }
+    this.sendSignal({ type: 'user-left', explicit: true });
+    if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
+    window.location.href = '/';
   },
 
   startTimer() {

@@ -15,6 +15,7 @@ class ReportNoteOut(BaseModel):
     id: UUID
     author_name: str
     content: str
+    note_type: str = "general"
     created_at: datetime
 
 class MeetingReportOut(BaseModel):
@@ -31,5 +32,7 @@ class MeetingReportOut(BaseModel):
 
     participants_summary: List[ParticipantTimeSummary]
     notes: List[ReportNoteOut]
+    general_notes: Optional[List[ReportNoteOut]] = []
+    personal_notes: Optional[List[ReportNoteOut]] = []
 
     model_config = ConfigDict(from_attributes=True)

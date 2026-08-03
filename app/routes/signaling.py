@@ -180,7 +180,8 @@ async def websocket_endpoint(
             if data.get("type") == "screen-share-start":
                 signaling_manager.active_screen_shares[meeting_code] = {
                     "presenter_id": user_id_str,
-                    "presenter_name": data.get("presenter_name", "Katılımcı")
+                    "presenter_name": data.get("presenter_name", "Katılımcı"),
+                    "stream_id": data.get("stream_id")
                 }
 
             if data.get("type") == "screen-share-stop":

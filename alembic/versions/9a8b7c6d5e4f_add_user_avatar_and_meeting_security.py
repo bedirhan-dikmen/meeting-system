@@ -27,10 +27,14 @@ def upgrade() -> None:
     op.add_column('meetings', sa.Column('passcode', sa.String(length=50), nullable=True))
     op.add_column('meetings', sa.Column('lobby_enabled', sa.Boolean(), server_default='false', nullable=False))
     op.add_column('meetings', sa.Column('is_private', sa.Boolean(), server_default='false', nullable=False))
+    
+    # Add meeting_code to notifications table
+    op.add_column('notifications', sa.Column('meeting_code', sa.String(), nullable=True))
 
 
 def downgrade() -> None:
     """Downgrade schema."""
+    op.drop_column('notifications', 'meeting_code')
     op.drop_column('meetings', 'is_private')
     op.drop_column('meetings', 'lobby_enabled')
     op.drop_column('meetings', 'passcode')

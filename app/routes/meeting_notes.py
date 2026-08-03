@@ -29,7 +29,9 @@ def read_meeting_notes(
     access_claims: dict = Depends(verify_meeting_access)
 ):
     """Bir toplantıya ait tüm notları listeler (Yetki sarmalayıcısı korumalı)."""
-    return notes_service.get_meeting_notes(db, meeting_id=meeting_id)
+    user_id_str = access_claims.get("sub")
+    current_user_id = UUID(user_id_str) if user_id_str else None
+    return notes_service.get_meeting_notes(db, meeting_id=meeting_id, user_id=current_user_id)
 
 @router.delete("/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_meeting_note(

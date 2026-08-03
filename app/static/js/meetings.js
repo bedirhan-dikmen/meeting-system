@@ -641,7 +641,35 @@ const Meetings = {
     this.renderUsersListContainer(document.getElementById('participantSearchInput')?.value || '');
   },
 
+  toggleSelectAllParticipants(forceAll = false) {
+    const btn = document.getElementById('btnCreateSelectAll');
+    if (forceAll || this.selectedUserIds.size < this.companyUsers.length) {
+      this.companyUsers.forEach(u => this.selectedUserIds.add(u.id));
+      if (btn) {
+        btn.style.background = '#5b5fc7';
+        btn.style.color = '#ffffff';
+        btn.innerHTML = `<i class="fas fa-undo"></i> Seçimi Sıfırla`;
+      }
+    } else {
+      this.selectedUserIds.clear();
+      if (btn) {
+        btn.style.background = '#f1f5f9';
+        btn.style.color = '#5b5fc7';
+        btn.innerHTML = `<i class="fas fa-check-double"></i> Herkesi Davet Et`;
+      }
+    }
+    this.renderSelectedChips();
+    this.renderUsersListContainer(document.getElementById('participantSearchInput')?.value || '');
+  },
+
   renderSelectedChips() {
+    const badge = document.getElementById('participantCountBadge');
+    if (badge) {
+      const count = this.selectedUserIds.size;
+      badge.textContent = count > 0 ? `(${count} kişi seçildi)` : '(İsteğe bağlı)';
+      badge.style.color = count > 0 ? '#5b5fc7' : '#64748b';
+    }
+
     const container = document.getElementById('selectedParticipantsContainer');
     if (!container) return;
 
@@ -663,16 +691,23 @@ const Meetings = {
   },
 
   /* HIZLI TOPLANTI PARTICIPANTS HANDLERS */
-  renderQuickUsersListContainer() {
+  renderQuickUsersListContainer(filterText = '') {
     const container = document.getElementById('quickUsersListContainer');
     if (!container) return;
 
-    if (this.companyUsers.length === 0) {
+    const text = (filterText || '').toLowerCase().trim();
+    const filtered = this.companyUsers.filter(u => {
+      const name = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      return name.includes(text) || email.includes(text);
+    });
+
+    if (filtered.length === 0) {
       container.innerHTML = `<span style="font-size: 0.78rem; color: #94a3b8; text-align: center; padding: 0.5rem;">Kullanıcı bulunamadı</span>`;
       return;
     }
 
-    container.innerHTML = this.companyUsers.map(u => {
+    container.innerHTML = filtered.map(u => {
       const isChecked = this.quickSelectedUserIds.has(u.id);
       const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email;
       return `
@@ -686,30 +721,54 @@ const Meetings = {
     this.renderQuickSelectedChips();
   },
 
+  filterQuickParticipantList(query) {
+    this.renderQuickUsersListContainer(query);
+  },
+
   toggleQuickUserSelection(userId) {
     if (this.quickSelectedUserIds.has(userId)) {
       this.quickSelectedUserIds.delete(userId);
     } else {
       this.quickSelectedUserIds.add(userId);
     }
-    this.renderQuickUsersListContainer();
+    this.renderQuickSelectedChips();
+    this.renderQuickUsersListContainer(document.getElementById('quickParticipantSearchInput')?.value || '');
   },
 
   toggleQuickSelectAll(forceAll = false) {
+    const btn = document.getElementById('btnQuickSelectAll');
     if (forceAll || this.quickSelectedUserIds.size < this.companyUsers.length) {
       this.companyUsers.forEach(u => this.quickSelectedUserIds.add(u.id));
+      if (btn) {
+        btn.style.background = '#5b5fc7';
+        btn.style.color = '#ffffff';
+        btn.innerHTML = `<i class="fas fa-undo"></i> Seçimi Sıfırla`;
+      }
     } else {
       this.quickSelectedUserIds.clear();
+      if (btn) {
+        btn.style.background = '#f1f5f9';
+        btn.style.color = '#5b5fc7';
+        btn.innerHTML = `<i class="fas fa-check-double"></i> Herkesi Davet Et`;
+      }
     }
-    this.renderQuickUsersListContainer();
+    this.renderQuickSelectedChips();
+    this.renderQuickUsersListContainer(document.getElementById('quickParticipantSearchInput')?.value || '');
   },
 
   renderQuickSelectedChips() {
+    const badge = document.getElementById('quickParticipantCountBadge');
+    if (badge) {
+      const count = this.quickSelectedUserIds.size;
+      badge.textContent = count > 0 ? `(${count} kişi seçildi)` : '(İsteğe bağlı)';
+      badge.style.color = count > 0 ? '#5b5fc7' : '#64748b';
+    }
+
     const container = document.getElementById('quickSelectedChips');
     if (!container) return;
 
     if (this.quickSelectedUserIds.size === 0) {
-      container.innerHTML = `<span style="font-size: 0.75rem; color: #94a3b8; font-style: italic;">Henüz kimse davet edilmedi.</span>`;
+      container.innerHTML = '';
       return;
     }
 
@@ -736,6 +795,12 @@ const Meetings = {
     }
 
     this.selectedUserIds.clear();
+    const btn = document.getElementById('btnCreateSelectAll');
+    if (btn) {
+      btn.style.background = '#f1f5f9';
+      btn.style.color = '#5b5fc7';
+      btn.innerHTML = `<i class="fas fa-check-double"></i> Herkesi Davet Et`;
+    }
     this.renderSelectedChips();
     this.generateRandomPasscode();
 

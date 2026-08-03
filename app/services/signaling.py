@@ -99,7 +99,7 @@ class SignalingManager:
         }
 
         # Ekran paylaşımı yapan sunucu yeniden bağlanırsa (F5) veya koptuysa ekran paylaşımını kesin olarak sonlandır
-        if meeting_code in self.active_screen_shares and str(self.active_screen_shares[meeting_code].get("presenter_id")) == str(user_id):
+        if meeting_code in self.active_screen_shares and self.active_screen_shares[meeting_code].get("presenter_id") == user_id:
             self.active_screen_shares.pop(meeting_code, None)
             await self.broadcast_to_room(
                 meeting_code=meeting_code,
@@ -147,7 +147,7 @@ class SignalingManager:
         Eğer ekran paylaşan sunucu ise ekran paylaşımı anında sonlandırılır.
         """
         # Ekran paylaşımı yapan kişi koptuysa/yenilediyse ekran paylaşımını anında temizle
-        if meeting_code in self.active_screen_shares and str(self.active_screen_shares[meeting_code].get("presenter_id")) == str(user_id):
+        if meeting_code in self.active_screen_shares and str(self.active_screen_shares[meeting_code].get("presenter_id")) == user_id:
             self.active_screen_shares.pop(meeting_code, None)
             await self.broadcast_to_room(
                 meeting_code=meeting_code,

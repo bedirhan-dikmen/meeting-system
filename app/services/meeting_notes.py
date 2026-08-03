@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, or_, and_
 from sqlalchemy.orm import Session
 from uuid import UUID
 from datetime import datetime
@@ -14,6 +14,7 @@ def create_note(db: Session, note_data: MeetingNoteCreate, author_id: UUID) -> M
         meeting_id=note_data.meeting_id,
         author_id=author_id,
         content=note_data.content,
+        note_type=getattr(note_data, 'note_type', 'general') or 'general',
         created_at=now_tr,
         updated_at=now_tr
     )
@@ -22,9 +23,30 @@ def create_note(db: Session, note_data: MeetingNoteCreate, author_id: UUID) -> M
     db.refresh(db_note)
     return db_note
 
-def get_meeting_notes(db: Session, meeting_id: UUID) -> List[MeetingNote]:
-    """Bir toplantıya ait tüm anlık notları getirir."""
-    stmt = select(MeetingNote).where(MeetingNote.meeting_id == meeting_id).order_by(MeetingNote.created_at.desc())
+def get_meeting_notes(db: Session, meeting_id: UUID, user_id: Optional[UUID] = None) -> List[MeetingNote]:
+    """Bir toplantıya ait genel notları ve kullanıcının kendi kişisel notlarını getirir."""
+    if user_id:
+        stmt = (
+            select(MeetingNote)
+            .where(
+                MeetingNote.meeting_id == meeting_id,
+                or_(
+                    MeetingNote.note_type == 'general',
+                    MeetingNote.note_type == None,
+                    and_(MeetingNote.note_type == 'personal', MeetingNote.author_id == user_id)
+                )
+            )
+            .order_by(MeetingNote.created_at.desc())
+        )
+    else:
+        stmt = (
+            select(MeetingNote)
+            .where(
+                MeetingNote.meeting_id == meeting_id,
+                or_(MeetingNote.note_type == 'general', MeetingNote.note_type == None)
+            )
+            .order_by(MeetingNote.created_at.desc())
+        )
     return list(db.scalars(stmt).all())
 
 def delete_note(db: Session, note_id: UUID, user_id: UUID) -> bool:

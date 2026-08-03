@@ -23,11 +23,13 @@ const Auth = {
   saveAuth(token, user) {
     localStorage.setItem('access_token', token);
     localStorage.setItem('user_info', JSON.stringify(user));
+    document.cookie = `access_token=${token}; path=/; max-age=86400; SameSite=Lax`;
   },
 
   logout() {
     localStorage.removeItem('access_token');
     localStorage.removeItem('user_info');
+    document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
     window.location.replace('/login');
   },
 

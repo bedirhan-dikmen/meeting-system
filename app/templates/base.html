@@ -2,6 +2,18 @@
 <html lang="tr">
 
 <head>
+  <!-- Immediate Auth Guard (Anında Oturum Kontrolü - Sayfa Yanıp Sönmesini Engeller) -->
+  <script>
+    (function() {
+      const path = window.location.pathname;
+      if (!path.startsWith('/guest/') && path !== '/login') {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+          window.location.replace('/login');
+        }
+      }
+    })();
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Kurumsal Toplantı Yönetim Sistemi{% endblock %}</title>
@@ -45,15 +57,8 @@
           </nav>
         </div>
 
-        <!-- Right: Search, Notifications & User Badge -->
+        <!-- Right: Notifications & User Badge -->
         <div class="header-actions">
-          <!-- Search Bar -->
-          <div class="header-search">
-            <i class="fas fa-search" style="color: var(--text-muted);"></i>
-            <input type="text" id="globalHeaderSearch" placeholder="Ara..."
-              onkeydown="Auth.handleGlobalSearch(event)">
-          </div>
-
           <!-- Notification Bell & Dropdown -->
           <div style="position: relative;">
             <button onclick="Notifications.toggleDropdown()" class="icon-btn" title="Bildirimler">
@@ -87,9 +92,8 @@
               <div id="userInitials" class="avatar">U</div>
               <div style="display: flex; flex-direction: column; gap: 0.1rem; align-items: flex-start;">
                 <span id="userName" style="font-size: 0.85rem; font-weight: 600;">Kullanıcı</span>
-                <span id="userRoleBadge" class="role-badge role-badge-user" style="font-size: 0.65rem;">Çalışan</span>
+                <span id="userRoleBadge" class="role-badge role-badge-user" style="font-size: 0.7rem; color: var(--accent-primary, #5b5fc7); font-weight: 600; padding: 0; background: transparent; border: none;">Çalışan</span>
               </div>
-              <i class="fas fa-chevron-down" style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.3rem;"></i>
             </a>
           </div>
 
@@ -201,28 +205,39 @@
 
   <!-- Global Create Meeting Modal -->
   <div id="createMeetingModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); z-index: 99999; align-items: center; justify-content: center; padding: 1rem;">
-    <div class="modal-card" style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 660px; padding: 1.75rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); max-height: 90vh; overflow-y: auto;">
+    <div class="modal-card" style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 620px; padding: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); max-height: 90vh; overflow-y: auto;">
       
       <!-- Modal Header -->
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem; margin-bottom: 1.25rem;">
-        <h3 style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-          <i class="far fa-calendar-plus" style="color: #5b5fc7; font-size: 1.25rem;"></i> Yeni Toplantı Oluştur
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem; margin-bottom: 1rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+          <i class="far fa-calendar-plus" style="color: #5b5fc7; font-size: 1.2rem;"></i> Yeni Toplantı Planla
         </h3>
-        <button type="button" onclick="Meetings.closeCreateModal()" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748b;">&times;</button>
+        <button type="button" onclick="Meetings.closeCreateModal()" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748b; padding: 0; line-height: 1;">&times;</button>
       </div>
 
       <form id="formCreateMeeting">
-        <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
           
-          <!-- Title & Meeting Type Row -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <!-- Hidden Lobby Checkbox (Bypassed & Auto-Approved by Default) -->
+          <input type="checkbox" id="createLobbyEnabled" checked style="display: none;">
+
+          <!-- Title, Description & Agenda Group -->
+          <div>
+            <label style="font-size: 0.82rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">Toplantı Başlığı *</label>
+            <input type="text" id="createTitle" required class="form-control" placeholder="Örn: Proje Değerlendirme Toplantısı" style="width: 100%; padding: 0.55rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.88rem; margin-bottom: 0.45rem;">
+            
+            <label style="font-size: 0.82rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">Toplantı Açıklaması <span style="font-weight: 400; color: #64748b; font-size: 0.76rem;">(Kısa Bilgilendirme)</span></label>
+            <textarea id="createDescription" rows="2" placeholder="Toplantı hakkında kısa özet bilgi..." style="width: 100%; padding: 0.55rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; resize: vertical; margin-bottom: 0.45rem;"></textarea>
+
+            <label style="font-size: 0.82rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">Toplantı Gündemi</label>
+            <textarea id="createAgenda" rows="2" placeholder="Ele alınacak ana başlıklar ve maddeler..." style="width: 100%; padding: 0.55rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; resize: vertical;"></textarea>
+          </div>
+
+          <!-- Meeting Details Grid (Tür, Başlangıç, Süre, Oda Şifresi) -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; background: #f8fafc; padding: 0.85rem; border-radius: 10px; border: 1px solid #f1f5f9;">
             <div>
-              <label style="font-size: 0.85rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.35rem;">Toplantı Başlığı *</label>
-              <input type="text" id="createTitle" required class="form-control" placeholder="Örn: Proje Değerlendirme Toplantısı" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem;">
-            </div>
-            <div>
-              <label style="font-size: 0.85rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.35rem;">Toplantı Türü</label>
-              <select id="createMeetingType" class="form-select" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem;">
+              <label style="font-size: 0.8rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">Toplantı Türü</label>
+              <select id="createMeetingType" class="form-select" style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
                 <option value="Planlı Toplantı" selected>Planlı Toplantı</option>
                 <option value="Günlük Toplantı (Standup)">Günlük Toplantı (Standup)</option>
                 <option value="Haftalık Toplantı">Haftalık Toplantı</option>
@@ -233,89 +248,70 @@
                 <option value="Anlık Toplantı">Anlık Toplantı</option>
               </select>
             </div>
-          </div>
 
-          <!-- Start Time & Duration Row -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div>
-              <label style="font-size: 0.85rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.35rem;">Başlangıç Zamanı *</label>
-              <input type="datetime-local" id="createStart" required class="form-control" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem;">
+              <label style="font-size: 0.8rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">Başlangıç Zamanı *</label>
+              <input type="datetime-local" id="createStart" required class="form-control" style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
             </div>
+
             <div>
-              <label style="font-size: 0.85rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.35rem;">Tahmini Süre</label>
-              <select id="createDuration" class="form-select" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem;">
+              <label style="font-size: 0.8rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">Tahmini Süre</label>
+              <select id="createDuration" class="form-select" style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
                 <option value="15">15 Dakika</option>
                 <option value="30" selected>30 Dakika</option>
                 <option value="45">45 Dakika</option>
                 <option value="60">1 Saat</option>
                 <option value="90">1.5 Saat</option>
                 <option value="120">2 Saat</option>
-                <option value="180">3 Saat</option>
               </select>
             </div>
+
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">Oda Katılım Keyi</label>
+              <div style="display: flex; gap: 0.35rem;">
+                <input type="text" id="createPasscode" maxlength="10" placeholder="58492" style="flex: 1; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; font-family: monospace; font-weight: 700;">
+                <button type="button" onclick="Meetings.generateRandomPasscode()" style="background: #ffffff; color: #5b5fc7; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.5rem 0.65rem; font-weight: 700; font-size: 0.78rem; cursor: pointer; white-space: nowrap;">
+                  <i class="fas fa-dice"></i> Üret
+                </button>
+              </div>
+            </div>
           </div>
 
-          <!-- Passcode / Room Key Row -->
+          <!-- Privacy Option -->
           <div>
-            <label style="font-size: 0.85rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.35rem;">Oda Katılım Keyi (5 Basamaklı Şifre)</label>
-            <div style="display: flex; gap: 0.5rem;">
-              <input type="text" id="createPasscode" maxlength="10" placeholder="Örn: 58492" style="flex: 1; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; font-family: monospace; font-weight: 700; letter-spacing: 1px;">
-              <button type="button" onclick="Meetings.generateRandomPasscode()" style="background: #eeefec; color: #5b5fc7; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.65rem 1rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap;">
-                <i class="fas fa-dice"></i> Rastgele Üret
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; font-weight: 700; color: #0f172a; cursor: pointer; margin: 0;">
+              <input type="checkbox" id="createIsPrivate" style="width: 15px; height: 15px; accent-color: #5b5fc7;">
+              <span><i class="fas fa-user-lock" style="color: #64748b; margin-right: 0.2rem;"></i> Gizli Oturum <span style="font-weight: 400; font-size: 0.76rem; color: #64748b;">(Sadece davet edilen kişiler katılabilir)</span></span>
+            </label>
+          </div>
+
+          <!-- Participant Selection Section (Ergonomik Doğrudan Liste + Herkesi Davet Et) -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <label style="font-size: 0.82rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.35rem;">
+                <i class="fas fa-user-plus" style="color: #5b5fc7;"></i> Katılımcı Davet Et
+                <span id="participantCountBadge" style="font-size: 0.76rem; font-weight: 600; color: #64748b;">(İsteğe bağlı)</span>
+              </label>
+              <button type="button" id="btnCreateSelectAll" onclick="Meetings.toggleSelectAllParticipants()" style="background: #f1f5f9; color: #5b5fc7; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.25rem 0.55rem; font-weight: 700; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 0.3rem; transition: all 0.2s;">
+                <i class="fas fa-check-double"></i> Herkesi Davet Et
               </button>
             </div>
-          </div>
-
-          <!-- Lobby & Privacy Options Row -->
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.65rem;">
-            <label style="display: flex; align-items: center; gap: 0.65rem; font-size: 0.88rem; font-weight: 700; color: #0f172a; cursor: pointer; margin: 0;">
-              <input type="checkbox" id="createLobbyEnabled" checked style="width: 17px; height: 17px; accent-color: #5b5fc7;">
-              <span><i class="fas fa-door-closed" style="color: #5b5fc7; margin-right: 0.25rem;"></i> Lobi / Bekleme Odası Aktif <span style="font-weight: 500; font-size: 0.78rem; color: #64748b;">(Yönetici onaylı katılım)</span></span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 0.65rem; font-size: 0.88rem; font-weight: 700; color: #0f172a; cursor: pointer; margin: 0;">
-              <input type="checkbox" id="createIsPrivate" style="width: 17px; height: 17px; accent-color: #5b5fc7;">
-              <span><i class="fas fa-user-lock" style="color: #64748b; margin-right: 0.25rem;"></i> Gizli Oturum <span style="font-weight: 500; font-size: 0.78rem; color: #64748b;">(Sadece davet edilen kişiler katılabilir)</span></span>
-            </label>
-          </div>
-
-          <!-- Description & Agenda Row -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-            <div>
-              <label style="font-size: 0.85rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.35rem;">Toplantı Açıklaması</label>
-              <textarea id="createDescription" rows="2" placeholder="Toplantı hakkında özet bilgi..." style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.88rem; resize: vertical;"></textarea>
-            </div>
-            <div>
-              <label style="font-size: 0.85rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.35rem;">Toplantı Gündemi</label>
-              <textarea id="createAgenda" rows="2" placeholder="Ele alınacak ana maddeler..." style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.88rem; resize: vertical;"></textarea>
-            </div>
-          </div>
-
-          <!-- Participant Selection Section -->
-          <div>
-            <label style="font-size: 0.85rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.35rem;">
-              <i class="fas fa-user-plus" style="color: #5b5fc7; margin-right: 0.25rem;"></i> Katılımcı Davet Et (Şirket İçi Kişiler)
-            </label>
             
-            <div style="display: flex; align-items: center; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.45rem 0.85rem; margin-bottom: 0.5rem;">
-              <i class="fas fa-search" style="color: #94a3b8; font-size: 0.85rem; margin-right: 0.5rem;"></i>
-              <input type="text" id="participantSearchInput" oninput="Meetings.filterParticipantList(this.value)" placeholder="Kullanıcı adı veya e-posta ile ara..." style="background: transparent; border: none; outline: none; font-size: 0.85rem; width: 100%; color: #0f172a;">
-            </div>
-
-            <!-- Selected Chips Container -->
-            <div id="selectedParticipantsContainer" style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem;">
-              <!-- Selected user chips will render here -->
+            <div style="display: flex; align-items: center; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.35rem 0.65rem; margin-bottom: 0.4rem;">
+              <i class="fas fa-search" style="color: #94a3b8; font-size: 0.8rem; margin-right: 0.4rem;"></i>
+              <input type="text" id="participantSearchInput" oninput="Meetings.filterParticipantList(this.value)" placeholder="Kullanıcı ara..." style="background: transparent; border: none; outline: none; font-size: 0.82rem; width: 100%; color: #0f172a;">
             </div>
 
             <!-- Scrollable Users Checkbox List -->
-            <div id="usersListContainer" style="max-height: 140px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.5rem; background: #ffffff; display: flex; flex-direction: column; gap: 0.35rem;">
+            <div id="usersListContainer" style="max-height: 130px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.4rem; background: #ffffff; display: flex; flex-direction: column; gap: 0.25rem;">
               <span style="font-size: 0.78rem; color: #94a3b8; text-align: center; padding: 0.5rem;">Kullanıcılar yükleniyor...</span>
             </div>
           </div>
 
           <!-- Submit Actions -->
-          <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
-            <button type="button" onclick="Meetings.closeCreateModal()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.65rem 1.25rem; font-weight: 700; font-size: 0.88rem; cursor: pointer;">İptal</button>
-            <button type="submit" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 8px; padding: 0.65rem 1.5rem; font-weight: 700; font-size: 0.88rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; box-shadow: 0 4px 12px rgba(91, 95, 199, 0.25);">
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem; border-top: 1px solid #f1f5f9; padding-top: 0.75rem;">
+            <button type="button" onclick="Meetings.closeCreateModal()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.55rem 1.1rem; font-weight: 700; font-size: 0.85rem; cursor: pointer;">İptal</button>
+            <button type="submit" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 8px; padding: 0.55rem 1.25rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; box-shadow: 0 4px 12px rgba(91, 95, 199, 0.25);">
               <i class="far fa-calendar-check"></i> Toplantıyı Oluştur & Planla
             </button>
           </div>
@@ -348,20 +344,23 @@
 
           <!-- Participant Selection Header & Select All Button -->
           <div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
-              <label style="font-size: 0.88rem; font-weight: 800; color: #0f172a; margin: 0;">
-                <i class="fas fa-user-friends" style="color: #5b5fc7; margin-right: 0.3rem;"></i> Kimleri Davet Etmek İstersin?
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <label style="font-size: 0.82rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.35rem;">
+                <i class="fas fa-user-friends" style="color: #5b5fc7;"></i> Kimleri Davet Etmek İstersin?
+                <span id="quickParticipantCountBadge" style="font-size: 0.76rem; font-weight: 600; color: #64748b;">(İsteğe bağlı)</span>
               </label>
-              <button type="button" id="btnQuickSelectAll" onclick="Meetings.toggleQuickSelectAll()" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 6px; padding: 0.35rem 0.75rem; font-weight: 700; font-size: 0.78rem; cursor: pointer; display: flex; align-items: center; gap: 0.35rem; transition: all 0.2s;">
+              <button type="button" id="btnQuickSelectAll" onclick="Meetings.toggleQuickSelectAll()" style="background: #f1f5f9; color: #5b5fc7; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.25rem 0.55rem; font-weight: 700; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 0.3rem; transition: all 0.2s;">
                 <i class="fas fa-check-double"></i> Herkesi Davet Et
               </button>
             </div>
 
-            <!-- Selected Chips -->
-            <div id="quickSelectedChips" style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem;"></div>
+            <div style="display: flex; align-items: center; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.35rem 0.65rem; margin-bottom: 0.4rem;">
+              <i class="fas fa-search" style="color: #94a3b8; font-size: 0.8rem; margin-right: 0.4rem;"></i>
+              <input type="text" id="quickParticipantSearchInput" oninput="Meetings.filterQuickParticipantList(this.value)" placeholder="Kullanıcı ara..." style="background: transparent; border: none; outline: none; font-size: 0.82rem; width: 100%; color: #0f172a;">
+            </div>
 
-            <!-- Users Checkboxes Container -->
-            <div id="quickUsersListContainer" style="max-height: 160px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.5rem; background: #ffffff; display: flex; flex-direction: column; gap: 0.35rem;">
+            <!-- Scrollable Users Checkbox List -->
+            <div id="quickUsersListContainer" style="max-height: 150px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.4rem; background: #ffffff; display: flex; flex-direction: column; gap: 0.25rem;">
               <span style="font-size: 0.78rem; color: #94a3b8; text-align: center; padding: 0.5rem;">Kullanıcılar yükleniyor...</span>
             </div>
           </div>
