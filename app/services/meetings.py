@@ -24,14 +24,12 @@ def create_new_meeting(db: Session, meeting_data: MeetingCreate, host_id: UUID) 
         if not existing:
             break
 
-    scheduled_start = meeting_data.scheduled_start
-    if scheduled_start and getattr(scheduled_start, 'tzinfo', None) is not None:
-        scheduled_start = scheduled_start.replace(tzinfo=None)
+    from app.core.tz import to_tr_naive, get_tr_now
+
+    scheduled_start = to_tr_naive(meeting_data.scheduled_start) or get_tr_now()
 
     if meeting_data.scheduled_end:
-        scheduled_end = meeting_data.scheduled_end
-        if getattr(scheduled_end, 'tzinfo', None) is not None:
-            scheduled_end = scheduled_end.replace(tzinfo=None)
+        scheduled_end = to_tr_naive(meeting_data.scheduled_end)
     else:
         duration = meeting_data.duration_minutes or 30
         scheduled_end = scheduled_start + timedelta(minutes=duration)

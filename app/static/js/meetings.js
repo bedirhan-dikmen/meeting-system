@@ -1006,11 +1006,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const agenda = document.getElementById('createAgenda').value || '';
       const invitedIds = Array.from(Meetings.selectedUserIds);
 
+      let formattedStart = start;
+      if (start) {
+        if (start.length === 16) formattedStart = start + ':00';
+      } else {
+        const now = new Date();
+        formattedStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:00`;
+      }
+
       try {
         const payload = {
           title: title,
           meeting_type: meetingType,
-          scheduled_start: new Date(start).toISOString(),
+          scheduled_start: formattedStart,
           duration_minutes: duration,
           passcode: passcode,
           lobby_enabled: lobbyEnabled,
@@ -1052,9 +1060,10 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       try {
         const now = new Date();
+        const localStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
         const payload = {
           title: "Hızlı Toplantı",
-          scheduled_start: now.toISOString(),
+          scheduled_start: localStart,
           duration_minutes: 60,
           meeting_type: "Hızlı Toplantı",
           agenda: "Anlık hızlı başlatılan oturum",
