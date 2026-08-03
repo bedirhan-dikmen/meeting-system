@@ -146,7 +146,7 @@ const Auth = {
     const historyNavItem = document.getElementById('navItemHistory') || document.querySelector('a[href="/history"]');
 
     if (historyNavItem) {
-      historyNavItem.style.display = isAdmin ? 'inline-block' : 'none';
+      historyNavItem.style.display = isAdmin ? 'flex' : 'none';
     }
   },
 
