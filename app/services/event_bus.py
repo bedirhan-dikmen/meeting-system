@@ -17,20 +17,18 @@ class SystemEventBus:
     async def connect(self, user_id: str, websocket: WebSocket):
         """Kullanıcının WebSocket bağlantısını gruba ekler."""
         await websocket.accept()
-        user_id_str = str(user_id)
-        if user_id_str not in self.user_connections:
-            self.user_connections[user_id_str] = set()
-        self.user_connections[user_id_str].add(websocket)
-        logger.info(f"[EventBus] Kullanıcı bağlandı: {user_id_str} (Aktif socket: {len(self.user_connections[user_id_str])})")
+        if user_id not in self.user_connections:
+            self.user_connections[user_id] = set()
+        self.user_connections[user_id].add(websocket)
+        logger.info(f"[EventBus] Kullanıcı bağlandı: {user_id} (Aktif socket: {len(self.user_connections[user_id])})")
 
     def disconnect(self, user_id: str, websocket: WebSocket):
         """Kullanıcının WebSocket bağlantısını siler."""
-        user_id_str = str(user_id)
-        if user_id_str in self.user_connections:
-            self.user_connections[user_id_str].discard(websocket)
-            if not self.user_connections[user_id_str]:
-                del self.user_connections[user_id_str]
-        logger.info(f"[EventBus] Kullanıcı ayrıldı: {user_id_str}")
+        if user_id in self.user_connections:
+            self.user_connections[user_id].discard(websocket)
+            if not self.user_connections[user_id]:
+                del self.user_connections[user_id]
+        logger.info(f"[EventBus] Kullanıcı ayrıldı: {user_id}")
 
     async def broadcast_event(
         self,
@@ -49,8 +47,7 @@ class SystemEventBus:
 
         if target_user_ids is not None:
             # Sadece hedef kullanıcılara gönder
-            targets = [str(uid) for uid in target_user_ids]
-            for uid in targets:
+            for uid in target_user_ids:
                 sockets = self.user_connections.get(uid, set()).copy()
                 for ws in sockets:
                     try:
