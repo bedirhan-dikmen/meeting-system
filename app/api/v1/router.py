@@ -15,6 +15,7 @@ from app.routes.notifications import router as notification_router  # Bildirim A
 from app.routes.webhooks import router as webhook_router
 from app.routes.dashboard import router as dashboard_router  # Dashboard Analitik API'ı
 from app.routes.guest import router as guest_router  # Misafir API'ı
+from app.routes.events import router as events_router  # Canlı Sistem Olayları (WS)
 
 # Ana API Router nesnesini oluşturuyoruz
 api_router = APIRouter()
@@ -33,3 +34,4 @@ api_router.include_router(notification_router)  # Canlı Bildirim ucu aktif!
 api_router.include_router(webhook_router)  # Webhook ucu aktif!
 api_router.include_router(dashboard_router)  # Dashboard Analitik API'ı aktif!
 api_router.include_router(guest_router)  # Misafir API'ı aktif!
+api_router.include_router(events_router)  # Canlı Sistem Olayları WS aktif!

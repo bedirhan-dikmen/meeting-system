@@ -122,20 +122,9 @@
         </div>
 
         <div id="todayMeetingsListContainer">
-          <div style="text-align: center; padding: 1rem 0.25rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-            <div style="width: 80px; height: 60px; margin-bottom: 0.65rem; display: flex; align-items: center; justify-content: center;">
-              <svg viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
-                <path d="M20 70L35 25H65L80 70H20Z" fill="#EEF2FF" stroke="#5B5FC7" stroke-width="2"/>
-                <rect x="25" y="32" width="50" height="30" rx="6" fill="#FFFFFF" stroke="#5B5FC7" stroke-width="1.5"/>
-                <circle cx="40" cy="20" r="3" fill="#5B5FC7"/>
-                <circle cx="60" cy="20" r="3" fill="#5B5FC7"/>
-                <line x1="32" y1="42" x2="68" y1="42" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round"/>
-                <line x1="32" y1="50" x2="55" y1="50" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <h3 style="font-size: 0.95rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem;">Bugün toplantınız yok</h3>
-            <p style="color: #64748b; font-size: 0.78rem; max-width: 230px; margin-bottom: 0.85rem; line-height: 1.35;">Gününüzü planlamak için takviminize yeni bir toplantı ekleyin.</p>
-            <button onclick="window.location.href='/calendar'" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.45rem 1.1rem; font-weight: 700; font-size: 0.78rem; cursor: pointer; transition: all 0.2s;">Takvime Git</button>
+          <div class="skeleton-card" style="border: none; padding: 0.5rem 0; background: transparent;">
+            <div class="skeleton-box skeleton-text-lg" style="width: 85%; margin-bottom: 0.5rem;"></div>
+            <div class="skeleton-box skeleton-text-sm" style="width: 50%;"></div>
           </div>
         </div>
       </div>
@@ -148,20 +137,9 @@
       </div>
 
       <div id="upcomingMeetingsListContainer">
-        <div style="text-align: center; padding: 1rem 0.25rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-          <div style="width: 85px; height: 60px; margin-bottom: 0.65rem; display: flex; align-items: center; justify-content: center;">
-            <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
-              <ellipse cx="60" cy="70" rx="45" ry="8" fill="#F1F5F9"/>
-              <circle cx="42" cy="45" r="22" fill="#5B5FC7" fill-opacity="0.15" stroke="#5B5FC7" stroke-width="3"/>
-              <circle cx="78" cy="45" r="22" fill="#5B5FC7" fill-opacity="0.15" stroke="#5B5FC7" stroke-width="3"/>
-              <circle cx="42" cy="45" r="14" fill="#3B82F6" fill-opacity="0.2"/>
-              <circle cx="78" cy="45" r="14" fill="#3B82F6" fill-opacity="0.2"/>
-              <rect x="52" y="40" width="16" height="10" rx="3" fill="#5B5FC7"/>
-            </svg>
-          </div>
-          <h3 style="font-size: 0.95rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem;">Yaklaşan toplantı yok</h3>
-          <p style="color: #64748b; font-size: 0.78rem; max-width: 230px; margin-bottom: 0.85rem; line-height: 1.35;">Planladığınız toplantılar burada listelenecek.</p>
-          <button onclick="Meetings.openCreateModal()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.45rem 1.1rem; font-weight: 700; font-size: 0.78rem; cursor: pointer; transition: all 0.2s;">Toplantı Planla</button>
+        <div class="skeleton-card" style="border: none; padding: 0.5rem 0; background: transparent;">
+          <div class="skeleton-box skeleton-text-lg" style="width: 85%; margin-bottom: 0.5rem;"></div>
+          <div class="skeleton-box skeleton-text-sm" style="width: 50%;"></div>
         </div>
       </div>
     </div>

@@ -11,9 +11,22 @@ const Meetings = {
   currentView: 'card',    // 'card' | 'list' | 'calendar'
   currentTab: 'live',     // 'live' | 'scheduled' | 'completed' | 'all'
 
+  _hasEventListener: false,
+
   async init() {
+    this.listenToEvents();
     await this.loadMeetings();
     this.checkUrlAction();
+  },
+
+  listenToEvents() {
+    if (this._hasEventListener) return;
+    this._hasEventListener = true;
+
+    window.addEventListener('meeting:changed', () => {
+      console.log("🔄 [Meetings] Canlı olay alındı, toplantı listesi güncelleniyor...");
+      this.loadMeetings();
+    });
   },
 
   checkUrlAction() {

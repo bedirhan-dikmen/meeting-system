@@ -601,37 +601,50 @@
     </div>
 
     <!-- KATILIMCI DAVET ET CENTER POP-UP MODAL -->
-    <div id="roomInviteModal" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(6px); z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem;">
-      <div style="background: #ffffff; border-radius: 20px; width: 100%; max-width: 560px; box-shadow: 0 24px 60px rgba(0,0,0,0.16), 0 0 0 1px rgba(0,0,0,0.04); display: flex; flex-direction: column; max-height: 88vh;">
+    <div id="roomInviteModal"
+      style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(6px); z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem;">
+      <div
+        style="background: #ffffff; border-radius: 20px; width: 100%; max-width: 560px; box-shadow: 0 24px 60px rgba(0,0,0,0.16), 0 0 0 1px rgba(0,0,0,0.04); display: flex; flex-direction: column; max-height: 88vh;">
 
         <!-- Modal Header -->
-        <div style="padding: 1.75rem 2rem 1.25rem; display: flex; justify-content: space-between; align-items: flex-start;">
+        <div
+          style="padding: 1.75rem 2rem 1.25rem; display: flex; justify-content: space-between; align-items: flex-start;">
           <div>
             <div style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.35rem;">
-              <div style="width: 38px; height: 38px; border-radius: 10px; background: #eef2ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <div
+                style="width: 38px; height: 38px; border-radius: 10px; background: #eef2ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                 <i class="fas fa-user-plus" style="color: #5b5fc7; font-size: 1rem;"></i>
               </div>
               <h3 style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0;">Katılımcı Davet Et</h3>
             </div>
-            <p style="font-size: 0.84rem; color: #64748b; margin: 0; padding-left: 3.1rem;">Bağlantı paylaşın veya sistemdeki kullanıcıyı doğrudan davet edin.</p>
+            <p style="font-size: 0.84rem; color: #64748b; margin: 0; padding-left: 3.1rem;">Bağlantı paylaşın veya
+              sistemdeki kullanıcıyı doğrudan davet edin.</p>
           </div>
-          <button type="button" onclick="closeRoomInviteModal()" style="background: #f1f5f9; border: none; width: 34px; height: 34px; border-radius: 50%; font-size: 1rem; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">&times;</button>
+          <button type="button" onclick="closeRoomInviteModal()"
+            style="background: #f1f5f9; border: none; width: 34px; height: 34px; border-radius: 50%; font-size: 1rem; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">&times;</button>
         </div>
 
         <!-- Divider -->
         <div style="height: 1px; background: #f1f5f9; margin: 0 2rem;"></div>
 
         <!-- Modal Body -->
-        <div style="padding: 1.5rem 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; flex: 1;">
+        <div
+          style="padding: 1.5rem 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; flex: 1;">
 
           <!-- Hızlı Bağlantı Kutusu -->
           <div>
-            <div style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.65rem;">
+            <div
+              style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.65rem;">
               <i class="fas fa-link" style="color: #5b5fc7; margin-right: 0.4rem;"></i> Misafir Katılım Bağlantısı
             </div>
-            <div style="display: flex; gap: 0.6rem; align-items: center; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0.75rem 0.75rem;">
-              <input type="text" id="modalInviteLinkInput" readonly style="flex: 1; border: none; background: transparent; font-size: 0.83rem; font-family: monospace; color: #4338ca; font-weight: 600; outline: none; min-width: 0;">
-              <button type="button" onclick="copyModalInviteLink()" id="copyLinkBtn" style="padding: 0.5rem 1rem; background: #5b5fc7; color: #fff; border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; transition: background 0.18s;" onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='#5b5fc7'">
+            <div
+              style="display: flex; gap: 0.6rem; align-items: center; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0.75rem 0.75rem;">
+              <input type="text" id="modalInviteLinkInput" readonly
+                style="flex: 1; border: none; background: transparent; font-size: 0.83rem; font-family: monospace; color: #4338ca; font-weight: 600; outline: none; min-width: 0;">
+              <button type="button" onclick="copyModalInviteLink()" id="copyLinkBtn"
+                style="padding: 0.5rem 1rem; background: #5b5fc7; color: #fff; border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; transition: background 0.18s;"
+                onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='#5b5fc7'">
                 <i class="fas fa-copy"></i> Kopyala
               </button>
             </div>
@@ -640,22 +653,28 @@
           <!-- Kullanıcı Arama & Liste -->
           <div style="display: flex; flex-direction: column; gap: 0.75rem;">
             <div style="display: flex; align-items: center; justify-content: space-between;">
-              <div style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em;">
+              <div
+                style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em;">
                 <i class="fas fa-users" style="color: #10b981; margin-right: 0.4rem;"></i> Sistemdeki Kullanıcılar
               </div>
-              <span id="inviteSuccessCount" style="display: none; font-size: 0.73rem; font-weight: 700; color: #059669; background: #dcfce7; padding: 0.25rem 0.65rem; border-radius: 9999px;">
+              <span id="inviteSuccessCount"
+                style="display: none; font-size: 0.73rem; font-weight: 700; color: #059669; background: #dcfce7; padding: 0.25rem 0.65rem; border-radius: 9999px;">
                 <i class="fas fa-check-circle"></i> Davet Gönderildi
               </span>
             </div>
 
             <div style="position: relative;">
-              <i class="fas fa-search" style="position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.8rem;"></i>
-              <input type="text" id="inviteUserSearchInput" placeholder="İsim veya e-posta ara..." oninput="filterInviteUserList()"
-                style="width: 100%; padding: 0.7rem 0.9rem 0.7rem 2.4rem; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #f8fafc; font-size: 0.85rem; outline: none; box-sizing: border-box; transition: border 0.2s;" onfocus="this.style.borderColor='#a5b4fc'" onblur="this.style.borderColor='#e2e8f0'">
+              <i class="fas fa-search"
+                style="position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.8rem;"></i>
+              <input type="text" id="inviteUserSearchInput" placeholder="İsim veya e-posta ara..."
+                oninput="filterInviteUserList()"
+                style="width: 100%; padding: 0.7rem 0.9rem 0.7rem 2.4rem; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #f8fafc; font-size: 0.85rem; outline: none; box-sizing: border-box; transition: border 0.2s;"
+                onfocus="this.style.borderColor='#a5b4fc'" onblur="this.style.borderColor='#e2e8f0'">
             </div>
 
             <!-- Kullanıcı Listesi Container -->
-            <div id="roomInviteUserList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 280px; overflow-y: auto; padding-right: 0.15rem;">
+            <div id="roomInviteUserList"
+              style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 280px; overflow-y: auto; padding-right: 0.15rem;">
               <!-- JS Populates User Cards -->
             </div>
           </div>
@@ -664,7 +683,9 @@
 
         <!-- Modal Footer -->
         <div style="padding: 1.25rem 2rem; border-top: 1px solid #f1f5f9;">
-          <button type="button" onclick="closeRoomInviteModal()" style="width: 100%; background: #f8fafc; color: #475569; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 0.7rem; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: background 0.18s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">Kapat</button>
+          <button type="button" onclick="closeRoomInviteModal()"
+            style="width: 100%; background: #f8fafc; color: #475569; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 0.7rem; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: background 0.18s;"
+            onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">Kapat</button>
         </div>
 
       </div>
@@ -672,63 +693,78 @@
 
 
     <!-- ODA BİLGİLERİNİ DÜZENLE CENTER POP-UP MODAL -->
-    <div id="roomSettingsModal" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(6px); z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem;">
-      <div style="background: #ffffff; border-radius: 20px; width: 100%; max-width: 560px; box-shadow: 0 24px 60px rgba(0,0,0,0.16), 0 0 0 1px rgba(0,0,0,0.04); display: flex; flex-direction: column; max-height: 90vh;">
+    <div id="roomSettingsModal"
+      style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(6px); z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem;">
+      <div
+        style="background: #ffffff; border-radius: 20px; width: 100%; max-width: 560px; box-shadow: 0 24px 60px rgba(0,0,0,0.16), 0 0 0 1px rgba(0,0,0,0.04); display: flex; flex-direction: column; max-height: 90vh;">
 
         <!-- Modal Header -->
-        <div style="padding: 1.75rem 2rem 1.25rem; display: flex; justify-content: space-between; align-items: flex-start;">
+        <div
+          style="padding: 1.75rem 2rem 1.25rem; display: flex; justify-content: space-between; align-items: flex-start;">
           <div>
             <div style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.35rem;">
-              <div style="width: 38px; height: 38px; border-radius: 10px; background: #eef2ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <div
+                style="width: 38px; height: 38px; border-radius: 10px; background: #eef2ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                 <i class="fas fa-sliders-h" style="color: #5b5fc7; font-size: 1rem;"></i>
               </div>
-              <h3 style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0;">Toplantı Bilgilerini Düzenle</h3>
+              <h3 style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0;">Toplantı Bilgilerini Düzenle
+              </h3>
             </div>
-            <p style="font-size: 0.84rem; color: #64748b; margin: 0; padding-left: 3.1rem;">Toplantı başlığı, türü, gündem ve güvenlik ayarlarını güncelleyin.</p>
+            <p style="font-size: 0.84rem; color: #64748b; margin: 0; padding-left: 3.1rem;">Toplantı başlığı, türü,
+              gündem ve güvenlik ayarlarını güncelleyin.</p>
           </div>
-          <button type="button" onclick="closeRoomSettingsModal()" style="background: #f1f5f9; border: none; width: 34px; height: 34px; border-radius: 50%; font-size: 1rem; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">&times;</button>
+          <button type="button" onclick="closeRoomSettingsModal()"
+            style="background: #f1f5f9; border: none; width: 34px; height: 34px; border-radius: 50%; font-size: 1rem; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">&times;</button>
         </div>
 
         <!-- Divider -->
         <div style="height: 1px; background: #f1f5f9; margin: 0 2rem;"></div>
 
         <!-- Modal Form Body -->
-        <form id="formRoomSettings" onsubmit="saveRoomSettings(event)" style="padding: 1.5rem 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; flex: 1;">
+        <form id="formRoomSettings" onsubmit="saveRoomSettings(event)"
+          style="padding: 1.5rem 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; flex: 1;">
           <input type="hidden" id="roomSettingsMeetingId">
 
           <!-- Başlık -->
           <div>
-            <label style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 0.6rem;">
+            <label
+              style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 0.6rem;">
               <i class="fas fa-heading" style="color: #5b5fc7; margin-right: 0.35rem;"></i> Toplantı Başlığı *
             </label>
             <input type="text" id="roomSettingsTitle" required placeholder="Örn: Q3 Strateji Görüşmesi" style="
               width: 100%; padding: 0.75rem 1rem; border: 1.5px solid #e2e8f0; border-radius: 10px;
               font-size: 0.9rem; outline: none; transition: border 0.2s; box-sizing: border-box; background: #f8fafc;
               font-weight: 500;
-            " onfocus="this.style.borderColor='#a5b4fc'; this.style.background='#fff'" onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'">
+            " onfocus="this.style.borderColor='#a5b4fc'; this.style.background='#fff'"
+              onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'">
           </div>
 
           <!-- Açıklama -->
           <div>
-            <label style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 0.6rem;">
+            <label
+              style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 0.6rem;">
               <i class="fas fa-align-left" style="color: #0ea5e9; margin-right: 0.35rem;"></i> Açıklama
             </label>
             <textarea id="roomSettingsDescription" rows="2" placeholder="Toplantının amacı ve kısa özeti..." style="
               width: 100%; padding: 0.75rem 1rem; border: 1.5px solid #e2e8f0; border-radius: 10px;
               font-size: 0.88rem; outline: none; transition: border 0.2s; box-sizing: border-box; background: #f8fafc;
               font-family: inherit; resize: vertical; line-height: 1.5;
-            " onfocus="this.style.borderColor='#a5b4fc'; this.style.background='#fff'" onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'"></textarea>
+            " onfocus="this.style.borderColor='#a5b4fc'; this.style.background='#fff'"
+              onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'"></textarea>
           </div>
 
           <!-- Tür -->
           <div>
-            <label style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 0.6rem;">
+            <label
+              style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 0.6rem;">
               <i class="fas fa-tags" style="color: #8b5cf6; margin-right: 0.35rem;"></i> Toplantı Türü
             </label>
             <select id="roomSettingsType" style="
               width: 100%; padding: 0.75rem 1rem; border: 1.5px solid #e2e8f0; border-radius: 10px;
               font-size: 0.88rem; outline: none; transition: border 0.2s; box-sizing: border-box; background: #f8fafc;
-            " onfocus="this.style.borderColor='#a5b4fc'; this.style.background='#fff'" onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'">
+            " onfocus="this.style.borderColor='#a5b4fc'; this.style.background='#fff'"
+              onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'">
               <option value="Planlı Toplantı">📅 Planlı Toplantı</option>
               <option value="Genel Toplantı">📢 Genel Toplantı</option>
               <option value="Anlık Toplantı">⚡ Anlık Toplantı</option>
@@ -743,7 +779,8 @@
 
           <!-- Gündem -->
           <div>
-            <label style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 0.6rem;">
+            <label
+              style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 0.6rem;">
               <i class="fas fa-list-ul" style="color: #10b981; margin-right: 0.35rem;"></i> Gündem
             </label>
             <textarea id="roomSettingsAgenda" rows="3"
@@ -751,24 +788,29 @@
               width: 100%; padding: 0.75rem 1rem; border: 1.5px solid #e2e8f0; border-radius: 10px;
               font-size: 0.88rem; outline: none; transition: border 0.2s; box-sizing: border-box; background: #f8fafc;
               font-family: inherit; resize: vertical; line-height: 1.5;
-            " onfocus="this.style.borderColor='#a5b4fc'; this.style.background='#fff'" onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'"></textarea>
+            " onfocus="this.style.borderColor='#a5b4fc'; this.style.background='#fff'"
+              onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'"></textarea>
           </div>
 
           <!-- Şifre -->
           <div>
-            <label style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 0.6rem;">
-              <i class="fas fa-key" style="color: #f59e0b; margin-right: 0.35rem;"></i> Oda Katılım Şifresi <span style="font-size: 0.68rem; color: #94a3b8; font-weight: 500;">(opsiyonel)</span>
+            <label
+              style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 0.6rem;">
+              <i class="fas fa-key" style="color: #f59e0b; margin-right: 0.35rem;"></i> Oda Katılım Şifresi <span
+                style="font-size: 0.68rem; color: #94a3b8; font-weight: 500;">(opsiyonel)</span>
             </label>
             <div style="display: flex; gap: 0.6rem;">
               <input type="text" id="roomSettingsPasscode" placeholder="Örn: 987654" style="
                 flex: 1; padding: 0.75rem 1rem; border: 1.5px solid #e2e8f0; border-radius: 10px;
                 font-size: 0.88rem; outline: none; background: #f8fafc; transition: border 0.2s;
-              " onfocus="this.style.borderColor='#a5b4fc'; this.style.background='#fff'" onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'">
+              " onfocus="this.style.borderColor='#a5b4fc'; this.style.background='#fff'"
+                onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'">
               <button type="button" onclick="generateRoomSettingsPasscode()" style="
                 padding: 0 1rem; border: 1.5px solid #e2e8f0; border-radius: 10px;
                 background: #f8fafc; color: #5b5fc7; cursor: pointer; font-size: 0.82rem; font-weight: 700;
                 white-space: nowrap; transition: all 0.18s;
-              " onmouseover="this.style.background='#eef2ff'; this.style.borderColor='#c7d2fe'" onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0'">
+              " onmouseover="this.style.background='#eef2ff'; this.style.borderColor='#c7d2fe'"
+                onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0'">
                 <i class="fas fa-dice"></i> Şifre Üret
               </button>
             </div>
@@ -781,9 +823,14 @@
         </form>
 
         <!-- Modal Footer -->
-        <div style="padding: 1.25rem 2rem; border-top: 1px solid #f1f5f9; display: flex; gap: 0.75rem; justify-content: flex-end;">
-          <button type="button" onclick="closeRoomSettingsModal()" style="background: #f8fafc; color: #64748b; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 0.7rem 1.25rem; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: background 0.18s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">İptal</button>
-          <button type="submit" form="formRoomSettings" style="background: #5b5fc7; color: #fff; border: none; border-radius: 10px; padding: 0.7rem 1.5rem; font-weight: 700; font-size: 0.88rem; cursor: pointer; display: flex; align-items: center; gap: 0.45rem; transition: background 0.18s;" onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='#5b5fc7'">
+        <div
+          style="padding: 1.25rem 2rem; border-top: 1px solid #f1f5f9; display: flex; gap: 0.75rem; justify-content: flex-end;">
+          <button type="button" onclick="closeRoomSettingsModal()"
+            style="background: #f8fafc; color: #64748b; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 0.7rem 1.25rem; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: background 0.18s;"
+            onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">İptal</button>
+          <button type="submit" form="formRoomSettings"
+            style="background: #5b5fc7; color: #fff; border: none; border-radius: 10px; padding: 0.7rem 1.5rem; font-weight: 700; font-size: 0.88rem; cursor: pointer; display: flex; align-items: center; gap: 0.45rem; transition: background 0.18s;"
+            onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='#5b5fc7'">
             <i class="fas fa-save"></i> Değişiklikleri Kaydet
           </button>
         </div>

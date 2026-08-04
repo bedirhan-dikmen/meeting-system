@@ -3,228 +3,265 @@
    ========================================================================== */
 
 const Notifications = {
-  container: null,
+  container: null,          // Bottom-Right container for standard toasts
+  approvalContainer: null,  // Top-Center container for approval banners
   recentToastMap: new Map(),
 
   init() {
+    // 1. Bottom-Right Toast Container (Informational Toasts)
     this.container = document.getElementById('toastContainer');
     if (!this.container) {
       this.container = document.createElement('div');
       this.container.id = 'toastContainer';
-      this.container.className = 'toast-container';
+      this.container.className = 'toast-container-bottom-right';
       document.body.appendChild(this.container);
+    } else {
+      this.container.className = 'toast-container-bottom-right';
     }
+
+    // 2. Top-Center Approval Container (Approval & Action Banners)
+    this.approvalContainer = document.getElementById('approvalContainer');
+    if (!this.approvalContainer) {
+      this.approvalContainer = document.createElement('div');
+      this.approvalContainer.id = 'approvalContainer';
+      this.approvalContainer.className = 'toast-container-top-center';
+      document.body.appendChild(this.approvalContainer);
+    }
+
     this.fetchNotifications();
   },
 
-  show(message, type = 'info', title = 'Bildirim') {
+  // -------------------------------------------------------------------------
+  // 1. STANDARD INFORMATIONAL TOASTS (BOTTOM-RIGHT, MAX 3, STACK SHIFT, FADE 3RD)
+  // -------------------------------------------------------------------------
+  show(message, type = 'info', title = 'Bildirim', duration = 4500) {
     if (!this.container) this.init();
 
-    // 1. Deduplication: Suppress identical toast within 2.5 seconds
+    // Spam deduplication check
     const key = `${type}:${title}:${message}`;
     const now = Date.now();
-    if (this.recentToastMap.has(key) && (now - this.recentToastMap.get(key)) < 2500) {
-      return; // Ignore duplicate spam call
+    if (this.recentToastMap.has(key) && (now - this.recentToastMap.get(key)) < 2200) {
+      return;
     }
     this.recentToastMap.set(key, now);
-
-    if (this.recentToastMap.size > 50) {
-      this.recentToastMap.clear();
-    }
-
-    // 2. Max Active Toasts Cap (Max 3 visible toasts in container)
-    const existingToasts = this.container.querySelectorAll('.toast');
-    if (existingToasts.length >= 3) {
-      const oldest = existingToasts[0];
-      if (oldest) oldest.remove();
-    }
+    if (this.recentToastMap.size > 40) this.recentToastMap.clear();
 
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    
+    toast.className = `toast toast-${type} toast-enter`;
+
     let iconClass = 'fa-info-circle';
-    if (type === 'success') iconClass = 'fa-check-circle';
-    if (type === 'danger' || type === 'error') iconClass = 'fa-exclamation-circle';
-    if (type === 'warning') iconClass = 'fa-bell';
+    let iconBg = '#e0e7ff';
+    let iconColor = '#5b5fc7';
+
+    if (type === 'success') {
+      iconClass = 'fa-check-circle';
+      iconBg = '#d1fae5';
+      iconColor = '#10b981';
+    } else if (type === 'danger' || type === 'error') {
+      iconClass = 'fa-exclamation-circle';
+      iconBg = '#fee2e2';
+      iconColor = '#ef4444';
+    } else if (type === 'warning') {
+      iconClass = 'fa-bell';
+      iconBg = '#fef3c7';
+      iconColor = '#f59e0b';
+    }
 
     toast.innerHTML = `
-      <i class="fas ${iconClass}" style="font-size: 1.15rem;"></i>
-      <div>
-        <strong style="display: block; font-size: 0.88rem; color: #0f172a;">${title}</strong>
-        <span style="font-size: 0.82rem; color: #475569; line-height: 1.3;">${message}</span>
-      </div>
-    `;
-
-    this.container.appendChild(toast);
-
-    setTimeout(() => {
-      if (toast.parentNode) {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(100%)';
-        toast.style.transition = 'all 0.25s ease';
-        setTimeout(() => {
-          if (toast.parentNode) toast.remove();
-        }, 250);
-      }
-    }, 4000);
-  },
-
-  showAction(message, buttonText, onButtonClick, type = 'success', title = 'İzin Onaylandı') {
-    if (!this.container) this.init();
-
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.style.cssText = 'display: flex; flex-direction: column; gap: 0.6rem; padding: 1rem; width: 340px; z-index: 99999999 !important; box-shadow: 0 12px 30px rgba(15,23,42,0.18); border-left: 4px solid #107c41; border-radius: 12px; background: #ffffff;';
-
-    toast.innerHTML = `
-      <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
-        <i class="fas fa-check-circle" style="font-size: 1.4rem; color: #107c41; margin-top: 0.15rem;"></i>
-        <div>
-          <strong style="display: block; font-size: 0.92rem; color: #0f172a;">${title}</strong>
-          <span style="font-size: 0.84rem; color: #475569; line-height: 1.3; display: block;">${message}</span>
+      <div style="display: flex; align-items: flex-start; gap: 0.75rem; flex: 1; min-width: 0;">
+        <div style="width: 34px; height: 34px; border-radius: 9px; background: ${iconBg}; color: ${iconColor}; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; margin-top: 0.05rem;">
+          <i class="fas ${iconClass}"></i>
+        </div>
+        <div style="flex: 1; min-width: 0; padding-right: 0.5rem;">
+          <strong style="display: block; font-size: 0.88rem; color: #0f172a; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${title}</strong>
+          <span style="display: block; font-size: 0.81rem; color: #475569; line-height: 1.35; margin-top: 0.15rem; word-break: break-word;">${message}</span>
         </div>
       </div>
-      <button id="toastActionBtn" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 8px; padding: 0.55rem 1rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem; transition: background 0.15s ease;">
-        <i class="fas fa-desktop"></i> ${buttonText}
-      </button>
+      <button type="button" class="toast-close-btn" title="Kapat" aria-label="Kapat">&times;</button>
     `;
 
-    this.container.appendChild(toast);
-
-    const btn = toast.querySelector('button');
-    if (btn) {
-      btn.addEventListener('click', () => {
-        toast.remove();
-        if (typeof onButtonClick === 'function') {
-          onButtonClick();
-        }
+    // Manual Close Button Event
+    const closeBtn = toast.querySelector('.toast-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.dismissToast(toast);
       });
     }
 
+    this.container.appendChild(toast);
+
+    // Smooth enter transition
+    requestAnimationFrame(() => {
+      toast.classList.remove('toast-enter');
+    });
+
+    // Enforce Max 3 Active Stack Rule & Fading:
+    this.updateToastStack();
+
+    // Auto-dismiss timer
+    if (duration > 0) {
+      toast.autoDismissTimer = setTimeout(() => {
+        this.dismissToast(toast);
+      }, duration);
+    }
+  },
+
+  dismissToast(toast, immediate = false) {
+    if (!toast || toast.isDismissing) return;
+    toast.isDismissing = true;
+    if (toast.autoDismissTimer) clearTimeout(toast.autoDismissTimer);
+
+    if (immediate) {
+      toast.remove();
+      this.updateToastStack();
+      return;
+    }
+
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(60px)';
+    toast.style.transition = 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)';
     setTimeout(() => {
-      if (toast.parentNode) {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(100%)';
-        toast.style.transition = 'all 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
+      if (toast.parentNode) toast.remove();
+      this.updateToastStack();
+    }, 220);
+  },
+
+  updateToastStack() {
+    if (!this.container) return;
+    // Container has flex-direction: column-reverse;
+    // Querying toasts: index 0 is NEWEST (bottom), higher indices are OLDEST (top)
+    const toasts = Array.from(this.container.querySelectorAll('.toast:not(.is-dismissing)'));
+
+    // Rule 1: Max 3 active toasts. If 4th (or more) arrives, remove the oldest (highest index)
+    while (toasts.length > 3) {
+      const oldest = toasts.pop();
+      if (oldest) this.dismissToast(oldest, true);
+    }
+
+    // Rule 2: If 3 toasts exist, index 2 (3rd / oldest visible) becomes faded (opacity 0.5)
+    toasts.forEach((t, idx) => {
+      if (idx === 2) {
+        t.classList.add('toast-faded');
+      } else {
+        t.classList.remove('toast-faded');
       }
-    }, 20000);
+    });
+  },
+
+  // -------------------------------------------------------------------------
+  // 2. APPROVAL & ACTION NOTIFICATIONS (TOP-CENTER SLIDE DOWN BANNERS)
+  // -------------------------------------------------------------------------
+  showApproval({ title, message, icon = 'fa-user-check', iconBg = '#e0e7ff', iconColor = '#5b5fc7', approveText = 'Kabul Et', denyText = 'Reddet', onApprove, onDeny, duration = 30000 }) {
+    if (!this.approvalContainer) this.init();
+
+    const toast = document.createElement('div');
+    toast.className = 'approval-toast approval-toast-enter';
+
+    toast.innerHTML = `
+      <button type="button" class="approval-close-btn" title="Kapat">&times;</button>
+      <div style="display: flex; align-items: flex-start; gap: 0.85rem;">
+        <div style="width: 42px; height: 42px; border-radius: 12px; background: ${iconBg}; color: ${iconColor}; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.15rem; flex-shrink: 0;">
+          <i class="fas ${icon}"></i>
+        </div>
+        <div style="flex: 1; padding-right: 1.2rem;">
+          <strong style="display: block; font-size: 0.95rem; color: #0f172a; font-weight: 800;">${title}</strong>
+          <span style="font-size: 0.84rem; color: #475569; display: block; margin-top: 0.2rem; line-height: 1.4;">${message}</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.65rem; margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid #f1f5f9;">
+        ${denyText ? `
+          <button type="button" class="btn-approval-deny" style="flex: 1; height: 36px; background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; border-radius: 9px; font-weight: 700; font-size: 0.84rem; cursor: pointer; transition: all 0.18s; display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
+            <i class="fas fa-times"></i> ${denyText}
+          </button>
+        ` : ''}
+        <button type="button" class="btn-approval-accept" style="flex: 1; height: 36px; background: linear-gradient(135deg, #5b5fc7 0%, #4f46e5 100%); color: #ffffff; border: none; border-radius: 9px; font-weight: 700; font-size: 0.84rem; cursor: pointer; box-shadow: 0 4px 12px rgba(91, 95, 199, 0.3); transition: all 0.18s; display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
+          <i class="fas fa-check"></i> ${approveText}
+        </button>
+      </div>
+    `;
+
+    const dismiss = () => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(-20px) scale(0.95)';
+      toast.style.transition = 'all 0.22s ease';
+      setTimeout(() => { if (toast.parentNode) toast.remove(); }, 220);
+    };
+
+    const closeBtn = toast.querySelector('.approval-close-btn');
+    if (closeBtn) closeBtn.addEventListener('click', dismiss);
+
+    const denyBtn = toast.querySelector('.btn-approval-deny');
+    if (denyBtn) {
+      denyBtn.addEventListener('click', () => {
+        dismiss();
+        if (typeof onDeny === 'function') onDeny();
+      });
+    }
+
+    const acceptBtn = toast.querySelector('.btn-approval-accept');
+    if (acceptBtn) {
+      acceptBtn.addEventListener('click', () => {
+        dismiss();
+        if (typeof onApprove === 'function') onApprove();
+      });
+    }
+
+    this.approvalContainer.appendChild(toast);
+
+    requestAnimationFrame(() => {
+      toast.classList.remove('approval-toast-enter');
+    });
+
+    if (duration > 0) {
+      setTimeout(dismiss, duration);
+    }
   },
 
   showGuestRequest(guestName, guestId, onApprove, onDeny) {
-    if (!this.container) this.init();
-
-    const toast = document.createElement('div');
-    toast.className = 'toast toast-teams-request';
-    toast.style.cssText = 'display: flex; flex-direction: column; gap: 0.85rem; padding: 1.15rem; width: 360px; z-index: 99999999 !important; background: #ffffff !important; border: 1.5px solid #cbd5e1 !important; border-left: 4px solid #5b5fc7 !important; border-radius: 14px !important; box-shadow: 0 14px 35px rgba(15,23,42,0.2) !important;';
-
-    toast.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 0.85rem;">
-        <div style="width: 42px; height: 42px; border-radius: 50%; background: #e0e7ff; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; border: 1px solid #c7d2fe;">
-          <i class="fas fa-user-plus"></i>
-        </div>
-        <div style="flex: 1;">
-          <strong style="display: block; font-size: 0.95rem; color: #0f172a; font-weight: 800;">Lobi Katılım İsteği</strong>
-          <span style="font-size: 0.85rem; color: #475569; display: block; margin-top: 0.1rem;"><strong style="color: #0f172a;">${guestName}</strong> odaya katılmak istiyor.</span>
-        </div>
-      </div>
-
-      <div style="display: flex; align-items: center; gap: 0.6rem; margin-top: 0.2rem;">
-        <button class="btn-deny-guest" style="flex: 1; background: #f87171; color: #ffffff; border: none; border-radius: 8px; padding: 0.6rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.18s;">
-          <i class="fas fa-times"></i> Reddet
-        </button>
-        <button class="btn-approve-guest" style="flex: 1; background: #5b5fc7; color: #ffffff; border: none; border-radius: 8px; padding: 0.6rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.18s;">
-          <i class="fas fa-check"></i> Odaya Al
-        </button>
-      </div>
-    `;
-
-    this.container.appendChild(toast);
-
-    const denyBtn = toast.querySelector('.btn-deny-guest');
-    const approveBtn = toast.querySelector('.btn-approve-guest');
-
-    if (denyBtn) {
-      denyBtn.addEventListener('click', () => {
-        toast.remove();
-        if (typeof onDeny === 'function') onDeny(guestId);
-      });
-    }
-
-    if (approveBtn) {
-      approveBtn.addEventListener('click', () => {
-        toast.remove();
-        if (typeof onApprove === 'function') onApprove(guestId);
-      });
-    }
-
-    setTimeout(() => {
-      if (toast.parentNode) {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(100%)';
-        toast.style.transition = 'all 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-      }
-    }, 30000);
+    this.showApproval({
+      title: 'Lobi Katılım Talebi',
+      message: `<strong style="color: #0f172a;">${guestName}</strong> odaya katılmak istiyor.`,
+      icon: 'fa-user-plus',
+      iconBg: '#e0e7ff',
+      iconColor: '#5b5fc7',
+      approveText: 'Odaya Al',
+      denyText: 'Reddet',
+      onApprove: () => onApprove && onApprove(guestId),
+      onDeny: () => onDeny && onDeny(guestId)
+    });
   },
 
   showScreenShareRequest(userName, userId, onApprove, onDeny) {
-    if (!this.container) this.init();
-
-    const toast = document.createElement('div');
-    toast.className = 'toast toast-teams-request';
-    toast.style.cssText = 'display: flex; flex-direction: column; gap: 0.85rem; padding: 1.15rem; width: 360px; z-index: 99999999 !important; background: #ffffff !important; border: 1.5px solid #cbd5e1 !important; border-left: 4px solid #0ea5e9 !important; border-radius: 14px !important; box-shadow: 0 14px 35px rgba(15,23,42,0.2) !important;';
-
-    toast.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 0.85rem;">
-        <div style="width: 42px; height: 42px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; border: 1px solid #bae6fd;">
-          <i class="fas fa-desktop"></i>
-        </div>
-        <div style="flex: 1;">
-          <strong style="display: block; font-size: 0.95rem; color: #0f172a; font-weight: 800;">Ekran Paylaşım İsteği</strong>
-          <span style="font-size: 0.85rem; color: #475569; display: block; margin-top: 0.1rem;"><strong style="color: #0f172a;">${userName}</strong> ekranını paylaşmak istiyor.</span>
-        </div>
-      </div>
-
-      <div style="display: flex; align-items: center; gap: 0.6rem; margin-top: 0.2rem;">
-        <button class="btn-deny-share" style="flex: 1; background: #f87171; color: #ffffff; border: none; border-radius: 8px; padding: 0.6rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.18s;">
-          <i class="fas fa-times"></i> Reddet
-        </button>
-        <button class="btn-approve-share" style="flex: 1; background: #5b5fc7; color: #ffffff; border: none; border-radius: 8px; padding: 0.6rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.18s;">
-          <i class="fas fa-check"></i> İzin Ver
-        </button>
-      </div>
-    `;
-
-    this.container.appendChild(toast);
-
-    const denyBtn = toast.querySelector('.btn-deny-share');
-    const approveBtn = toast.querySelector('.btn-approve-share');
-
-    if (denyBtn) {
-      denyBtn.addEventListener('click', () => {
-        toast.remove();
-        if (typeof onDeny === 'function') onDeny(userId);
-      });
-    }
-
-    if (approveBtn) {
-      approveBtn.addEventListener('click', () => {
-        toast.remove();
-        if (typeof onApprove === 'function') onApprove(userId);
-      });
-    }
-
-    setTimeout(() => {
-      if (toast.parentNode) {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(100%)';
-        toast.style.transition = 'all 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-      }
-    }, 30000);
+    this.showApproval({
+      title: 'Ekran Paylaşım Talebi',
+      message: `<strong style="color: #0f172a;">${userName}</strong> ekranını paylaşmak istiyor.`,
+      icon: 'fa-desktop',
+      iconBg: '#e0f2fe',
+      iconColor: '#0284c7',
+      approveText: 'İzin Ver',
+      denyText: 'Reddet',
+      onApprove: () => onApprove && onApprove(userId),
+      onDeny: () => onDeny && onDeny(userId)
+    });
   },
 
+  showAction(message, buttonText, onButtonClick, type = 'success', title = 'İzin Onaylandı') {
+    this.showApproval({
+      title: title,
+      message: message,
+      icon: 'fa-check-circle',
+      iconBg: '#d1fae5',
+      iconColor: '#10b981',
+      approveText: buttonText,
+      denyText: null,
+      onApprove: onButtonClick
+    });
+  },
+
+  // -------------------------------------------------------------------------
+  // 3. PERSISTENT NOTIFICATION DROPDOWN MENU & API SYNC
+  // -------------------------------------------------------------------------
   notifications: [],
 
   async fetchNotifications() {
@@ -266,7 +303,6 @@ const Notifications = {
   },
 
   async handleNotificationClick(notificationId, meetingCode) {
-    // Delete/Mark notification as read
     this.deleteNotification(notificationId);
 
     const code = meetingCode || null;

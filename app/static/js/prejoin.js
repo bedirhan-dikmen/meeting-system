@@ -59,20 +59,30 @@ const Prejoin = {
         if (videoDevices.length === 0) {
           btnCam.disabled = true;
           btnCam.innerHTML = '<i class="fas fa-video-slash"></i> Kamera Bulunamadı';
+          btnCam.style.background = '#f8fafc';
+          btnCam.style.color = '#94a3b8';
+          btnCam.style.border = '1px solid #e2e8f0';
         } else {
           btnCam.disabled = false;
         }
       }
 
       const btnMic = document.getElementById('btnToggleMicPrejoin');
-      if (btnMic) {
-        if (audioInputs.length === 0) {
-          btnMic.disabled = true;
-          btnMic.innerHTML = '<i class="fas fa-microphone-slash"></i> Mikrofon Bulunamadı';
-        } else {
-          btnMic.disabled = false;
+      const btnMicMobile = document.getElementById('btnToggleMicPrejoinMobile');
+
+      [btnMic, btnMicMobile].forEach(btn => {
+        if (btn) {
+          if (audioInputs.length === 0) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-microphone-slash"></i> Mikrofon Bulunamadı';
+            btn.style.background = '#f8fafc';
+            btn.style.color = '#94a3b8';
+            btn.style.border = '1px solid #e2e8f0';
+          } else {
+            btn.disabled = false;
+          }
         }
-      }
+      });
 
       if (videoSelect) {
         if (videoDevices.length > 0) {
@@ -176,8 +186,10 @@ const Prejoin = {
       avatarPlaceholder.style.display = this.isCameraOff ? 'flex' : 'none';
     }
 
-    if (btnCam && !btnCam.disabled) {
-      if (this.isCameraOff) {
+    if (btnCam) {
+      if (btnCam.disabled) {
+        btnCam.innerHTML = '<i class="fas fa-video-slash"></i> Kamera Bulunamadı';
+      } else if (this.isCameraOff) {
         btnCam.innerHTML = '<i class="fas fa-video-slash"></i> Kamerayı Aç';
         btnCam.style.background = '#f1f5f9';
         btnCam.style.color = '#475569';
@@ -193,19 +205,25 @@ const Prejoin = {
 
   updateMicUI() {
     const btnMic = document.getElementById('btnToggleMicPrejoin');
-    if (btnMic && !btnMic.disabled) {
-      if (this.isMicMuted) {
-        btnMic.innerHTML = '<i class="fas fa-microphone-slash"></i> Mikrofonu Aç';
-        btnMic.style.background = '#f1f5f9';
-        btnMic.style.color = '#475569';
-        btnMic.style.border = '1px solid #cbd5e1';
-      } else {
-        btnMic.innerHTML = '<i class="fas fa-microphone"></i> Mikrofonu Kapat';
-        btnMic.style.background = '#5b5fc7';
-        btnMic.style.color = '#ffffff';
-        btnMic.style.border = 'none';
+    const btnMicMobile = document.getElementById('btnToggleMicPrejoinMobile');
+
+    [btnMic, btnMicMobile].forEach(btn => {
+      if (btn) {
+        if (btn.disabled) {
+          btn.innerHTML = '<i class="fas fa-microphone-slash"></i> Mikrofon Bulunamadı';
+        } else if (this.isMicMuted) {
+          btn.innerHTML = '<i class="fas fa-microphone-slash"></i> Mikrofonu Aç';
+          btn.style.background = '#f1f5f9';
+          btn.style.color = '#475569';
+          btn.style.border = '1px solid #cbd5e1';
+        } else {
+          btn.innerHTML = '<i class="fas fa-microphone"></i> Mikrofonu Kapat';
+          btn.style.background = '#5b5fc7';
+          btn.style.color = '#ffffff';
+          btn.style.border = 'none';
+        }
       }
-    }
+    });
   },
 
   async toggleMic() {
@@ -249,12 +267,14 @@ const Prejoin = {
   bindControls() {
     const btnCam = document.getElementById('btnToggleCamPrejoin');
     const btnMic = document.getElementById('btnToggleMicPrejoin');
+    const btnMicMobile = document.getElementById('btnToggleMicPrejoinMobile');
     const videoSelect = document.getElementById('cameraSelect');
     const audioSelect = document.getElementById('micSelect');
     const speakerSelect = document.getElementById('speakerSelect');
 
     if (btnCam) btnCam.addEventListener('click', () => this.toggleCamera());
     if (btnMic) btnMic.addEventListener('click', () => this.toggleMic());
+    if (btnMicMobile) btnMicMobile.addEventListener('click', () => this.toggleMic());
 
     if (videoSelect) {
       videoSelect.addEventListener('change', async () => {
@@ -298,6 +318,36 @@ const Prejoin = {
     }
   },
 
+  renderLobbyDetails(meetingCode) {
+    const user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+    const userName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email : 'Katılımcı';
+
+    const lobbyUserNameEl = document.getElementById('lobbyUserName');
+    if (lobbyUserNameEl) lobbyUserNameEl.textContent = userName;
+
+    const lobbySubjectEl = document.getElementById('lobbyMeetingSubject');
+    if (lobbySubjectEl && this.meetingInfo) {
+      lobbySubjectEl.textContent = this.meetingInfo.title || 'Kurumsal Toplantı';
+    }
+
+    const lobbyHostEl = document.getElementById('lobbyHostName');
+    if (lobbyHostEl && this.meetingInfo) {
+      const hostUser = this.meetingInfo.created_by_user;
+      const hostName = hostUser ? `${hostUser.first_name || ''} ${hostUser.last_name || ''}`.trim() || hostUser.email : (this.meetingInfo.host_name || 'Oda Yöneticisi');
+      lobbyHostEl.textContent = hostName;
+    }
+
+    const lobbyAvatarEl = document.getElementById('lobbyUserAvatar');
+    if (lobbyAvatarEl && user) {
+      if (user.avatar_url) {
+        lobbyAvatarEl.innerHTML = `<img src="${user.avatar_url}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+      } else {
+        const initials = ((user.first_name?.[0] || '') + (user.last_name?.[0] || '')).toUpperCase() || 'U';
+        lobbyAvatarEl.textContent = initials;
+      }
+    }
+  },
+
   async proceedToRoom(meetingCode) {
     this.savePrejoinState();
     if (!this.meetingInfo) {
@@ -324,13 +374,14 @@ const Prejoin = {
     if (setupEl) setupEl.style.display = 'none';
     if (lobbyEl) lobbyEl.style.display = 'flex';
 
+    this.renderLobbyDetails(meetingCode);
     this.connectLobbyWS(meetingCode);
   },
 
   connectLobbyWS(meetingCode) {
     const token = (typeof Auth !== 'undefined' && Auth.getToken) ? Auth.getToken() : '';
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/api/v1/signaling/ws/${meetingCode}?token=${token}`;
+    const wsUrl = `${protocol}//${window.location.host}/api/v1/signaling/ws/${meetingCode}?token=${token}&in_lobby=true`;
 
     try {
       if (this.lobbySocket) {

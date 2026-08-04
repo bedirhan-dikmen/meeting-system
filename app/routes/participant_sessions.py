@@ -7,21 +7,27 @@ from app.core.security import get_current_user  # Kendi security dosyanızdaki i
 from app.models.user import User
 from app.schemas.participant_sessions import ParticipantSessionOut
 from app.services import participant_sessions as session_service
+from app.services.event_bus import event_bus
 
 router = APIRouter(prefix="/sessions", tags=["Toplantı Oturumları"])
 
 @router.post("/start", response_model=ParticipantSessionOut, status_code=status.HTTP_201_CREATED)
-def start_user_session(
+async def start_user_session(
     meeting_id: UUID,
     user_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Katılımcı toplantıya bağlandığında yeni bir canlı oturum logu açar."""
-    return session_service.create_session(db, meeting_id=meeting_id, user_id=user_id)
+    sess = session_service.create_session(db, meeting_id=meeting_id, user_id=user_id)
+    await event_bus.broadcast_event(
+        event_type="SESSION_STARTED",
+        payload={"meeting_id": str(meeting_id), "user_id": str(user_id)}
+    )
+    return sess
 
 @router.put("/{session_id}/close", response_model=ParticipantSessionOut)
-def close_user_session(
+async def close_user_session(
     session_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -30,6 +36,10 @@ def close_user_session(
     session = session_service.close_session(db, session_id=session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Oturum bulunamadı.")
+    await event_bus.broadcast_event(
+        event_type="SESSION_CLOSED",
+        payload={"meeting_id": str(session.meeting_id), "user_id": str(session.user_id)}
+    )
     return session
 
 @router.get("/meeting/{meeting_id}", response_model=List[ParticipantSessionOut])

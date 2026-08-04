@@ -231,20 +231,25 @@ class SignalingManager:
                         self.active_rooms[meeting_code].pop(recipient_id, None)
 
     async def broadcast_to_room(self, meeting_code: str, message: dict, exclude_user: Optional[str] = None):
-        """Odadaki herkese mesaj yayınlar. Hata fırlatan ölü istemcileri anında temizler."""
-        if meeting_code in self.active_rooms:
-            dead_users = []
-            for user_id, user_data in list(self.active_rooms[meeting_code].items()):
-                if exclude_user and user_id == exclude_user:
-                    continue
-                if isinstance(user_data, dict):
-                    ws = user_data.get("websocket")
-                    if ws:
-                        try:
-                            await ws.send_text(json.dumps(message))
-                        except Exception:
-                            dead_users.append(user_id)
-            
+        """Odadaki herkese mesaj yayınlar. Ölü bağlantıları anında temizler."""
+        if meeting_code not in self.active_rooms:
+            return
+        dead_users = []
+        message_text = json.dumps(message)
+        for user_id, user_data in list(self.active_rooms[meeting_code].items()):
+            if exclude_user and user_id == exclude_user:
+                continue
+            if isinstance(user_data, dict):
+                ws = user_data.get("websocket")
+                if ws:
+                    try:
+                        await ws.send_text(message_text)
+                    except Exception:
+                        dead_users.append(user_id)
+        # Ölü bağlantıları temizle
+        for dead_id in dead_users:
+            self.active_rooms[meeting_code].pop(dead_id, None)
+
     def get_active_participants(self, meeting_code: str) -> List[dict]:
         """Anlık olarak oda içinde (WebSocket) aktif bağlı bulunan kullanıcıların listesini döner."""
         if meeting_code not in self.active_rooms:

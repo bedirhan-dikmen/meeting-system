@@ -29,7 +29,8 @@ async def websocket_endpoint(
     websocket: WebSocket,
     meeting_code: str,
     token: Optional[str] = Query(None, description="Kayıtlı kullanıcı JWT token'ı"),
-    guest_token: Optional[str] = Query(None, description="Misafir erişim token'ı")
+    guest_token: Optional[str] = Query(None, description="Misafir erişim token'ı"),
+    in_lobby: Optional[bool] = Query(False, description="Bekleme odası bayrağı")
 ):
     # ── Auth: JWT veya guest_token ───────────────────────────────────────────
     is_guest = False
@@ -61,6 +62,7 @@ async def websocket_endpoint(
             "isMicMuted": True,
             "isCameraOff": True,
             "is_guest": True,
+            "in_lobby": bool(in_lobby)
         }
     elif token:
         # Kayıtlı kullanıcı yolu: mevcut JWT doğrulama
@@ -87,6 +89,7 @@ async def websocket_endpoint(
             "avatar_url": getattr(current_user, 'avatar_url', None),
             "isMicMuted": True,
             "isCameraOff": True,
+            "in_lobby": bool(in_lobby)
         }
     else:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -206,9 +209,14 @@ async def websocket_endpoint(
                 continue
 
             if data.get("type") == "guest-join-response":
-                if data.get("approved") is False and target_id:
-                    await signaling_manager.kick_user(meeting_code, target_id, reason="Rejected")
-                    continue
+                if target_id:
+                    if data.get("approved") is True:
+                        # BUG FIX: Lobi onayı — misafire 'lobby-approved' sinyali gönder
+                        await signaling_manager.approve_lobby_user(meeting_code, target_id)
+                    else:
+                        # Reddedildi — misafiri odadan çıkar
+                        await signaling_manager.kick_user(meeting_code, target_id, reason="Rejected")
+                continue
 
             if data.get("type") == "host-kick" and target_id:
                 await signaling_manager.kick_user(meeting_code, target_id, reason="Kicked")

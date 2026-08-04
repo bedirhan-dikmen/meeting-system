@@ -15,11 +15,12 @@ from app.services.meetings import (
     get_meeting_by_code,
     update_meeting_details
 )
+from app.services.event_bus import event_bus
 
 router = APIRouter()
 
 @router.post("/", response_model=MeetingOut, status_code=status.HTTP_201_CREATED)
-def create_meeting(
+async def create_meeting(
     payload: MeetingCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -29,7 +30,18 @@ def create_meeting(
     host_id = getattr(current_user, "id", None)
     if not host_id:
         raise HTTPException(status_code=401, detail="Kullanıcı kimliği doğrulanamadı.")
-    return create_new_meeting(db, meeting_data=payload, host_id=host_id)
+    new_meeting = create_new_meeting(db, meeting_data=payload, host_id=host_id)
+
+    await event_bus.broadcast_event(
+        event_type="MEETING_CREATED",
+        payload={
+            "id": str(new_meeting.id),
+            "meeting_code": new_meeting.meeting_code,
+            "title": new_meeting.title,
+            "created_by": str(host_id)
+        }
+    )
+    return new_meeting
 
 from app.services.signaling import signaling_manager
 
@@ -180,7 +192,7 @@ def read_meeting_by_code(
     return meeting
 
 @router.put("/{meeting_id}", response_model=MeetingOut)
-def update_meeting(
+async def update_meeting(
     meeting_id: UUID,  # UUID olarak güncellendi!
     payload: MeetingUpdate,
     db: Session = Depends(get_db),
@@ -202,10 +214,19 @@ def update_meeting(
         )
         
     updated_meeting = update_meeting_details(db, meeting_id=meeting_id, update_data=payload)
+    await event_bus.broadcast_event(
+        event_type="MEETING_UPDATED",
+        payload={
+            "id": str(updated_meeting.id),
+            "meeting_code": updated_meeting.meeting_code,
+            "title": updated_meeting.title,
+            "status": updated_meeting.status
+        }
+    )
     return updated_meeting
 
 @router.delete("/{meeting_id}")
-def cancel_meeting_endpoint(
+async def cancel_meeting_endpoint(
     meeting_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -226,6 +247,13 @@ def cancel_meeting_endpoint(
         
     meeting.status = "iptal edildi"
     db.commit()
+    await event_bus.broadcast_event(
+        event_type="MEETING_CANCELLED",
+        payload={
+            "id": str(meeting_id),
+            "meeting_code": meeting.meeting_code
+        }
+    )
     return {"message": "Toplantı başarıyla iptal edildi.", "meeting_id": str(meeting_id)}
 
 from app.routes.guest import GuestTokenRequest, GuestTokenResponse, create_guest_token as create_guest_token_route

@@ -1172,13 +1172,29 @@ body {
   animation: soundWaveAnim 1.2s ease-in-out infinite alternate;
 }
 
-.sound-wave-bars span:nth-child(1) { height: 50%; animation-delay: 0.1s; }
-.sound-wave-bars span:nth-child(2) { height: 100%; animation-delay: 0.3s; }
-.sound-wave-bars span:nth-child(3) { height: 70%; animation-delay: 0.2s; }
+.sound-wave-bars span:nth-child(1) {
+  height: 50%;
+  animation-delay: 0.1s;
+}
+
+.sound-wave-bars span:nth-child(2) {
+  height: 100%;
+  animation-delay: 0.3s;
+}
+
+.sound-wave-bars span:nth-child(3) {
+  height: 70%;
+  animation-delay: 0.2s;
+}
 
 @keyframes soundWaveAnim {
-  0% { transform: scaleY(0.4); }
-  100% { transform: scaleY(1); }
+  0% {
+    transform: scaleY(0.4);
+  }
+
+  100% {
+    transform: scaleY(1);
+  }
 }
 
 /* OVERFLOW TILE CARD (+N DAHA FAZLA) */
@@ -1390,7 +1406,7 @@ body {
   color: #0f172a;
   padding: 1rem 1.25rem;
   border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
   gap: 0.85rem;
@@ -1403,6 +1419,7 @@ body {
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -1414,10 +1431,12 @@ body {
     transform: scale(0.95);
     opacity: 0.8;
   }
+
   50% {
     transform: scale(1.15);
     opacity: 1;
   }
+
   100% {
     transform: scale(0.95);
     opacity: 0.8;
@@ -2645,6 +2664,7 @@ body {
     gap: 0.3rem;
     border-radius: 24px;
   }
+
   .yeb-floating-dock-wrapper button span,
   .yeb-floating-dock-wrapper .teams-split-main span {
     display: none !important;
@@ -2898,7 +2918,9 @@ body {
   }
 
   /* Başlıkların sayfa kesmesi */
-  h1, h2, h3 {
+  h1,
+  h2,
+  h3 {
     page-break-after: avoid;
   }
 }
@@ -2912,6 +2934,7 @@ body {
     opacity: 0;
     transform: translateX(-50%) translateY(-32px) scale(0.96);
   }
+
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0) scale(1);
@@ -3059,7 +3082,9 @@ body {
     padding: 0.85rem 1rem !important;
   }
 
-  .main-content, .content-area, .main-wrapper {
+  .main-content,
+  .content-area,
+  .main-wrapper {
     margin-left: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -3073,6 +3098,7 @@ body {
 
 /* Mobil Cihazlar & Dar Ekranlar (<= 768px) */
 @media (max-width: 768px) {
+
   /* Üst Kontrol Çubuğu (Topbar) */
   .yeb-room-topbar {
     height: auto !important;
@@ -3331,9 +3357,20 @@ body {
 }
 
 @keyframes livePulse {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 124, 65, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 124, 65, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 124, 65, 0); }
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 124, 65, 0.7);
+  }
+
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(16, 124, 65, 0);
+  }
+
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 124, 65, 0);
+  }
 }
 
 .participant-instant-badge {
@@ -3753,6 +3790,7 @@ body {
     opacity: 0;
     transform: translateY(-20px) scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -3768,7 +3806,7 @@ body {
   .top-header {
     padding: 0 1.5rem;
   }
-  
+
   .header-left {
     gap: 1.75rem;
   }
@@ -3782,11 +3820,11 @@ body {
   }
 
   /* Dashboard Row 1 & Row 2 Grid Adaptations */
-  .dashboard-page-wrapper > div:nth-child(2) {
+  .dashboard-page-wrapper>div:nth-child(2) {
     grid-template-columns: 1fr 1fr !important;
   }
 
-  .dashboard-page-wrapper > div:nth-child(3) {
+  .dashboard-page-wrapper>div:nth-child(3) {
     grid-template-columns: 1fr 1fr !important;
   }
 
@@ -3818,7 +3856,7 @@ body {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
-  
+
   .top-nav-menu::-webkit-scrollbar {
     display: none;
   }
@@ -3833,7 +3871,7 @@ body {
     align-items: stretch !important;
   }
 
-  .dashboard-top-row > div:last-child {
+  .dashboard-top-row>div:last-child {
     width: 100%;
     justify-content: flex-start;
   }
@@ -3859,7 +3897,8 @@ body {
   }
 
   .header-search {
-    display: none; /* Mobile search button or toggle */
+    display: none;
+    /* Mobile search button or toggle */
   }
 
   .header-right {
@@ -3867,30 +3906,31 @@ body {
   }
 
   .user-profile-btn .user-details {
-    display: none; /* Hide name/role on small mobile header to save space */
+    display: none;
+    /* Hide name/role on small mobile header to save space */
   }
 
   /* All Dashboard Grids Collapse to 1 Column */
-  .dashboard-page-wrapper > div:nth-child(2),
-  .dashboard-page-wrapper > div:nth-child(3) {
+  .dashboard-page-wrapper>div:nth-child(2),
+  .dashboard-page-wrapper>div:nth-child(3) {
     grid-template-columns: 1fr !important;
     gap: 1rem !important;
   }
 
   /* Promo Banner Mobile Layout */
-  .dashboard-page-wrapper > div:nth-child(4) {
+  .dashboard-page-wrapper>div:nth-child(4) {
     flex-direction: column !important;
     align-items: flex-start !important;
     padding: 1.25rem !important;
     gap: 1.25rem !important;
   }
 
-  .dashboard-page-wrapper > div:nth-child(4) > div {
+  .dashboard-page-wrapper>div:nth-child(4)>div {
     flex-direction: column !important;
     gap: 1rem !important;
   }
 
-  .dashboard-page-wrapper > div:nth-child(4) button {
+  .dashboard-page-wrapper>div:nth-child(4) button {
     width: 100% !important;
   }
 
@@ -3899,7 +3939,7 @@ body {
     grid-template-columns: 1fr !important;
   }
 
-  #agendaTimelineContainer > div {
+  #agendaTimelineContainer>div {
     flex-direction: column !important;
     text-align: center !important;
     padding: 1.5rem 1rem !important;
@@ -3958,7 +3998,7 @@ body {
     font-size: 1.3rem !important;
   }
 
-  .dashboard-top-row > div:last-child {
+  .dashboard-top-row>div:last-child {
     flex-direction: column;
     gap: 0.65rem;
   }
@@ -4114,7 +4154,7 @@ body {
   background: #e11d48;
   color: #ffffff;
   border: none;
-  border-left: 1px solid rgba(255,255,255,0.25);
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
   padding: 0.55rem 0.55rem;
   font-size: 0.75rem;
   cursor: pointer;
@@ -4126,39 +4166,84 @@ body {
 }
 
 /* ==========================================================================
-   MICROSOFT TEAMS NOTIFICATION & REQUEST TOAST CONTAINER (OVERLAY LAYER Z-INDEX: 99999999)
+   NOTIFICATION SYSTEM (BOTTOM-RIGHT INFORMATIONAL & TOP-CENTER APPROVALS)
    ========================================================================== */
+
+/* 1. BOTTOM-RIGHT CONTAINER (INFORMATIONAL TOASTS) */
+.toast-container-bottom-right,
 .toast-container,
 #toastContainer {
   position: fixed !important;
-  top: 86px !important;
-  right: 1.5rem !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  top: auto !important;
+  left: auto !important;
   z-index: 99999999 !important;
+  display: flex !important;
+  flex-direction: column-reverse !important;
+  gap: 0.75rem !important;
+  pointer-events: none !important;
+  max-width: 380px !important;
+  width: calc(100vw - 48px) !important;
+}
+
+.toast-container-bottom-right>*,
+.toast-container>* {
+  pointer-events: auto !important;
+}
+
+/* 2. TOP-CENTER CONTAINER (APPROVAL & ACTION BANNERS) */
+.toast-container-top-center,
+#approvalContainer {
+  position: fixed !important;
+  top: 24px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  right: auto !important;
+  bottom: auto !important;
+  z-index: 999999999 !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 0.75rem !important;
   pointer-events: none !important;
-  max-width: 420px !important;
+  max-width: 440px !important;
+  width: calc(100vw - 32px) !important;
 }
 
-.toast-container > * {
+.toast-container-top-center>* {
   pointer-events: auto !important;
 }
 
+/* BOTTOM-RIGHT INFORMATIONAL TOAST CARDS */
 .toast {
   background: #ffffff !important;
-  border: 1.5px solid #cbd5e1 !important;
+  border: 1px solid #cbd5e1 !important;
   border-radius: 14px !important;
-  padding: 1rem 1.15rem !important;
-  box-shadow: 0 14px 35px -4px rgba(15, 23, 42, 0.18) !important;
+  padding: 0.85rem 2.2rem 0.85rem 0.85rem !important;
+  box-shadow: 0 10px 30px -4px rgba(15, 23, 42, 0.12) !important;
   display: flex !important;
-  align-items: flex-start !important;
-  gap: 0.85rem !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
   color: #0f172a !important;
   font-family: inherit !important;
-  z-index: 99999999 !important;
-  backdrop-filter: blur(12px) !important;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.toast-enter {
+  opacity: 0 !important;
+  transform: translateY(20px) scale(0.92) !important;
+}
+
+/* 3rd toast faded state */
+.toast-faded {
+  opacity: 0.48 !important;
+  transform: scale(0.96) !important;
+  filter: grayscale(15%) !important;
 }
 
 .toast-info {
@@ -4166,16 +4251,78 @@ body {
 }
 
 .toast-success {
-  border-left: 4px solid #107c41 !important;
+  border-left: 4px solid #10b981 !important;
 }
 
 .toast-danger,
 .toast-error {
-  border-left: 4px solid #d13438 !important;
+  border-left: 4px solid #ef4444 !important;
 }
 
 .toast-warning {
   border-left: 4px solid #f59e0b !important;
+}
+
+.toast-close-btn {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  background: transparent !important;
+  border: none !important;
+  color: #94a3b8 !important;
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  padding: 2px 6px !important;
+  border-radius: 6px !important;
+  transition: all 0.15s ease !important;
+}
+
+.toast-close-btn:hover {
+  color: #ef4444 !important;
+  background: #fef2f2 !important;
+}
+
+/* TOP-CENTER APPROVAL TOAST CARDS */
+.approval-toast {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 16px !important;
+  padding: 1rem 1.15rem !important;
+  box-shadow: 0 16px 40px -4px rgba(15, 23, 42, 0.18) !important;
+  position: relative !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.approval-toast-enter {
+  opacity: 0 !important;
+  transform: translateY(-24px) scale(0.95) !important;
+}
+
+.approval-close-btn {
+  position: absolute !important;
+  top: 10px !important;
+  right: 12px !important;
+  background: transparent !important;
+  border: none !important;
+  color: #94a3b8 !important;
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  padding: 2px 6px !important;
+  border-radius: 6px !important;
+  transition: all 0.15s ease !important;
+}
+
+.approval-close-btn:hover {
+  color: #ef4444 !important;
+  background: #fef2f2 !important;
 }
 
 .toast-teams-request {
@@ -4217,6 +4364,7 @@ body {
     opacity: 0;
     transform: translate(-50%, -15px);
   }
+
   to {
     opacity: 1;
     transform: translate(-50%, 0);
@@ -4394,6 +4542,7 @@ body {
 
 /* Large Tablets and Half-Screen Windows (max-width: 1180px) */
 @media (max-width: 1180px) {
+
   .top-header,
   #mainAppTopHeader {
     padding: 0 0.85rem !important;
@@ -4415,6 +4564,7 @@ body {
 
 /* Tablets and Narrow Windows (max-width: 920px) */
 @media (max-width: 920px) {
+
   .top-header,
   #mainAppTopHeader {
     height: auto !important;
@@ -4489,7 +4639,214 @@ body {
   }
 }
 
+/* ==========================================================================
+   SKELETON LOADER ANIMATIONS & STYLES (FAST INITIAL LOAD UX)
+   ========================================================================== */
+@keyframes skeletonShimmer {
+  0% {
+    background-position: -200px 0;
+  }
+
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.skeleton-box {
+  display: inline-block;
+  height: 1em;
+  position: relative;
+  overflow: hidden;
+  background-color: #e2e8f0;
+  border-radius: 8px;
+  background-image: linear-gradient(90deg,
+      #e2e8f0 0px,
+      #f1f5f9 40px,
+      #e2e8f0 80px);
+  background-size: 200px 100%;
+  background-repeat: no-repeat;
+  animation: skeletonShimmer 2.2s ease-in-out infinite;
+}
+
+.skeleton-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.skeleton-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+}
+
+.skeleton-text-lg {
+  width: 70%;
+  height: 1.2rem;
+}
+
+.skeleton-text-sm {
+  width: 40%;
+  height: 0.85rem;
+}
+
+.fade-in-content {
+  opacity: 1;
+  animation: none;
+}
 
 
 
-
+
+
+
+display: grid !important;
+width: 100% !important;
+height: 100% !important;
+min-height: 0 !important;
+gap: 0.75rem !important;
+box-sizing: border-box !important;
+position: relative !important;
+overflow: hidden !important;
+}
+
+.video-grid.grid-1 {
+  grid-template-columns: 1fr !important;
+  grid-template-rows: 1fr !important;
+}
+
+.video-grid.grid-2 {
+  grid-template-columns: repeat(2, 1fr) !important;
+  grid-template-rows: 1fr !important;
+}
+
+@media (max-width: 640px) {
+  .video-grid.grid-2 {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: repeat(2, 1fr) !important;
+  }
+}
+
+.video-grid.grid-3,
+.video-grid.grid-4 {
+  grid-template-columns: repeat(2, 1fr) !important;
+  grid-template-rows: repeat(2, 1fr) !important;
+}
+
+.video-grid.grid-5,
+.video-grid.grid-6 {
+  grid-template-columns: repeat(3, 1fr) !important;
+  grid-template-rows: repeat(2, 1fr) !important;
+}
+
+.video-grid.grid-8 {
+  grid-template-columns: repeat(4, 1fr) !important;
+  grid-template-rows: repeat(2, 1fr) !important;
+}
+
+.video-grid.grid-12 {
+  grid-template-columns: repeat(4, 1fr) !important;
+  grid-template-rows: repeat(3, 1fr) !important;
+}
+
+/* PARTICIPANT TILE CONTAINER */
+.participant-tile {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  background: #090d16 !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+  transition: all 0.25s ease !important;
+}
+
+.participant-tile video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  border-radius: 14px !important;
+  background: #000000 !important;
+}
+
+/* ============================================================
+   AVATAR KAYMA DÜZELTME — Kamera kapalıyken profil fotoğrafı
+   tile içinde tam ortada sabit konumlanır. 
+   margin:auto yerine position:absolute kullanarak flexbox
+   layout kaymasını tamamen önler.
+   ============================================================ */
+
+/* Tile içindeki doğrudan avatar div'i (kamera kapalı durumu) */
+.participant-tile > div[id^="localAvatar"],
+.participant-tile > div[id^="remoteAvatar_"] {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+  width: 76px !important;
+  height: 76px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  z-index: 5 !important;
+}
+
+.participant-tile > div[id^="localAvatar"] img,
+.participant-tile > div[id^="remoteAvatar_"] img {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+}
+
+/* Video gizliyken (kamera kapalı) video elementi layout'u etkilemesin */
+.participant-tile > video[style*="display: none"],
+.participant-tile > video[style*="display:none"] {
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Kamera açıkken video tam tile'ı kaplar ve avatar üstüne taşınmaz */
+.participant-tile > video[style*="display: block"],
+.participant-tile > video[style*="display:block"] {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  z-index: 3 !important;
+}
+
+/* Overlay pill ve 3-dots her zaman en üstte */
+.participant-tile .tile-overlay-pill {
+  z-index: 10 !important;
+}
+
+.participant-tile .tile-more-btn {
+  z-index: 15 !important;
+}
+
+.participant-tile .card-context-menu {
+  z-index: 20 !important;
+}
+
+.participant-tile .active-speaker-badge {
+  z-index: 12 !important;
+}

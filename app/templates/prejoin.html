@@ -3,137 +3,425 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Toplantıya Katılım Hazırlığı | Meeting with Yeb Soft</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    /* UNIVERSAL RESPONSIVE & DYNAMIC FLUID STYLES */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      overflow-x: hidden;
+      overflow-y: auto;
+      background: #f3f2f1;
+      color: #0f172a;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+    }
+
+    .prejoin-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      min-height: 100vh;
+      padding: clamp(0.5rem, 2vh, 1.5rem) clamp(0.5rem, 2vw, 1rem);
+      background: #f3f2f1;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .prejoin-inner {
+      max-width: 920px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .prejoin-header {
+      text-align: center;
+      margin-bottom: clamp(0.5rem, 2vh, 1.25rem);
+    }
+
+    .prejoin-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(0.75rem, 2vw, 1.5rem);
+      width: 100%;
+      align-items: stretch;
+    }
+
+    .prejoin-card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 16px;
+      padding: clamp(0.75rem, 2vw, 1.25rem);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+      box-sizing: border-box;
+      min-height: 360px;
+    }
+
+    .prejoin-video-box {
+      flex: 1;
+      min-height: clamp(140px, 24vh, 240px);
+      background: #0f172a;
+      border-radius: 12px;
+      border: 1px solid #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-touch {
+      height: 38px !important;
+      min-height: 38px !important;
+      max-height: 38px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0.35rem !important;
+      font-weight: 700 !important;
+      border-radius: 9px !important;
+      transition: all 0.2s !important;
+      cursor: pointer !important;
+      box-sizing: border-box !important;
+      text-decoration: none !important;
+      white-space: nowrap !important;
+      font-size: 0.8rem;
+    }
+
+    .btn-cancel-touch {
+      background: #f8fafc !important;
+      color: #475569 !important;
+      border: 1px solid #cbd5e1 !important;
+    }
+
+    .btn-cancel-touch:hover, .btn-cancel-touch:active {
+      background: #f1f5f9 !important;
+      color: #1e293b !important;
+    }
+
+    .btn-primary-join {
+      background: linear-gradient(135deg, #5b5fc7 0%, #4f46e5 100%) !important;
+      color: #ffffff !important;
+      border: none !important;
+      box-shadow: 0 4px 14px rgba(91, 95, 199, 0.35) !important;
+      white-space: nowrap !important;
+    }
+
+    .btn-primary-join:active, .btn-primary-join:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    .form-select-touch {
+      font-size: 0.82rem;
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 0.45rem 0.5rem;
+      background: #f8fafc;
+      font-weight: 700;
+      color: #0f172a;
+      outline: none;
+      min-height: 36px;
+      box-sizing: border-box;
+    }
+
+    /* DESKTOP ACTION BAR (VISIBLE ON DESKTOP & TABLET LANDSCAPE) */
+    .desktop-action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 0.75rem;
+      margin-top: 0.75rem;
+    }
+
+    /* MOBILE STICKY BAR (HIDDEN ON DESKTOP & TABLET LANDSCAPE) */
+    .mobile-sticky-bar {
+      display: none;
+    }
+
+    /* TABLET & SMALL DESKTOP BREAKPOINT (< 900px) */
+    @media (max-width: 900px) {
+      .prejoin-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      .prejoin-card {
+        min-height: auto !important;
+      }
+    }
+
+    /* MOBILE BREAKPOINT (< 768px) */
+    @media (max-width: 768px) {
+      .btn-touch {
+        font-size: 0.76rem !important;
+        padding: 0 0.55rem !important;
+      }
+
+      .prejoin-wrapper {
+        padding: 0.6rem 0.6rem 5.5rem 0.6rem;
+        justify-content: flex-start;
+      }
+      .prejoin-header {
+        margin-bottom: 0.75rem;
+      }
+      .prejoin-header h2 {
+        font-size: 1.25rem !important;
+      }
+      .prejoin-header p {
+        font-size: 0.78rem !important;
+      }
+      .prejoin-header-icon {
+        width: 44px !important;
+        height: 44px !important;
+        font-size: 1.2rem !important;
+        margin-bottom: 0.3rem !important;
+      }
+
+      /* HIDE DESKTOP ACTION BAR ON MOBILE TO PREVENT DUPLICATE BUTTONS */
+      .desktop-action-bar {
+        display: none !important;
+      }
+
+      /* SHOW STICKY BOTTOM ACTION BAR ON MOBILE ONLY */
+      .mobile-sticky-bar {
+        display: flex !important;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #ffffff;
+        border-top: 1px solid #cbd5e1;
+        padding: 0.65rem 0.75rem calc(0.65rem + env(safe-area-inset-bottom, 0px)) 0.75rem;
+        box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.12);
+        z-index: 9999;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+    }
+
+    /* NARROW PHONE BREAKPOINT (<= 380px): Compact text & font sizes */
+    @media (max-width: 380px) {
+      .btn-touch {
+        font-size: 0.72rem !important;
+        padding: 0 0.45rem !important;
+      }
+      .btn-word-now {
+        display: none !important;
+      }
+    }
+
+    /* SMALL PHONE BREAKPOINT: iPhone SE / 320px - 375px & SHORT HEIGHT */
+    @media (max-width: 480px), (max-height: 680px) {
+      .prejoin-wrapper {
+        padding-top: 0.4rem;
+      }
+      .prejoin-header-icon {
+        width: 38px !important;
+        height: 38px !important;
+        font-size: 1.05rem !important;
+        margin-bottom: 0.2rem !important;
+      }
+      .prejoin-header h2 {
+        font-size: 1.1rem !important;
+      }
+      .prejoin-header p {
+        font-size: 0.72rem !important;
+      }
+      .prejoin-video-box {
+        min-height: 135px;
+        height: clamp(135px, 22vh, 175px);
+      }
+      .prejoin-card {
+        padding: 0.65rem !important;
+        border-radius: 12px;
+      }
+    }
+  </style>
 </head>
 
-<body style="overflow-x: hidden; overflow-y: auto; background: #f3f2f1; color: #0f172a; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;">
+<body>
   
-  <!-- PRE-JOIN SETUP CONTAINER (PERFECTLY CENTERED) -->
-  <div id="prejoinSetupContainer" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem 1rem; background: #f3f2f1; position: relative; width: 100%; box-sizing: border-box;">
-    <div style="max-width: 920px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; align-items: center;">
+  <!-- PRE-JOIN SETUP CONTAINER -->
+  <div id="prejoinSetupContainer" class="prejoin-wrapper">
+    <div class="prejoin-inner">
       
       <!-- CENTER BRAND LOGO & TITLE -->
-      <div style="text-align: center; margin-bottom: 2rem;">
-        <div style="display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: #5b5fc7; color: #fff; border-radius: 14px; font-size: 1.6rem; margin-bottom: 0.75rem; box-shadow: 0 6px 20px rgba(91, 95, 199, 0.35);">
+      <div class="prejoin-header">
+        <div class="prejoin-header-icon" style="display: inline-flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: #5b5fc7; color: #fff; border-radius: 14px; font-size: 1.5rem; margin-bottom: 0.4rem; box-shadow: 0 6px 20px rgba(91, 95, 199, 0.35);">
           <i class="fas fa-users"></i>
         </div>
-        <h2 style="font-size: 1.6rem; font-weight: 800; color: #1e1e1e; margin: 0; letter-spacing: -0.3px;">Meeting with Yeb Soft</h2>
-        <p style="color: #64748b; font-size: 0.88rem; margin-top: 0.25rem;">Toplantıya katılmadan önce cihaz ve ses ayarlarınızı kontrol edin</p>
+        <h2 style="font-size: clamp(1.15rem, 3vw, 1.55rem); font-weight: 800; color: #1e1e1e; margin: 0; letter-spacing: -0.3px;">Meeting with Yeb Soft</h2>
+        <p style="color: #64748b; font-size: clamp(0.75rem, 2vw, 0.88rem); margin-top: 0.2rem;">Toplantıya katılmadan önce cihaz ve ses ayarlarınızı kontrol edin</p>
       </div>
 
-      <!-- TWO EQUAL-HEIGHT SETUP CARDS CONTAINER -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; width: 100%; align-items: stretch;">
+      <!-- TWO SETUP CARDS CONTAINER -->
+      <div class="prejoin-grid">
       
-      <!-- LEFT COLUMN: PREVIEW CARD (HEIGHT: 380px) -->
-      <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; height: 380px; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04); box-sizing: border-box;">
-        <div style="flex: 1; background: #0f172a; border-radius: 10px; border: 1px solid #cbd5e1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;">
-          <video id="prejoinVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; display: none;"></video>
-          <div id="prejoinAvatar" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; color: #94a3b8;">
-            <i class="fas fa-video-slash" style="font-size: 2.5rem; color: #cbd5e1;"></i>
-            <span style="font-size: 0.9rem; font-weight: 700; color: #e2e8f0;">Kamera kapalı veya izin bekleniyor</span>
-          </div>
-        </div>
-
-        <!-- PREVIEW BOTTOM TOGGLE BUTTON & DEVICE SELECT -->
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 1rem; padding: 0 0.25rem;">
-          <div style="display: flex; align-items: center; gap: 0.4rem; flex: 1; overflow: hidden;">
-            <i class="fas fa-camera" style="color: #5b5fc7; font-size: 0.9rem;"></i>
-            <select id="cameraSelect" class="form-select" style="font-size: 0.82rem; width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.35rem 0.5rem; background: #f8fafc; font-weight: 700; color: #0f172a; outline: none;">
-              <option value="">Kamera Aranıyor...</option>
-            </select>
-          </div>
-          <button id="btnToggleCamPrejoin" type="button" style="padding: 0.45rem 1rem; font-size: 0.82rem; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; border: none; background: #5b5fc7; color: #ffffff;">
-            <i class="fas fa-video"></i> Kamerayı Kapat
-          </button>
-        </div>
-      </div>
-
-      <!-- RIGHT COLUMN: AUDIO & DEVICE SETUP CARD (HEIGHT: 380px) -->
-      <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; height: 380px; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04); box-sizing: border-box; overflow: hidden;">
-        
-        <div style="display: flex; flex-direction: column; gap: 0.75rem; flex: 1;">
-          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.85rem; background: #ffffff; display: flex; flex-direction: column; gap: 0.65rem;">
-            
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.1rem;">
-              <div style="font-weight: 800; font-size: 0.9rem; color: #1e1e1e; display: flex; align-items: center; gap: 0.4rem;">
-                <i class="fas fa-sliders-h" style="color: #5b5fc7;"></i> Ses ve Cihaz Ayarları
-              </div>
-              <button type="button" onclick="testAudioDevices()" style="background: none; border: none; color: #5b5fc7; font-size: 0.78rem; font-weight: 700; cursor: pointer; padding: 0;">
-                <i class="fas fa-volume-up" style="margin-right: 0.2rem;"></i> Ses Testi
-              </button>
+        <!-- LEFT COLUMN: PREVIEW CARD -->
+        <div class="prejoin-card">
+          <div class="prejoin-video-box">
+            <video id="prejoinVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; display: none;"></video>
+            <div id="prejoinAvatar" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; color: #94a3b8; padding: 0.75rem; text-align: center;">
+              <i class="fas fa-video-slash" style="font-size: clamp(1.6rem, 4vw, 2.2rem); color: #cbd5e1;"></i>
+              <span style="font-size: clamp(0.78rem, 2vw, 0.88rem); font-weight: 700; color: #e2e8f0;">Kamera kapalı veya izin bekleniyor</span>
             </div>
+          </div>
 
-            <!-- MİKROFON SEÇİMİ -->
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.45rem 0.7rem;">
-              <label style="font-size: 0.72rem; font-weight: 800; color: #64748b; display: block; margin-bottom: 0.15rem;">
-                <i class="fas fa-microphone" style="color: #10b981; margin-right: 0.3rem;"></i> MİKROFON
-              </label>
-              <select id="micSelect" class="form-select" style="font-size: 0.82rem; width: 100%; border: none; background: transparent; font-weight: 700; color: #0f172a; outline: none;">
-                <option value="">Mikrofon Aranıyor...</option>
+          <!-- PREVIEW BOTTOM TOGGLE BUTTON & DEVICE SELECT -->
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.75rem; padding: 0 0.1rem;">
+            <div style="display: flex; align-items: center; gap: 0.4rem; flex: 1; overflow: hidden;">
+              <i class="fas fa-camera" style="color: #5b5fc7; font-size: 0.88rem;"></i>
+              <select id="cameraSelect" class="form-select-touch">
+                <option value="">Kamera Aranıyor...</option>
               </select>
             </div>
-
-            <!-- HOPARLÖR ÇIKIŞI SEÇİMİ -->
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.45rem 0.7rem;">
-              <label style="font-size: 0.72rem; font-weight: 800; color: #64748b; display: block; margin-bottom: 0.15rem;">
-                <i class="fas fa-volume-up" style="color: #0ea5e9; margin-right: 0.3rem;"></i> HOPARLÖR ÇIKIŞI
-              </label>
-              <select id="speakerSelect" class="form-select" style="font-size: 0.82rem; width: 100%; border: none; background: transparent; font-weight: 700; color: #0f172a; outline: none;">
-                <option value="">Hoparlör Aranıyor...</option>
-              </select>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- BOTTOM ACTION BUTTONS WITH MIC TOGGLE ON THE LEFT -->
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; border-top: 1px solid #e2e8f0; padding-top: 0.75rem; margin-top: 0.5rem;">
-          <button id="btnToggleMicPrejoin" type="button" style="padding: 0.45rem 0.95rem; font-size: 0.82rem; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; border: none; background: #5b5fc7; color: #ffffff;">
-            <i class="fas fa-microphone"></i> Mikrofonu Kapat
-          </button>
-          <div style="display: flex; gap: 0.5rem;">
-            <a href="/meetings" style="padding: 0.45rem 1rem; font-size: 0.82rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; text-decoration: none; font-weight: 700;">İptal</a>
-            <button id="btnProceedToRoom" type="button" style="padding: 0.45rem 1.2rem; font-size: 0.82rem; border-radius: 8px; background: #5b5fc7; color: #ffffff; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(91, 95, 199, 0.35);">
-              Şimdi katıl
+            <button id="btnToggleCamPrejoin" type="button" class="btn-touch" style="padding: 0 0.85rem; border: none; background: #5b5fc7; color: #ffffff;">
+              <i class="fas fa-video"></i> Kamerayı Kapat
             </button>
           </div>
         </div>
 
-      </div>
+        <!-- RIGHT COLUMN: AUDIO & DEVICE SETUP CARD -->
+        <div class="prejoin-card">
+          
+          <div style="display: flex; flex-direction: column; gap: 0.65rem; flex: 1;">
+            <div style="border: 1px solid #cbd5e1; border-radius: 12px; padding: 0.75rem; background: #ffffff; display: flex; flex-direction: column; gap: 0.65rem;">
+              
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.1rem;">
+                <div style="font-weight: 800; font-size: 0.88rem; color: #1e1e1e; display: flex; align-items: center; gap: 0.4rem;">
+                  <i class="fas fa-sliders-h" style="color: #5b5fc7;"></i> Ses ve Cihaz Ayarları
+                </div>
+                <button type="button" onclick="testAudioDevices()" style="background: none; border: none; color: #5b5fc7; font-size: 0.75rem; font-weight: 700; cursor: pointer; padding: 0.2rem 0.35rem; border-radius: 6px;">
+                  <i class="fas fa-volume-up" style="margin-right: 0.2rem;"></i> Ses Testi
+                </button>
+              </div>
 
+              <!-- MİKROFON SEÇİMİ -->
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.45rem 0.65rem;">
+                <label style="font-size: 0.7rem; font-weight: 800; color: #64748b; display: block; margin-bottom: 0.15rem;">
+                  <i class="fas fa-microphone" style="color: #10b981; margin-right: 0.3rem;"></i> MİKROFON
+                </label>
+                <select id="micSelect" class="form-select-touch" style="border: none; background: transparent; padding: 0.1rem 0;">
+                  <option value="">Mikrofon Aranıyor...</option>
+                </select>
+              </div>
+
+              <!-- HOPARLÖR ÇIKIŞI SEÇİMİ -->
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.45rem 0.65rem;">
+                <label style="font-size: 0.7rem; font-weight: 800; color: #64748b; display: block; margin-bottom: 0.15rem;">
+                  <i class="fas fa-volume-up" style="color: #0ea5e9; margin-right: 0.3rem;"></i> HOPARLÖR ÇIKIŞI
+                </label>
+                <select id="speakerSelect" class="form-select-touch" style="border: none; background: transparent; padding: 0.1rem 0;">
+                  <option value="">Hoparlör Aranıyor...</option>
+                </select>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- DESKTOP BOTTOM ACTION BUTTONS (HIDDEN ON MOBILE) -->
+          <div class="desktop-action-bar">
+            <button id="btnToggleMicPrejoin" type="button" class="btn-touch" style="padding: 0 1.1rem; border: none; background: #5b5fc7; color: #ffffff;">
+              <i class="fas fa-microphone"></i> Mikrofonu Kapat
+            </button>
+            <div style="display: flex; gap: 0.5rem;">
+              <a href="/" class="btn-touch btn-cancel-touch" style="padding: 0 1.1rem;">İptal</a>
+              <button id="btnProceedToRoom" type="button" class="btn-touch btn-primary-join" style="padding: 0 1.3rem;">
+                <i class="fas fa-sign-in-alt me-1"></i> <span class="btn-word-now">Şimdi </span>Katıl
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
     </div>
   </div>
 
-  <!-- WAITING ROOM LOBBY STATE (Shown when waiting for host approval) -->
-  <div id="waitingLobbyContainer" style="display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; background: #f8fafc; text-align: center;">
-    <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 20px; padding: 3rem 2.5rem; max-width: 480px; width: 100%; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);">
-      <div style="position: relative; width: 80px; height: 80px; margin: 0 auto 1.5rem auto; display: flex; align-items: center; justify-content: center;">
-        <div style="position: absolute; inset: 0; border-radius: 50%; background: #e0e7ff; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite; opacity: 0.75;"></div>
-        <div style="position: relative; width: 68px; height: 68px; border-radius: 50%; background: #5b5fc7; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 8px 20px rgba(91, 95, 199, 0.3);">
+  <!-- MOBILE STICKY BOTTOM BAR (ALWAYS VISIBLE ON PHONE SCREENS) -->
+  <div class="mobile-sticky-bar">
+    <button id="btnToggleMicPrejoinMobile" type="button" class="btn-touch" style="flex: 1.1; padding: 0 0.4rem; border: none; background: #5b5fc7; color: #ffffff;">
+      <i class="fas fa-microphone"></i> Mikrofonu Kapat
+    </button>
+    <a href="/" class="btn-touch btn-cancel-touch" style="flex: 0.8; padding: 0 0.4rem;">İptal</a>
+    <button id="btnProceedToRoomMobile" type="button" class="btn-touch btn-primary-join" style="flex: 1.1; padding: 0 0.4rem;">
+      <i class="fas fa-sign-in-alt me-1"></i> <span class="btn-word-now">Şimdi </span>Katıl
+    </button>
+  </div>
+
+  <!-- PREMIUM WAITING ROOM LOBBY STATE -->
+  <div id="waitingLobbyContainer" style="display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100dvh; min-height: 100vh; padding: 1.5rem 1rem; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); text-align: center; box-sizing: border-box; width: 100%;">
+    <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 24px; padding: clamp(1.5rem, 4vw, 2.5rem); max-width: 520px; width: 100%; box-shadow: 0 20px 50px -10px rgba(15, 23, 42, 0.12); box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
+      
+      <!-- RADAR PULSE AVATAR ICON -->
+      <div style="position: relative; width: 84px; height: 84px; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: center;">
+        <div style="position: absolute; inset: -10px; border-radius: 50%; background: rgba(91, 95, 199, 0.15); animation: ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+        <div style="position: absolute; inset: -4px; border-radius: 50%; background: rgba(91, 95, 199, 0.25); animation: pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;"></div>
+        <div id="lobbyUserAvatar" style="position: relative; width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #5b5fc7 0%, #4f46e5 100%); color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; box-shadow: 0 8px 24px rgba(91, 95, 199, 0.4); border: 3px solid #ffffff;">
           <i class="fas fa-user-clock"></i>
         </div>
       </div>
       
-      <div style="display: inline-block; background: #e0e7ff; color: #4338ca; font-size: 0.78rem; font-weight: 800; padding: 0.35rem 0.9rem; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1rem;">
-        Bekleme Odası (Lobi)
+      <!-- LOBBY BADGE -->
+      <div style="display: inline-flex; align-items: center; gap: 0.45rem; background: #e0e7ff; color: #4338ca; font-size: 0.78rem; font-weight: 800; padding: 0.4rem 1rem; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 1.1rem; border: 1px solid #c7d2fe;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #4f46e5; animation: pulse 1.2s infinite;"></span>
+        Bekleme Odasındasınız (Lobi)
       </div>
 
-      <h3 style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin: 0 0 0.6rem 0;">Toplantı Yöneticisinin Kabul Etmesi Bekleniyor</h3>
-      <p style="font-size: 0.88rem; color: #64748b; margin: 0 0 1.75rem 0; line-height: 1.5;">
-        Toplantı yöneticisine katılım talebiniz başarıyla iletildi. Onay verildiğinde otomatik olarak canlı toplantı odasına aktarılacaksınız.
+      <!-- MAIN TITLE & HOST SUBTITLE -->
+      <h3 style="font-size: clamp(1.15rem, 3.5vw, 1.4rem); font-weight: 800; color: #0f172a; margin: 0 0 0.4rem 0; letter-spacing: -0.2px;">
+        Yöneticinin Katılımınızı Onaylaması Bekleniyor
+      </h3>
+      <p style="font-size: 0.86rem; color: #64748b; margin: 0 0 1.25rem 0; line-height: 1.5;">
+        Katılım talebiniz toplantı yöneticisine iletildi. Onay verildiğinde otomatik olarak canlı toplantı odasına aktarılacaksınız.
       </p>
 
-      <div style="display: flex; justify-content: center; align-items: center; gap: 0.5rem; background: #f1f5f9; padding: 0.75rem; border-radius: 12px; margin-bottom: 1.75rem;">
-        <i class="fas fa-spinner fa-spin" style="color: #5b5fc7; font-size: 0.9rem;"></i>
-        <span style="font-size: 0.82rem; font-weight: 700; color: #475569;">Yönetici Yanıtı Bekleniyor...</span>
+      <!-- MEETING CARD SUMMARY -->
+      <div style="width: 100%; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1rem 1.15rem; margin-bottom: 1.25rem; text-align: left; display: flex; flex-direction: column; gap: 0.65rem; box-sizing: border-box;">
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem;">
+          <span style="color: #64748b; font-weight: 600;"><i class="fas fa-video me-1" style="color: #5b5fc7;"></i> Toplantı:</span>
+          <strong id="lobbyMeetingSubject" style="color: #0f172a; font-weight: 800;">Toplantı Yükleniyor...</strong>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem;">
+          <span style="color: #64748b; font-weight: 600;"><i class="fas fa-user-shield me-1" style="color: #10b981;"></i> Yönetici:</span>
+          <strong id="lobbyHostName" style="color: #0f172a; font-weight: 800;">Oda Yöneticisi</strong>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem;">
+          <span style="color: #64748b; font-weight: 600;"><i class="fas fa-user-check me-1" style="color: #0ea5e9;"></i> Katılımcı:</span>
+          <strong id="lobbyUserName" style="color: #0f172a; font-weight: 800;">Siz</strong>
+        </div>
       </div>
 
-      <div style="display: flex; justify-content: center;">
-        <a href="/meetings" class="btn btn-secondary" style="font-size: 0.85rem; font-weight: 700; padding: 0.65rem 1.6rem; border-radius: 10px;">
-          <i class="fas fa-times me-2"></i>Katılımı İptal Et
+      <!-- LIVE STATUS LOADING BAR -->
+      <div style="width: 100%; display: flex; justify-content: center; align-items: center; gap: 0.6rem; background: #e0e7ff; color: #4338ca; padding: 0.75rem 1rem; border-radius: 12px; margin-bottom: 1.25rem; font-size: 0.84rem; font-weight: 700; border: 1px solid #c7d2fe; box-sizing: border-box;">
+        <i class="fas fa-spinner fa-spin" style="font-size: 0.95rem;"></i>
+        <span>Canlı Oda Bağlantısı Bekleniyor...</span>
+      </div>
+
+      <!-- CANCEL BUTTON -->
+      <div style="display: flex; justify-content: center; width: 100%;">
+        <a href="/" class="btn-touch btn-cancel-touch" style="padding: 0.6rem 2rem; font-size: 0.86rem; border-radius: 10px; text-decoration: none;">
+          <i class="fas fa-times me-2"></i>Katılımı İptal Et ve Ayrıl
         </a>
       </div>
     </div>
@@ -147,15 +435,21 @@
   <script>
     const MEETING_CODE = "{{ meeting_code }}";
 
+    function joinMeetingNow() {
+      if (typeof Prejoin !== 'undefined' && Prejoin.proceedToRoom) {
+        Prejoin.proceedToRoom(MEETING_CODE);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       await Prejoin.init();
       await Prejoin.fetchMeetingInfo(MEETING_CODE);
 
-      document.getElementById('btnProceedToRoom').addEventListener('click', () => {
-        if (typeof Prejoin !== 'undefined' && Prejoin.proceedToRoom) {
-          Prejoin.proceedToRoom(MEETING_CODE);
-        }
-      });
+      const btnDesktop = document.getElementById('btnProceedToRoom');
+      const btnMobile = document.getElementById('btnProceedToRoomMobile');
+
+      if (btnDesktop) btnDesktop.addEventListener('click', joinMeetingNow);
+      if (btnMobile) btnMobile.addEventListener('click', joinMeetingNow);
     });
 
     function testAudioDevices() {

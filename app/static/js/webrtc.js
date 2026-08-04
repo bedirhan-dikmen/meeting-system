@@ -470,7 +470,7 @@ const WebRTC = {
       case 'room-state':
         if (Array.isArray(data.users)) {
           data.users.forEach(u => {
-            if (u && u.id) {
+            if (u && u.id && !u.in_lobby) {
               const uid = String(u.id);
               this.participantsMap[uid] = {
                 id: uid,
@@ -487,7 +487,7 @@ const WebRTC = {
           this.reflowVideoGrid();
 
           for (const u of data.users) {
-            if (u.id && String(u.id) !== String(this.currentUser?.id)) {
+            if (u.id && !u.in_lobby && String(u.id) !== String(this.currentUser?.id)) {
               const uStr = String(u.id);
               const isInitiator = Boolean(this.currentUser?.id && String(this.currentUser.id) < uStr);
               await this.createPeerConnection(uStr, isInitiator);
@@ -520,6 +520,9 @@ const WebRTC = {
 
       case 'user-joined':
         if (data.user_info) {
+          if (data.user_info.in_lobby) {
+            break; // Henüz lobide onay bekleyen katılımcı canlı odaya eklenmez
+          }
           const joinedId = String(data.user_info.id || senderId);
 
           // Katılımcı F5 / sayfa yenileme süresi içinde (4 sn) geri geldiyse veya is_reconnect true ise sessizce bağlan
@@ -1047,8 +1050,8 @@ const WebRTC = {
     const avatarUrl = this.currentUser?.avatar_url;
 
     tile.innerHTML = `
-      <video id="localVideo" autoplay playsinline muted style="display: ${this.isCameraOff ? 'none' : 'block'}; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
-      <div id="localAvatar" style="display: ${this.isCameraOff ? 'flex' : 'none'}; flex-direction: column; align-items: center; justify-content: center; width: 76px; height: 76px; border-radius: 50%; background: #5b5fc7; color: #fff; font-size: 2rem; font-weight: 800; border: 2px solid #ffffff; box-shadow: 0 4px 15px rgba(91, 95, 199, 0.25); margin: auto;">
+      <video id="localVideo" autoplay playsinline muted style="display: ${this.isCameraOff ? 'none' : 'block'}; position: absolute; top:0; left:0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+      <div id="localAvatar" style="display: ${this.isCameraOff ? 'flex' : 'none'}; width: 76px; height: 76px; border-radius: 50%; background: #5b5fc7; color: #fff; font-size: 2rem; font-weight: 800; border: 2px solid #ffffff; box-shadow: 0 4px 15px rgba(91, 95, 199, 0.25);">
         ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials}
       </div>
       
@@ -1124,8 +1127,8 @@ const WebRTC = {
 
     tile.innerHTML = `
       <audio id="remoteAudio_${remoteUserId}" autoplay playsinline style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; z-index: -1;"></audio>
-      <video id="remoteVideo_${remoteUserId}" autoplay playsinline style="display: ${isCameraOff ? 'none' : 'block'}; width: 100%; height: 100%; object-fit: cover;"></video>
-      <div id="remoteAvatar_${remoteUserId}" style="display: ${isCameraOff ? 'flex' : 'none'}; flex-direction: column; align-items: center; justify-content: center; width: 76px; height: 76px; border-radius: 50%; background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); color: #5b5fc7; border: 2px solid #ffffff; font-size: 2rem; font-weight: 800; box-shadow: 0 4px 15px rgba(91, 95, 199, 0.15); margin: auto;">
+      <video id="remoteVideo_${remoteUserId}" autoplay playsinline style="display: ${isCameraOff ? 'none' : 'block'}; position: absolute; top:0; left:0; width: 100%; height: 100%; object-fit: cover;"></video>
+      <div id="remoteAvatar_${remoteUserId}" style="display: ${isCameraOff ? 'flex' : 'none'}; width: 76px; height: 76px; border-radius: 50%; background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); color: #5b5fc7; border: 2px solid #ffffff; font-size: 2rem; font-weight: 800; box-shadow: 0 4px 15px rgba(91, 95, 199, 0.15);">
         ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials}
       </div>
       

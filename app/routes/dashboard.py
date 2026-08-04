@@ -50,9 +50,14 @@ def get_dashboard_stats(
     # 1. Metrik Sayıları
     total_users = db.query(func.count(User.id)).scalar() or 0
 
+    active_statuses = ["canlı", "canli", "active", "live", "başladı", "basladi"]
+
     today_meetings_count = user_meetings.filter(
-        Meeting.scheduled_start >= today_start,
-        Meeting.scheduled_start < today_end
+        (
+            (Meeting.scheduled_start >= today_start) & (Meeting.scheduled_start < today_end)
+        ) | (
+            func.lower(Meeting.status).in_(active_statuses)
+        )
     ).count()
 
     upcoming_meetings_count = user_meetings.filter(
@@ -83,7 +88,6 @@ def get_dashboard_stats(
     total_duration_hours = round(total_dur_minutes / 60, 1)
 
     # 2. Canlı (Devam Eden) Toplantı
-    active_statuses = ["canlı", "canli", "active", "live", "başladı", "basladi"]
     live_meeting_obj = user_meetings.filter(
         func.lower(Meeting.status).in_(active_statuses)
     ).order_by(Meeting.actual_start.desc(), Meeting.scheduled_start.desc()).first()
@@ -170,9 +174,12 @@ def get_dashboard_stats(
 
     # 4. Bugünkü Toplantılar Listesi
     today_meetings_objs = user_meetings.filter(
-        Meeting.scheduled_start >= today_start,
-        Meeting.scheduled_start < today_end
-    ).order_by(Meeting.scheduled_start.asc()).limit(5).all()
+        (
+            (Meeting.scheduled_start >= today_start) & (Meeting.scheduled_start < today_end)
+        ) | (
+            func.lower(Meeting.status).in_(active_statuses)
+        )
+    ).order_by(Meeting.scheduled_start.asc()).limit(10).all()
 
     today_list = []
     for m in today_meetings_objs:
