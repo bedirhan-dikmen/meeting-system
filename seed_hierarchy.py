@@ -237,16 +237,21 @@ def seed_hierarchy():
                 db.add(new_user)
                 added_count += 1
             else:
+                # NOT: Var olan kullanıcının şifresi kasıtlı olarak dokunulmuyor.
+                # Önceden burada her başlangıçta password_hash = default_hash ile eziliyordu;
+                # bu da kullanıcıların (admin dahil) belirledikleri şifreleri her sunucu
+                # yeniden başlatıldığında sessizce '1'e sıfırlıyordu. Sadece hiyerarşi/rol
+                # bilgisi güncellenir, kimlik bilgisi korunur.
                 existing.first_name = u_info["first_name"]
                 existing.last_name = u_info["last_name"]
                 existing.role = u_info["role"]
                 existing.department_id = dept_id
-                existing.password_hash = default_hash
                 updated_count += 1
 
         db.commit()
-        print(f"\n[+] BAŞARILI: {added_count} Yeni Kullanıcı Eklendi, {updated_count} Kullanıcı Güncellendi.")
-        print(f"[+] Tüm Kullanıcılar İçin Geçerli Giriş Şifresi: '1'")
+        print(f"\n[+] BAŞARILI: {added_count} Yeni Kullanıcı Eklendi, {updated_count} Kullanıcı Güncellendi (şifreler korundu).")
+        if added_count:
+            print(f"[+] Yeni Oluşturulan Kullanıcılar İçin Varsayılan Giriş Şifresi: '1'")
         print("==================================================")
 
     except Exception as e:

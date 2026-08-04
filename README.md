@@ -86,16 +86,6 @@ Tüm arayüzler modern dark mode/light mode estetiği, glassmorphism efektleri, 
 
 ---
 
-## 🔑 Varsayılan Giriş Bilgileri
-
-Uygulama ilk açıldığında aşağıdaki yönetici hesabı ile giriş yapabilirsiniz:
-
-* **E-Posta:** `admin@yebsoft.net`
-* **Şifre:** `YEBsoft2026!`
-* **Rol:** `admin`
-
----
-
 ## 🚀 Projeyi Çalıştırma Adımları
 
 1. **Bağımlılıkların Yüklenmesi:**
