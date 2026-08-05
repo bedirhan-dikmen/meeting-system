@@ -169,12 +169,24 @@ class SignalingManager:
 
         self.pending_disconnects[disc_key] = asyncio.create_task(_delayed_disconnect())
 
-    async def _finalize_disconnect(self, meeting_code: str, user_id: str):
-        """Gerçekleşen kopmayı kesinleştirir ve odadakilere duyurur."""
+    async def _finalize_disconnect(self, meeting_code: str, user_id: str, explicit: bool = False):
+        """Gerçekleşen kopmayı kesinleştirir ve odadakilere duyurur.
+
+        BUG FIX: Bu metod hem 4sn'lik grace-period'un sonunda (doğal WS kopması)
+        hem de kullanıcı "Ayrıl" butonuna basıp bunu bilinçli bildirdiğinde
+        (bkz. routes/signaling.py 'user-left'+explicit) çağrılabiliyordu. İkisi
+        de aynı kullanıcı için ayrı ayrı çağrılırsa 'user-left' iki kez
+        yayınlanıp katılımcılara çift "X ayrıldı" bildirimi gösteriliyordu.
+        `was_present` kontrolü, kullanıcı zaten (explicit çağrı ile) odadan
+        çıkarılmışsa ikinci (grace-period kaynaklı) çağrının sessizce
+        hiçbir şey yapmamasını sağlar.
+        """
+        was_present = False
         try:
             if meeting_code in self.active_rooms:
-                self.active_rooms[meeting_code].pop(user_id, None)
-                
+                popped = self.active_rooms[meeting_code].pop(user_id, None)
+                was_present = popped is not None
+
                 if meeting_code in self.active_screen_shares and self.active_screen_shares[meeting_code].get("presenter_id") == user_id:
                     self.active_screen_shares.pop(meeting_code, None)
         finally:
@@ -182,15 +194,15 @@ class SignalingManager:
                 if not self.active_rooms[meeting_code]:
                     self.active_rooms.pop(meeting_code, None)
                     self.active_screen_shares.pop(meeting_code, None)
-                else:
-                    await self.broadcast_to_room(
-                        meeting_code=meeting_code,
-                        message={
-                            "type": "user-left",
-                            "sender_id": user_id,
-                            "message": "Kullanıcı odadan ayrıldı."
-                        }
-                    )
+                elif was_present:
+                    message = {
+                        "type": "user-left",
+                        "sender_id": user_id,
+                        "message": "Kullanıcı odadan ayrıldı."
+                    }
+                    if explicit:
+                        message["explicit"] = True
+                    await self.broadcast_to_room(meeting_code=meeting_code, message=message)
 
     async def kick_user(self, meeting_code: str, target_id: str, reason: str = "Kicked"):
         """Toplantıdan çıkarılan veya reddedilen kullanıcının soketini zorla kapatır."""
@@ -198,20 +210,22 @@ class SignalingManager:
         if disc_key in self.pending_disconnects:
             self.pending_disconnects.pop(disc_key).cancel()
 
-        if meeting_code in self.active_rooms and target_id in self.active_rooms[meeting_code]:
-            user_data = self.active_rooms[meeting_code].pop(target_id, None)
-            if isinstance(user_data, dict):
-                ws: Optional[WebSocket] = user_data.get("websocket")
-                if ws:
-                    try:
-                        msg_type = "guest-rejected" if reason == "Rejected" else "kicked"
-                        await ws.send_text(json.dumps({
-                            "type": msg_type,
-                            "message": "Toplantı katılım talebiniz reddedildi." if reason == "Rejected" else "Toplantıdan çıkarıldınız."
-                        }))
-                        await ws.close(code=4003, reason=reason)
-                    except Exception:
-                        pass
+        # NOT: Kullanıcı burada active_rooms'tan HENÜZ çıkarılmıyor — bunu tek bir yerden
+        # (aşağıdaki _finalize_disconnect) yapıyoruz ki 'was_present' kontrolü doğru çalışsın
+        # ve odadaki diğerlerine 'user-left' yayını (kick duyurusu) kaçırılmasın.
+        user_data = self.active_rooms.get(meeting_code, {}).get(target_id)
+        if isinstance(user_data, dict):
+            ws: Optional[WebSocket] = user_data.get("websocket")
+            if ws:
+                try:
+                    msg_type = "guest-rejected" if reason == "Rejected" else "kicked"
+                    await ws.send_text(json.dumps({
+                        "type": msg_type,
+                        "message": "Toplantı katılım talebiniz reddedildi." if reason == "Rejected" else "Toplantıdan çıkarıldınız."
+                    }))
+                    await ws.close(code=4003, reason=reason)
+                except Exception:
+                    pass
         await self._finalize_disconnect(meeting_code, target_id)
 
     async def send_personal_message(self, message: dict, websocket: WebSocket):
@@ -231,24 +245,42 @@ class SignalingManager:
                         self.active_rooms[meeting_code].pop(recipient_id, None)
 
     async def broadcast_to_room(self, meeting_code: str, message: dict, exclude_user: Optional[str] = None):
-        """Odadaki herkese mesaj yayınlar. Ölü bağlantıları anında temizler."""
+        """Odadaki herkese mesaj yayınlar. Ölü bağlantıları anında temizler.
+
+        NOT (performans): Gönderimler artık `asyncio.gather` ile EŞZAMANLI yapılıyor.
+        Önceden sıralı (`for` + `await`) çalışıyordu; 15-20 katılımcılı bir odada tek bir
+        yavaş/tıkanık soket, o mesajın herkese ulaşma süresini kümülatif olarak
+        uzatıyordu (ör. birinin mikrofon durumu herkese sırayla, gecikmeli iletiliyordu).
+        """
         if meeting_code not in self.active_rooms:
             return
-        dead_users = []
         message_text = json.dumps(message)
-        for user_id, user_data in list(self.active_rooms[meeting_code].items()):
-            if exclude_user and user_id == exclude_user:
-                continue
-            if isinstance(user_data, dict):
-                ws = user_data.get("websocket")
-                if ws:
-                    try:
-                        await ws.send_text(message_text)
-                    except Exception:
-                        dead_users.append(user_id)
-        # Ölü bağlantıları temizle
-        for dead_id in dead_users:
-            self.active_rooms[meeting_code].pop(dead_id, None)
+        targets = [
+            (user_id, user_data.get("websocket"))
+            for user_id, user_data in self.active_rooms[meeting_code].items()
+            if (not exclude_user or user_id != exclude_user) and isinstance(user_data, dict) and user_data.get("websocket")
+        ]
+
+        async def _send(user_id: str, ws: WebSocket):
+            try:
+                await ws.send_text(message_text)
+                return None
+            except Exception:
+                return user_id
+
+        results = await asyncio.gather(*(_send(uid, ws) for uid, ws in targets), return_exceptions=False)
+
+        # BUG FIX: `await asyncio.gather(...)` sırasında event loop başka coroutine'lere
+        # (ör. son katılımcının ayrılıp odayı tamamen boşaltan _finalize_disconnect'e)
+        # de sıra veriyor. Bu yüzden gather bitene kadar `meeting_code` anahtarının
+        # kendisi active_rooms'tan tamamen silinmiş olabilir; `[meeting_code]` ile
+        # doğrudan erişim bu durumda KeyError fırlatıp arkadaki task'ı sessizce
+        # çökertiyordu (asyncio "Task exception was never retrieved" logu).
+        dead_users = [uid for uid in results if uid]
+        room = self.active_rooms.get(meeting_code)
+        if room:
+            for dead_id in dead_users:
+                room.pop(dead_id, None)
 
     def get_active_participants(self, meeting_code: str) -> List[dict]:
         """Anlık olarak oda içinde (WebSocket) aktif bağlı bulunan kullanıcıların listesini döner."""

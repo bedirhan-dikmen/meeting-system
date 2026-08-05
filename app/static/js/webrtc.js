@@ -897,9 +897,23 @@ const WebRTC = {
   },
 
   async createPeerConnection(remoteUserId, isInitiator) {
-    if (this.peers[remoteUserId]) {
-      this.attachLocalTracksToPeer(this.peers[remoteUserId]);
-      return this.peers[remoteUserId];
+    const existingPc = this.peers[remoteUserId];
+    if (existingPc) {
+      // BUG FIX: Bir bağlantı 'failed'/'closed'/'disconnected' durumuna düşmüşse
+      // (ör. karşı taraf F5 yaptı ve grace-period içinde sessizce yeniden bağlandığı
+      // için hiçbir 'user-left'/'user-joined' sinyali gelmedi) eski nesneyi geri
+      // döndürmek yerine kapatıp sıfırdan kuruyoruz. Aksi halde gelen taze bir
+      // offer/answer, artık canlı olmayan bir RTCPeerConnection üzerinde işlenmeye
+      // çalışılıyor ve o katılımcıyla görüntü/ses kalıcı olarak kopuk kalabiliyordu.
+      const deadStates = ['failed', 'closed', 'disconnected'];
+      if (deadStates.includes(existingPc.connectionState)) {
+        console.warn(`[WebRTC] Ölü peer bağlantısı (${remoteUserId}, state=${existingPc.connectionState}) yeniden kuruluyor.`);
+        try { existingPc.close(); } catch (e) { /* zaten kapalı olabilir */ }
+        delete this.peers[remoteUserId];
+      } else {
+        this.attachLocalTracksToPeer(existingPc);
+        return existingPc;
+      }
     }
 
     const pc = new RTCPeerConnection(this.getIceServers());
@@ -1665,6 +1679,13 @@ const WebRTC = {
       this.peers[remoteUserId].close();
       delete this.peers[remoteUserId];
     }
+    // BUG FIX: Bunlar temizlenmiyordu; uzun süren, çok katılımcılı toplantılarda
+    // (sık giriş/çıkış) sessizce büyüyen bir bellek sızıntısına ve olası eski
+    // (stale) ICE candidate/stream referanslarının yanlışlıkla yeniden
+    // kullanılmasına yol açıyordu.
+    delete this.pendingCandidates[remoteUserId];
+    delete this.peerStreams[remoteUserId];
+    delete this.peerScreenStreams[remoteUserId];
     const tile = document.getElementById(`remoteTile_${remoteUserId}`);
     if (tile) tile.remove();
   },

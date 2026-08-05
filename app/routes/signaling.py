@@ -140,6 +140,18 @@ async def websocket_endpoint(
         except Exception:
             db.rollback()
 
+    # KRİTİK BUG FIX: Bu oturum (db) hiç kapatılmıyordu — her katılımcının WebSocket
+    # bağlantısı, toplantı boyunca (saatlerce sürebilir) havuzdan bir veritabanı
+    # bağlantısını sonsuza dek çekili tutuyordu. SQLite motoru varsayılan havuz
+    # boyutuyla (pool_size=5, max_overflow=10 → toplam 15) çalıştığından, aynı anda
+    # ~15 kişi bir toplantı odasına (veya sistemdeki tüm odalara toplam) bağlandığında
+    # havuz tükeniyor; bundan sonraki HER yeni bağlantı (JWT'si tamamen geçerli olsa
+    # bile) `get_current_user` içinde 30sn bekleyip "QueuePool limit ... connection
+    # timed out" hatasıyla patlıyor ve bu, yanıltıcı biçimde "JWT verification
+    # failed" olarak loglanıyordu. 20 kişilik toplantılarda yaşanan toplu
+    # bağlanamama/kilitlenme sorununun kök nedeni budur.
+    db.close()
+
     if not user_id_str:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
@@ -167,13 +179,28 @@ async def websocket_endpoint(
             data["sender_id"] = user_id_str
 
             if data.get("type") == "user-joined":
+                # BUG FIX: signaling_manager.connect() zaten katılımcı ilk bağlandığında
+                # (reconnect-farkındalıklı) tüm odaya bir 'user-joined' yayını yapıyor.
+                # İstemcinin (webrtc.js) soket açılışında kendiliğinden gönderdiği bu mesaj
+                # sadece kullanıcı bilgisini (mic/kamera durumu vb.) senkronize etmek için var;
+                # burada bir daha yayınlanırsa her katılımda çift 'user-joined' olayı ve
+                # gereksiz DOM/peer-connection işi oluşuyordu. Bilgiyi güncelleyip devam et,
+                # aşağıdaki genel broadcast'e düşmesin.
                 user_info_val = data.get("user_info")
-                # F5 Yenileme durumunu kontrol et ve is_reconnect bayrağını koru
-                disc_key = f"{meeting_code}:{user_id_str}"
-                is_reconn = data.get("is_reconnect", False) or (user_id_str in signaling_manager.active_rooms.get(meeting_code, {}))
-                data["is_reconnect"] = is_reconn
                 if isinstance(user_info_val, dict):
                     await signaling_manager.update_user_info(meeting_code, user_id_str, user_info_val)
+                continue
+
+            if data.get("type") == "user-left" and data.get("explicit"):
+                # BUG FIX: Kullanıcı "Ayrıl" butonuna bilinçli bastığında istemci bu mesajı
+                # gönderip hemen ardından soketi kapatıyor. Bu, WebSocketDisconnect'i de
+                # tetikleyip 4sn'lik "grace period" sonunda AYNI kullanıcı için ikinci bir
+                # 'user-left' yayınına (çift "X ayrıldı" bildirimi) sebep oluyordu.
+                # Kullanıcıyı burada tek seferde ve anında (explicit=True ile) düşürüyoruz;
+                # grace-period akışı artık odada bulunmayan bu kullanıcı için tekrar yayın
+                # yapmayacak (bkz. SignalingManager._finalize_disconnect 'was_present' kontrolü).
+                await signaling_manager._finalize_disconnect(meeting_code, user_id_str, explicit=True)
+                continue
 
             if data.get("type") == "user-state-update":
                 state_info_val = data.get("user_info") if isinstance(data.get("user_info"), dict) else data
