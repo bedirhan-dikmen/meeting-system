@@ -15,6 +15,12 @@ class SignalingManager:
         self.approved_lobby_users: Dict[str, set] = {}
         # Bekleyen Lobi İstençleri: { meeting_code: { user_id_str: user_info } }
         self.pending_lobby_requests: Dict[str, Dict[str, dict]] = {}
+        # TEK YETKİLİ "EDİTÖR": { meeting_code: user_id_str }. Odada aynı anda
+        # sadece BİR editör vardır — lobi onay talepleri SADECE bu kişiye gider
+        # (bkz. _recompute_editor). Diğer tüm ayrıcalıklı (admin/manager)
+        # katılımcılar toplantının her fonksiyonuna erişebilir, sadece giriş
+        # onay kuyruğunu görmezler (ekran kalabalığı / çelişen onay-red önlenir).
+        self.room_editors: Dict[str, str] = {}
 
     def is_user_approved(self, meeting_code: str, user_id: str) -> bool:
         return user_id in self.approved_lobby_users.get(meeting_code, set())
@@ -32,12 +38,86 @@ class SignalingManager:
                 privileged.append(uid)
         return privileged
 
+    def get_editor(self, meeting_code: str) -> Optional[str]:
+        return self.room_editors.get(meeting_code)
+
+    def _recompute_editor(self, meeting_code: str) -> Optional[str]:
+        """Odanın güncel TEK 'editör'ünü belirler/günceller ve döner.
+        Öncelik sırası:
+          1) Toplantıyı OLUŞTURAN kişi (host) o an odadaysa her zaman editördür
+             — geri döndüğünde ünvanı otomatik geri alır.
+          2) Mevcut atanmış editör hâlâ odada ve ayrıcalıklıysa (admin/manager)
+             değişmez — gereksiz devirler önlenir (kararlılık).
+          3) Aksi halde odaya (bağlantı/katılım sırasına göre — dict ekleme
+             sırası korunur) İLK giren ayrıcalıklı kullanıcıya devredilir.
+          4) Odada ne host ne de ayrıcalıklı biri varsa editör koltuğu boş
+             kalır; bir sonraki uygun katılımda yeniden atanır."""
+        room = self.active_rooms.get(meeting_code, {})
+
+        def _present(uid: str) -> bool:
+            data = room.get(uid)
+            info = (data or {}).get("info") or {}
+            return isinstance(data, dict) and not info.get("in_lobby")
+
+        def _privileged(uid: str) -> bool:
+            data = room.get(uid)
+            info = (data or {}).get("info") or {}
+            return bool(info.get("is_privileged"))
+
+        def _is_creator(uid: str) -> bool:
+            data = room.get(uid)
+            info = (data or {}).get("info") or {}
+            return bool(info.get("is_host"))
+
+        for uid in room:
+            if _present(uid) and _is_creator(uid):
+                self.room_editors[meeting_code] = uid
+                return uid
+
+        current = self.room_editors.get(meeting_code)
+        if current and _present(current) and _privileged(current):
+            return current
+
+        for uid in room:
+            if _present(uid) and _privileged(uid):
+                self.room_editors[meeting_code] = uid
+                return uid
+
+        self.room_editors.pop(meeting_code, None)
+        return None
+
+    async def _handle_editor_change(
+        self,
+        meeting_code: str,
+        old_editor: Optional[str],
+        new_editor: Optional[str],
+        already_notified_user: Optional[str] = None,
+    ):
+        """Editör değiştiğinde odaya duyurur ve yeni editöre (varsa) bekleyen
+        tüm lobi taleplerini iletir — eski editör ayrılırken kuyrukta talep
+        varsa kaybolmasın diye. `already_notified_user`, connect() akışında
+        yeni editörün KENDİSİ o an bağlanan kullanıcıysa çift bildirim/liste
+        göndermemek için kullanılır (o zaten room-state ile almıştır)."""
+        if old_editor == new_editor:
+            return
+        if new_editor and new_editor != already_notified_user:
+            pending = list(self.pending_lobby_requests.get(meeting_code, {}).values())
+            await self.send_targeted_message(meeting_code, new_editor, {
+                "type": "editor-assigned",
+                "editor_id": new_editor,
+                "pending_lobby_requests": pending
+            })
+        await self.broadcast_to_room(
+            meeting_code=meeting_code,
+            message={"type": "editor-changed", "editor_id": new_editor},
+            exclude_user=new_editor
+        )
+
     async def broadcast_to_privileged(self, meeting_code: str, message: dict, exclude_user: Optional[str] = None):
         """Bir mesajı SADECE odadaki editör/yönetici katılımcılara gönderir.
-        Lobi katılım talebi ve ekran paylaşım izni gibi yönetimsel bildirimler
-        eskiden yanlışlıkla odadaki HERKESE broadcast edilip istemci tarafında
-        (webrtc.js) `isHost` kontrolüyle filtreleniyordu; artık kaynağında,
-        sunucu tarafında doğru kişilere hedefleniyor."""
+        Ekran paylaşım izni gibi, TÜM ayrıcalıklı kullanıcıların (sadece tek
+        editörün değil) haberdar olması gereken yönetimsel bildirimler için
+        kullanılır — lobi giriş talepleri için değil (bkz. add_pending_lobby_request)."""
         recipients = [uid for uid in self._get_privileged_user_ids(meeting_code) if uid != exclude_user]
         for uid in recipients:
             await self.send_targeted_message(meeting_code, uid, message)
@@ -47,19 +127,20 @@ class SignalingManager:
             self.pending_lobby_requests[meeting_code] = {}
         self.pending_lobby_requests[meeting_code][user_id] = user_info
 
-        # BUG FIX: Bu talep eskiden odadaki HERKESE (exclude_user hariç)
-        # yayınlanıyordu — sıradan bir katılımcı bile "biri katılmak istiyor,
-        # onayla/reddet" bildirimini görüyordu. Artık sadece editör/yönetici
-        # (toplantı sahibi veya admin/manager rolündeki) katılımcılara gider.
-        await self.broadcast_to_privileged(
-            meeting_code=meeting_code,
-            message={
+        # BUG FIX: Bu talep önce odadaki TÜM ayrıcalıklı (admin/manager) katılımcılara
+        # gidiyordu — birden fazla yönetici varsa herkesin ekranında aynı istek
+        # beliriyor, biri "kabul et" derken diğeri "reddet" diyebiliyordu (çakışma +
+        # ekran kalabalığı). Artık SADECE odanın o anki tek "editörüne" (bkz.
+        # _recompute_editor) hedefli olarak gönderiliyor. Diğer yöneticiler
+        # toplantının tüm diğer fonksiyonlarına erişmeye devam eder, sadece giriş
+        # onay kuyruğunu görmezler.
+        editor_id = self.get_editor(meeting_code)
+        if editor_id and editor_id != user_id:
+            await self.send_targeted_message(meeting_code, editor_id, {
                 "type": "lobby-join-request",
                 "sender_id": user_id,
                 "user_info": user_info
-            },
-            exclude_user=user_id
-        )
+            })
 
     async def approve_lobby_user(self, meeting_code: str, target_id: str):
         if meeting_code not in self.approved_lobby_users:
@@ -133,16 +214,27 @@ class SignalingManager:
                 message={"type": "screen-share-stop"}
             )
 
-        pending_requests = list(self.pending_lobby_requests.get(meeting_code, {}).values())
+        # EDİTÖR DEVRİ: Yeni katılımcı odaya eklendikten sonra tek editörü yeniden
+        # hesapla — toplantı sahibi geri döndüyse ünvanını geri alır; hiç editör
+        # yoksa ve bu kullanıcı ayrıcalıklıysa (admin/manager) editör O olur.
+        old_editor = self.room_editors.get(meeting_code)
+        new_editor = self._recompute_editor(meeting_code)
+
+        # Bekleyen lobi talepleri artık SADECE o an editör olan kişiye gönderilir;
+        # diğer ayrıcalıklı kullanıcılar ekran kalabalığı yaşamasın diye boş görür.
+        pending_requests = list(self.pending_lobby_requests.get(meeting_code, {}).values()) if user_id == new_editor else []
 
         # İstemciye odanın durumunu ilet
         await websocket.send_text(json.dumps({
             "type": "room-state",
             "users": existing_participants,
             "pending_lobby_requests": pending_requests,
-            "active_screen_share": self.active_screen_shares.get(meeting_code)
+            "active_screen_share": self.active_screen_shares.get(meeting_code),
+            "editor_id": new_editor
         }))
-        
+
+        await self._handle_editor_change(meeting_code, old_editor, new_editor, already_notified_user=user_id)
+
         # Sadece LOBİDE DEĞİLSE ve GERÇEK yeni katılım ise diger üyelere "user-joined" fırlat (F5 yenilemesinde fırlatma)
         if not is_reconnect and not participant_data.get("in_lobby"):
             await self.broadcast_to_room(
@@ -221,6 +313,7 @@ class SignalingManager:
                 if not self.active_rooms[meeting_code]:
                     self.active_rooms.pop(meeting_code, None)
                     self.active_screen_shares.pop(meeting_code, None)
+                    self.room_editors.pop(meeting_code, None)
                 elif was_present:
                     message = {
                         "type": "user-left",
@@ -230,6 +323,14 @@ class SignalingManager:
                     if explicit:
                         message["explicit"] = True
                     await self.broadcast_to_room(meeting_code=meeting_code, message=message)
+
+                    # EDİTÖR DEVRİ: Ayrılan kişi o an editörse (host veya devralmış
+                    # yönetici), odada kalan bir sonraki ayrıcalıklı kullanıcıya
+                    # (varsa) devret ve bekleyen lobi taleplerini ona ilet.
+                    if self.room_editors.get(meeting_code) == user_id:
+                        old_editor = user_id
+                        new_editor = self._recompute_editor(meeting_code)
+                        await self._handle_editor_change(meeting_code, old_editor, new_editor)
 
     async def kick_user(self, meeting_code: str, target_id: str, reason: str = "Kicked"):
         """Toplantıdan çıkarılan veya reddedilen kullanıcının soketini zorla kapatır."""

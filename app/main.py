@@ -83,14 +83,14 @@ def page_meetings(request: Request):
 
 @app.get("/guest/{meeting_code}", tags=["Frontend Sayfaları"])
 def page_guest(request: Request, meeting_code: str):
-    from app.core.database import SessionLocal
-    from app.models.meeting import Meeting
-    db = SessionLocal()
-    meeting = db.query(Meeting).filter(Meeting.meeting_code == meeting_code).first()
-    db.close()
-    if meeting and meeting.status == "tamamlandı":
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url=f"/reports/{meeting.id}")
+    # BUG FIX: Diğer sayfa rotalarının aksine burada (misafir girişi) toplantı
+    # bittiğinde ARTIK '/reports/{id}' resmi rapor sayfasına yönlendirilmiyor —
+    # o sayfa kayıtlı kullanıcı oturumu (JWT) gerektirir ve misafirin hiç
+    # hesabı olmadığından orada kilitli kalıp/login'e sekiyordu. Misafir
+    # kendi giriş ekranında (guest.html) kalır; sayfa, toplantının
+    # /api/v1/guest/meeting/{code} isteğinden 410 aldığını görüp kendi
+    # içinde net bir "Bu toplantı sona erdi" durumunu gösterir — anasayfaya/
+    # dashboard'a hiçbir erişim sağlamadan.
     return templates.TemplateResponse("guest.html", {"request": request, "meeting_code": meeting_code})
 
 @app.get("/prejoin/{meeting_code}", tags=["Frontend Sayfaları"])
@@ -113,7 +113,17 @@ def page_room(request: Request, meeting_code: str):
     meeting = db.query(Meeting).filter(Meeting.meeting_code == meeting_code).first()
     db.close()
     if meeting and meeting.status == "tamamlandı":
+        # BUG FIX: Bitmiş bir toplantının /room/ bağlantısına (ör. eski
+        # bookmark, kapanan sekmenin geri açılması) bir MİSAFİR giderse eskiden
+        # herkes gibi '/reports/{id}' resmi rapor sayfasına atılıyordu — bu
+        # sayfa kayıtlı kullanıcı oturumu (JWT) gerektirdiğinden misafir orada
+        # kilitli kalıyordu (hesabı yok). Misafir varlığı guest_token sorgu
+        # parametresinden anlaşılır; misafirler kendi güvenli giriş ekranına
+        # (guest.html) yönlendirilir — o ekran zaten "toplantı sona erdi"
+        # durumunu net biçimde gösterip her türlü yeniden girişi engeller.
         from fastapi.responses import RedirectResponse
+        if request.query_params.get("guest_token"):
+            return RedirectResponse(url=f"/guest/{meeting_code}")
         return RedirectResponse(url=f"/reports/{meeting.id}")
     return templates.TemplateResponse("room.html", {"request": request, "meeting_code": meeting_code})
 

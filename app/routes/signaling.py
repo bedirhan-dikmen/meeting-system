@@ -116,6 +116,21 @@ async def websocket_endpoint(
     user_info["is_host"] = is_meeting_host
     user_info["is_privileged"] = bool(is_meeting_host or is_privileged_role)
 
+    # KRİTİK BUG FIX (Sunucu Taraflı Lobi Zorunluluğu): Onay mekanizması eskiden
+    # SADECE istemci tarafında (prejoin.js'in `in_lobby` sorgu parametresini
+    # kendi göndermesi) uygulanıyordu; `signaling_manager.is_user_approved()`
+    # tanımlıydı ama hiçbir yerde çağrılmıyordu. Yani sıradan davetli bir
+    # kullanıcı prejoin/lobi adımını hiç görmeden doğrudan /room/{code}
+    # sayfasına gidip bu WebSocket'e in_lobby=false ile bağlanırsa, editör
+    # onayı beklemeden odaya tam yetkiyle katılabiliyordu. Artık ayrıcalıklı
+    # olmayan (editör/admin/manager dışı) ve daha önce onaylanmamış her
+    # kayıtlı kullanıcı, istemcinin ne gönderdiğinden bağımsız olarak sunucu
+    # tarafında lobiye zorlanır — gerçek onay artık `approve_lobby_user()`
+    # üzerinden editör/yönetici tarafından verilmeden odaya erişim yoktur.
+    if not is_guest and not user_info["is_privileged"]:
+        if not signaling_manager.is_user_approved(meeting_code, user_id_str):
+            user_info["in_lobby"] = True
+
     session_id = None
 
     if not is_guest:
@@ -175,6 +190,20 @@ async def websocket_endpoint(
         websocket=websocket,
         user_info=user_info
     )
+
+    # BUG FIX: Yukarıdaki sunucu taraflı zorunluluk bir kullanıcıyı in_lobby=True
+    # yapsa bile, bekleyen istek listesine (pending_lobby_requests) sadece
+    # prejoin.js'in normal akışta gönderdiği 'lobby-join-request' mesajıyla
+    # giriliyordu. Lobi/prejoin adımını atlayıp doğrudan bağlanan biri bu
+    # mesajı hiç göndermeyeceğinden, hiçbir editöre/yöneticiye görünmeden
+    # sonsuza dek bağlı ama odaya alınmamış kalabiliyordu. Sunucu bu durumu
+    # kendisi tespit ettiğinde isteği burada kendisi de kaydedip yayınlar.
+    if user_info.get("in_lobby") and not is_guest:
+        await signaling_manager.add_pending_lobby_request(
+            meeting_code=meeting_code,
+            user_id=user_id_str,
+            user_info=user_info
+        )
 
     try:
         while True:
@@ -361,6 +390,17 @@ def get_pending_lobby_requests(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Toplantı odasında onay bekleyen lobi katılımcılarının listesini döner."""
+    """Toplantı odasında onay bekleyen lobi katılımcılarının listesini döner.
+
+    BUG FIX: Bu liste eskiden onu çağıran HERKESE (odadaki tüm admin/manager'lara)
+    aynen dönüyordu — birden fazla yönetici varsa hepsi aynı talebi görüp biri
+    kabul ederken diğeri reddedebiliyordu. Artık SADECE odanın o anki tek
+    "editörüne" (bkz. SignalingManager._recompute_editor) gerçek listeyi döner;
+    diğer ayrıcalıklı kullanıcılar boş liste görür (fonksiyonlarının geri
+    kalanına erişimleri etkilenmez, sadece bu kuyruğu görmezler).
+    """
+    current_editor = signaling_manager.get_editor(meeting_code)
+    if current_editor is not None and str(current_editor) != str(current_user.id):
+        return {"pending_requests": []}
     requests = list(signaling_manager.pending_lobby_requests.get(meeting_code, {}).values())
     return {"pending_requests": requests}

@@ -239,9 +239,13 @@ const Auth = {
   },
 
   joinLiveMeeting() {
+    // BUG FIX: Doğrudan /room/'a gidiliyordu; bu, kamera/mikrofon hazırlığı
+    // adımını VE (ayrıcalıklı olmayan kullanıcılar için) editör onayı
+    // beklenen lobi ekranını tamamen atlıyordu. Her giriş /prejoin/ üzerinden
+    // geçmeli.
     const badge = document.getElementById('liveMeetingBadge');
     if (badge && badge.dataset.meetingCode) {
-      window.location.href = `/room/${badge.dataset.meetingCode}`;
+      window.location.href = `/prejoin/${badge.dataset.meetingCode}`;
     }
   },
 

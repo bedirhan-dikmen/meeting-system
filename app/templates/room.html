@@ -138,8 +138,8 @@
             <i class="fas fa-desktop"></i> Ekran Paylaşılıyor
           </div>
 
-          <!-- THREE-DOTS (...) MORE OPTIONS POPOVER MENU -->
-          <div style="position: relative; display: inline-flex;">
+          <!-- THREE-DOTS (...) MORE OPTIONS POPOVER MENU (yalnızca editör/yönetici/host'a görünür) -->
+          <div id="headerMoreOptionsWrapper" style="position: relative; display: inline-flex;">
             <button onclick="togglePopoverMenu('headerMorePopover', event)" class="meeting-nav-pill"
               style="width: 38px; height: 38px; padding: 0; display: flex; align-items: center; justify-content: center;"
               title="Daha Fazla Seçenek">
@@ -163,15 +163,18 @@
           </div>
 
           <!-- AYRIL / SONLANDIR SOFT RED SPLIT BUTTON -->
+          <!-- Misafir/sıradan katılımcı için ok işaretli açılır menü (Toplantıyı
+               Sonlandır seçeneğini içerir) gösterilmez; sadece düz "Ayrıl" kalır.
+               Editör/yönetici için hâlâ tam split-button (ok + sonlandır seçeneği). -->
           <div style="position: relative; display: inline-flex; height: 38px; overflow: visible;">
-            <div
+            <div id="headerLeaveSplitBtn"
               style="display: inline-flex; height: 38px; border-radius: 10px; overflow: hidden; background: #fef2f2; border: 1px solid #fecdd3;">
               <button onclick="WebRTC.leaveMeeting()" type="button"
                 style="padding: 0 0.9rem; height: 100%; background: transparent; color: #e11d48; font-weight: 800; font-size: 0.85rem; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.45rem; transition: background 0.2s;"
                 onmouseover="this.style.background='#ffe4e6'" onmouseout="this.style.background='transparent'">
                 <i class="fas fa-phone-slash" style="font-size: 0.85rem; color: #e11d48;"></i> Ayrıl
               </button>
-              <button onclick="togglePopoverMenu('headerLeaveOptionsPopover', event)" type="button"
+              <button id="headerLeaveChevronBtn" onclick="togglePopoverMenu('headerLeaveOptionsPopover', event)" type="button"
                 style="padding: 0 0.65rem; height: 100%; background: transparent; color: #e11d48; border: none; border-left: 1px solid #fecdd3; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s;"
                 onmouseover="this.style.background='#ffe4e6'" onmouseout="this.style.background='transparent'">
                 <i class="fas fa-chevron-down" style="font-size: 0.75rem; color: #e11d48;"></i>
@@ -578,8 +581,8 @@
             <span id="btnScreenShareText">Ekran Paylaş</span>
           </button>
 
-          <!-- THREE-DOTS (...) ROOM OPTIONS POPOVER -->
-          <div class="teams-split-btn-group" style="background: transparent; border: none; box-shadow: none;">
+          <!-- THREE-DOTS (...) ROOM OPTIONS POPOVER (yalnızca editör/yönetici/host'a görünür) -->
+          <div id="bottomMoreOptionsWrapper" class="teams-split-btn-group" style="background: transparent; border: none; box-shadow: none;">
             <button class="yeb-dock-btn" onclick="togglePopoverMenu('moreOptionsPopover')" title="Daha Fazla Seçenek">
               <i class="fas fa-ellipsis-h" style="color: #64748b;"></i>
               <span>Daha Fazla</span>
@@ -875,7 +878,16 @@
           }
         } catch (e) { }
 
-        const isAdmin = Boolean(user && (user.role === 'admin' || user.is_superuser));
+        // BUG FIX: Burada sadece 'admin' rolü kontrol ediliyordu; prejoin.js'teki
+        // Katıl butonu 'manager' rolünü de doğrudan odaya (isAdmin=true) yönlendirdiği
+        // için, buraya ulaşan bir 'manager' bu kontrolde admin sayılmayıp tekrar
+        // /prejoin/'e atılıyordu — prejoin.js ise onu yine admin sayıp /room/'a
+        // geri gönderiyordu. Sonuç: "Katıl"a her basışta iki sayfa arasında sonsuz
+        // yönlendirme döngüsü (yönetici rolündeki kullanıcıların toplantıya hiç
+        // giremeyip kamera ekranında takılı kalması). Kontrol artık prejoin.js ile
+        // birebir aynı (admin/manager/superuser) kümeyi kullanıyor.
+        const userRole = String(user?.role || '').toLowerCase();
+        const isAdmin = Boolean(user && (['admin', 'manager'].includes(userRole) || user.is_superuser));
         const isHost = Boolean(meetingInfo && user && (
           String(meetingInfo.created_by).toLowerCase() === String(user.id || user.user_id || '').toLowerCase()
         ));

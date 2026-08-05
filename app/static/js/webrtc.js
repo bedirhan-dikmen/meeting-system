@@ -18,6 +18,18 @@ const WebRTC = {
   currentUser: null,
   isRoomJoined: false,
 
+  // TEK YETKİLİ "EDİTÖR": Sunucunun (SignalingManager._recompute_editor) o an
+  // atadığı, lobi giriş taleplerini gerçekten görüp onaylayan/reddeden tek
+  // kişinin user_id'si. Diğer tüm ayrıcalıklı (admin/manager) kullanıcılar
+  // isUserHost() ile toplantının tüm diğer fonksiyonlarına erişmeye devam
+  // eder — sadece bu kuyruğu görmezler (ekran kalabalığı/çelişen onay-red
+  // önlenir). 'editor-changed' / 'editor-assigned' mesajlarıyla güncellenir.
+  currentEditorId: null,
+  isEditor() {
+    return Boolean(this.currentEditorId && this.currentUser?.id &&
+      String(this.currentEditorId) === String(this.currentUser.id));
+  },
+
   isMicMuted: false,
   isCameraOff: false,
   isScreenSharing: false,
@@ -275,6 +287,22 @@ const WebRTC = {
 
         const btnEndPopover = document.getElementById('btnEndMeetingHostPopover');
         if (btnEndPopover) btnEndPopover.style.display = this.isUserHost() ? 'flex' : 'none';
+
+        // BUG FIX: Misafir ve sıradan katılımcının (editör/admin/manager/host
+        // OLMAYAN herkesin) oda yönetimiyle hiçbir işi yok — "..." (üç nokta)
+        // menüleri (link kopyalama, davet, oda ayarları) TAMAMEN gizlenir; Ayrıl
+        // butonu da "Toplantıyı Herkes İçin Sonlandır" seçeneğine giden ok
+        // işaretini kaybedip düz/tek amaçlı bir "Ayrıl" butonuna döner.
+        const headerMoreWrap = document.getElementById('headerMoreOptionsWrapper');
+        if (headerMoreWrap) headerMoreWrap.style.display = this.isUserHost() ? 'inline-flex' : 'none';
+
+        const bottomMoreWrap = document.getElementById('bottomMoreOptionsWrapper');
+        if (bottomMoreWrap) bottomMoreWrap.style.display = this.isUserHost() ? 'flex' : 'none';
+
+        const leaveChevronBtn = document.getElementById('headerLeaveChevronBtn');
+        const leaveSplitBtn = document.getElementById('headerLeaveSplitBtn');
+        if (leaveChevronBtn) leaveChevronBtn.style.display = this.isUserHost() ? 'inline-flex' : 'none';
+        if (leaveSplitBtn && !this.isUserHost()) leaveSplitBtn.style.borderRadius = '10px';
 
         // Yönetici olmayan kullanıcılar için Oda Düzenleme ve Davet butonlarını gizle (Sadece link kopyalama kalsın)
         const btnOptionInvite = document.getElementById('btnOptionInviteUser');
@@ -578,6 +606,9 @@ const WebRTC = {
             }
           }
         }
+        if (data.editor_id !== undefined) {
+          this.currentEditorId = data.editor_id;
+        }
         if (Array.isArray(data.pending_lobby_requests)) {
           data.pending_lobby_requests.forEach(req => {
             if (req) this.showLobbyApprovalNotification(req);
@@ -653,6 +684,24 @@ const WebRTC = {
       case 'lobby-join-request':
         if (data.user_info) {
           this.showLobbyApprovalNotification(data.user_info);
+        }
+        break;
+
+      case 'editor-changed':
+        this.currentEditorId = data.editor_id || null;
+        break;
+
+      case 'editor-assigned':
+        // Sunucu bu odanın tek editörünü bana (ör. eski editör ayrıldığı için)
+        // devretti — bekleyen tüm lobi taleplerini şimdi bana iletiyor.
+        this.currentEditorId = data.editor_id || null;
+        if (typeof Notifications !== 'undefined') {
+          Notifications.show("Artık bu toplantının editörüsünüz. Katılım taleplerini siz yöneteceksiniz.", "info", "Editör Yetkisi Devredildi");
+        }
+        if (Array.isArray(data.pending_lobby_requests)) {
+          data.pending_lobby_requests.forEach(req => {
+            if (req) this.showLobbyApprovalNotification(req);
+          });
         }
         break;
 
@@ -807,21 +856,39 @@ const WebRTC = {
 
       case 'host-kick':
       case 'kicked':
-      case 'guest-rejected':
+      case 'guest-rejected': {
+        // BUG FIX: Misafir kickliğinde/reddedildiğinde herkes gibi '/' (ana
+        // sayfa/dashboard)'a atılıyordu — misafirin orada hiçbir işi yok (token'ı
+        // da yok, /login'e sekiyordu). Misafirler artık kendi güvenli giriş
+        // ekranına (/guest/{code}) döner; kayıtlı kullanıcılar dashboard'a.
+        const isGuestUser = this.currentUser?.role === 'guest';
         Notifications.show(data.message || "Toplantı odası erişiminiz sonlandırıldı.", "danger", "Erişim Reddedildi");
         if (this.socket) {
           try { this.socket.close(4003, "Kicked/Rejected"); } catch (e) { }
         }
         setTimeout(() => {
           sessionStorage.removeItem('guest_token');
-          window.location.replace('/');
+          window.location.replace(isGuestUser ? `/guest/${this.meetingCode}` : '/');
         }, 1200);
         break;
+      }
 
-      case 'meeting-ended':
-        alert("Toplantı yönetici tarafından sonlandırıldı.");
-        window.location.href = `/reports/${this.meetingInfo?.id || ''}`;
+      case 'meeting-ended': {
+        // BUG FIX: Herkes (misafir dahil) '/reports/{id}' resmi rapor sayfasına
+        // atılıyordu — bu sayfa kayıtlı kullanıcı oturumu gerektirir, misafir
+        // orada oturum açmaya zorlanıp kilitleniyordu. Misafirler artık kendi
+        // güvenli giriş ekranına döner (toplantı bittiği için orada da tekrar
+        // giremeyeceklerdir); kayıtlı kullanıcılar resmi rapora gider.
+        const isGuestUser = this.currentUser?.role === 'guest';
+        if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
+        if (typeof Notifications !== 'undefined') {
+          Notifications.show("Toplantı yönetici tarafından sonlandırıldı.", "info", "Toplantı Sona Erdi");
+        }
+        setTimeout(() => {
+          window.location.href = isGuestUser ? `/guest/${this.meetingCode}` : `/reports/${this.meetingInfo?.id || ''}`;
+        }, 1200);
         break;
+      }
     }
   },
 
@@ -2166,34 +2233,12 @@ const WebRTC = {
     });
   },
 
-  leaveMeeting() {
-    if (this.localStream) {
-      this.localStream.getTracks().forEach(t => t.stop());
-    }
-    if (this.socket) {
-      this.socket.close();
-    }
-    if (typeof Notifications !== 'undefined') {
-      Notifications.show("Toplantıdan başarıyla ayrıldınız.", "info", "Ayrıldınız");
-    }
-    setTimeout(() => {
-      window.location.replace('/');
-    }, 400);
-  },
-
-  endMeetingForAll() {
-    if (!this.isHost) {
-      this.leaveMeeting();
-      return;
-    }
-    this.sendSignal({ type: 'end-meeting' });
-    if (typeof Notifications !== 'undefined') {
-      Notifications.show("Toplantı tüm katılımcılar için sonlandırılıyor.", "danger", "Sonlandırıldı");
-    }
-    setTimeout(() => {
-      this.leaveMeeting();
-    }, 600);
-  },
+  // NOT: leaveMeeting() / endMeetingForAll() burada eskiden ikinci kez tanımlıydı
+  // (JS obje literal'inde aynı anahtar iki kez yazılınca sonuncusu geçerli olur) —
+  // bu, kafa karıştıran ve backend'in hiç tanımadığı 'end-meeting' sinyal tipini
+  // gönderen ÖLÜ KOD idi. Tek ve güncel tanımları dosyanın altında (bkz. aşağıda
+  // endMeeting/endMeetingForAll/leaveMeeting), misafir-farkında yönlendirmeyle
+  // birlikte kalıyor.
 
   async toggleCamera() {
     this.isCameraOff = !this.isCameraOff;
@@ -2937,9 +2982,19 @@ const WebRTC = {
   },
 
   endMeeting() {
+    // Güvenlik: misafir/sıradan katılımcı bu fonksiyona UI'dan hiç erişemez
+    // (bkz. room.html üç-nokta/ayrıl menüsü gizleme), ama savunma amaçlı burada
+    // da doğrulanıyor — yalnızca ayrıcalıklı (host/admin/manager) kullanıcılar
+    // toplantıyı herkes için sonlandırabilir.
+    if (!this.isUserHost()) {
+      this.leaveMeeting();
+      return;
+    }
     if (confirm("Toplantıyı herkes için sonlandırmak istediğinize emin misiniz?")) {
       this.sendSignal({ type: 'meeting-ended' });
-      window.location.href = `/reports/${this.meetingInfo?.id || ''}`;
+      if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
+      const isGuestUser = this.currentUser?.role === 'guest';
+      window.location.href = isGuestUser ? `/guest/${this.meetingCode}` : `/reports/${this.meetingInfo?.id || ''}`;
     }
   },
 
@@ -2948,9 +3003,18 @@ const WebRTC = {
   },
 
   leaveMeeting() {
+    // BUG FIX: Misafir ayrıldığında herkes gibi '/' (ana sayfa/dashboard)'a
+    // atılıyordu — misafirin orada (giriş yapılmış bir hesabı olmadığından)
+    // hiçbir işi yok, /login'e sekiyordu ve "toplantı bitti" bilgisi de hiç
+    // gösterilmiyordu. Misafirler artık kendi güvenli giriş ekranına
+    // (/guest/{code}) döner: toplantı hâlâ açıksa aynı bilgilerle tekrar
+    // katılım talebi atabilir, toplantı bittiyse orada net biçimde engellenir
+    // (bkz. guest.html) — kayıtlı kullanıcılar değişmeden dashboard'a gider.
     this.sendSignal({ type: 'user-left', explicit: true });
     if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
-    window.location.href = '/';
+    if (this.socket) { try { this.socket.close(); } catch (e) { } }
+    const isGuestUser = this.currentUser?.role === 'guest';
+    window.location.href = isGuestUser ? `/guest/${this.meetingCode}` : '/';
   },
 
   startTimer() {

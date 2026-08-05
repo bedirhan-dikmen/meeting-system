@@ -250,6 +250,22 @@
         </button>
       </div>
 
+      <!-- MEETING ENDED / BLOCKED STATE (bitmiş toplantıya kesinlikle yeniden giriş yok) -->
+      <!-- BUG FIX: Toplantı sona erdiğinde API 410 dönüyordu ama form yine de
+           görünür/kullanılabilir kalıyordu — misafir bug'dan yararlanıp tekrar
+           token isteyebiliyordu. Artık form tamamen gizlenip net bir "sona erdi"
+           durumu gösteriliyor; anasayfaya/dashboard'a HİÇBİR bağlantı yok
+           (misafirin zaten hiçbir yetkisi/hesabı olmadığından). -->
+      <div id="meetingEndedContainer" class="card-glass" style="display: none; max-width: 480px; width: 100%; margin: 0 auto; padding: 3rem 2rem; text-align: center; box-sizing: border-box;">
+        <div style="width: 72px; height: 72px; border-radius: 50%; background: #f1f5f9; color: #64748b; display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; margin-bottom: 1.25rem;">
+          <i class="fas fa-door-closed"></i>
+        </div>
+        <h3 style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin: 0 0 0.5rem 0;">Bu Toplantı Sona Erdi</h3>
+        <p style="font-size: 0.88rem; color: #64748b; margin: 0;">
+          Bu toplantı odası artık aktif değil. Katılım talebi gönderemez veya odaya yeniden giremezsiniz.
+        </p>
+      </div>
+
     </div>
   </div>
 
@@ -261,6 +277,18 @@
     let guestTokenData = null;
     let guestStream = null;
     let guestWs = null;
+
+    function showMeetingEndedState() {
+      // BUG FIX: Toplantı bittiğinde (410) form eskiden görünür/kullanılabilir
+      // kalıyordu; misafir yine de token isteyip bug'dan faydalanabiliyordu.
+      // Artık TÜM adım kartları gizlenip tek, net ve engelleyici bir "sona
+      // erdi" durumu gösteriliyor — hiçbir şekilde tekrar giriş imkânı yok.
+      ['step1Container', 'step2Container', 'step3Container', 'rejectedContainer'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      document.getElementById('meetingEndedContainer').style.display = 'block';
+    }
 
     document.addEventListener('DOMContentLoaded', async () => {
       // 1. Oda halka açık bilgilerini çek
@@ -274,6 +302,8 @@
             document.getElementById('passcodeFieldContainer').style.display = 'block';
             document.getElementById('guestPasscodeInput').required = true;
           }
+        } else if (res.status === 410) {
+          showMeetingEndedState();
         } else {
           const err = await res.json().catch(() => ({}));
           Notifications.show(err.detail || 'Toplantı bilgisi alınamadı.', 'danger', 'Hata');
@@ -300,6 +330,14 @@
         });
 
         if (!res.ok) {
+          if (res.status === 410) {
+            // BUG FIX: Kullanıcı step1'deki formu daha önce doldurup beklerken
+            // toplantı bu sırada sona erdiyse, submit anında bunu da yakalayıp
+            // aynı engelleyici ekranı göster — form asla tekrar denenebilir
+            // kalmasın.
+            showMeetingEndedState();
+            return;
+          }
           const err = await res.json().catch(() => ({}));
           throw new Error(err.detail || 'Katılım jetonu alınamadı.');
         }

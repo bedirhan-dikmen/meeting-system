@@ -154,7 +154,7 @@ const ProfilePage = {
           <td style="padding: 1rem; text-align: right;">
             <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
               ${isLive ? `
-                <a href="/room/${m.meeting_code}" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
+                <a href="/prejoin/${m.meeting_code}" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
                   <i class="fas fa-door-open"></i> Canlı Odaya Katıl
                 </a>
               ` : ''}
