@@ -4,10 +4,10 @@
 
 // Global Meetings helper fallback
 window.Meetings = window.Meetings || {
-  openCreateModal: function() {
+  openCreateModal: function () {
     window.location.href = '/meetings?action=create';
   },
-  openQuickMeetingModal: function() {
+  openQuickMeetingModal: function () {
     window.location.href = '/meetings?action=quick';
   }
 };
@@ -85,7 +85,7 @@ const Dashboard = {
 
       if (response.ok) {
         const stats = await response.json();
-        
+
         if (this._shouldUpdate('metrics', {
           t: stats.today_meetings,
           u: stats.upcoming_meetings,
@@ -121,12 +121,18 @@ const Dashboard = {
     const elToday = document.getElementById('statCountToday');
     const elScheduled = document.getElementById('statCountScheduled');
     const elCompleted = document.getElementById('statCountCompleted');
-    const elHours = document.getElementById('statCountHours');
+    const elNotes = document.getElementById('statCountNotes') || document.getElementById('statCountHours');
 
     if (elToday && stats.today_meetings !== undefined) elToday.textContent = stats.today_meetings;
     if (elScheduled && stats.upcoming_meetings !== undefined) elScheduled.textContent = stats.upcoming_meetings;
     if (elCompleted && stats.completed_meetings !== undefined) elCompleted.textContent = stats.completed_meetings;
-    if (elHours && stats.total_duration_hours !== undefined) elHours.textContent = `${stats.total_duration_hours} saat`;
+    if (elNotes) {
+      if (stats.total_notes !== undefined) {
+        elNotes.textContent = stats.total_notes;
+      } else if (stats.total_duration_hours !== undefined) {
+        elNotes.textContent = `${stats.total_duration_hours} saat`;
+      }
+    }
   },
 
   renderLiveMeetingCard(liveMeeting) {
@@ -190,6 +196,7 @@ const Dashboard = {
                 <span style="font-size: 0.82rem; font-weight: 700; color: #475569;">Devam Eden Toplantınız</span>
                 <div style="display: flex; align-items: center; gap: 0.5rem; position: relative;">
                   <span style="background: #dcfce7; color: #166534; font-size: 0.72rem; font-weight: 800; padding: 0.2rem 0.6rem; border-radius: 6px;">CANLI</span>
+                  <span style="background: #f1f5f9; color: #64748b; font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 6px;">${liveMeeting.meeting_type || 'Genel Toplantı'}</span>
                   <button onclick="Meetings.toggleCardMenu(event, 'dashLive_${liveMeeting.id}')" style="background: none; border: none; font-size: 1rem; color: #64748b; cursor: pointer; padding: 0.2rem 0.35rem; border-radius: 6px;" title="Seçenekler">
                     <i class="fas fa-ellipsis-v"></i>
                   </button>
@@ -255,30 +262,47 @@ const Dashboard = {
         </div>
       `;
     } else {
+      const nextIsLive = nextMeeting.status === 'CANLI';
       contentHtml = `
         <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
           <div>
-            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.85rem;">
-              <div style="width: 42px; height: 42px; border-radius: 12px; background: #e0e7ff; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
-                <i class="far fa-calendar-alt"></i>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem;">
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 42px; height: 42px; border-radius: 12px; background: #e0e7ff; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+                  <i class="far fa-calendar-alt"></i>
+                </div>
+                <span style="font-size: 0.85rem; font-weight: 700; color: #0f172a;">İlk Planlı Toplantınız</span>
               </div>
-              <span style="font-size: 0.85rem; font-weight: 700; color: #0f172a;">İlk Planlı Toplantınız</span>
+              <div style="display: flex; align-items: center; gap: 0.5rem; position: relative; flex-shrink: 0;">
+                <span style="background: ${nextIsLive ? '#dcfce7' : '#e0e7ff'}; color: ${nextIsLive ? '#166534' : '#3730a3'}; font-size: 0.68rem; font-weight: 800; padding: 0.2rem 0.55rem; border-radius: 6px;">${nextMeeting.status || 'Planlandı'}</span>
+                <button onclick="Meetings.toggleCardMenu(event, 'dashNext_${nextMeeting.id}')" style="background: none; border: none; font-size: 1rem; color: #64748b; cursor: pointer; padding: 0.2rem 0.35rem; border-radius: 6px;" title="Seçenekler">
+                  <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <div id="cardMenu_dashNext_${nextMeeting.id}" class="card-dropdown-menu" style="display: none; position: absolute; top: 100%; right: 0; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); width: 210px; z-index: 1000; padding: 0.4rem 0;">
+                  <button onclick="Meetings.openEditModal('${nextMeeting.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 0.6rem;">
+                    <i class="far fa-edit" style="color: #6366f1;"></i> Toplantı Bilgilerini Düzenle
+                  </button>
+                  <button onclick="Meetings.cancelMeeting('${nextMeeting.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #ef4444; cursor: pointer; display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid #f1f5f9;">
+                    <i class="far fa-times-circle" style="color: #ef4444;"></i> Toplantıyı İptal Et
+                  </button>
+                </div>
+              </div>
             </div>
 
             <h3 style="font-size: 1.08rem; font-weight: 800; color: #0f172a; margin-bottom: 0.35rem;">
               ${nextMeeting.title}
             </h3>
 
-            <p style="color: #64748b; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem;">
+            <p style="color: #64748b; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem;">
               ${nextMeeting.time_str}
             </p>
 
-            <p style="color: #64748b; font-size: 0.82rem; display: flex; align-items: center; gap: 0.35rem; margin-bottom: 1rem;">
-              <i class="fas fa-map-marker-alt" style="color: #94a3b8;"></i> ${nextMeeting.location}
-            </p>
+            <span style="background: #f1f5f9; color: #64748b; font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 6px; display: inline-block; margin-bottom: 1rem;">
+              ${nextMeeting.meeting_type || 'Genel Toplantı'}
+            </span>
           </div>
 
-          <button onclick="window.location.href='/meetings'" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 9px; padding: 0.6rem 1.1rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; width: 100%; transition: all 0.2s;">
+          <button onclick="Meetings.openDetailsModal('${nextMeeting.id}')" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 9px; padding: 0.6rem 1.1rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; width: 100%; transition: all 0.2s;">
             Detayları Gör
           </button>
         </div>
@@ -293,7 +317,9 @@ const Dashboard = {
     if (!container) return;
 
     let contentHtml = '';
-    if (!todayList || todayList.length === 0) {
+    const displayList = (todayList || []).slice(0, 5);
+
+    if (!displayList || displayList.length === 0) {
       contentHtml = `
         <div style="text-align: center; padding: 1rem 0.25rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
           <div style="width: 80px; height: 60px; margin-bottom: 0.65rem; display: flex; align-items: center; justify-content: center;">
@@ -312,18 +338,27 @@ const Dashboard = {
         </div>
       `;
     } else {
-      contentHtml = todayList.map(m => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9; margin-bottom: 0.75rem;">
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <i class="far fa-calendar" style="color: #5b5fc7; font-size: 1rem;"></i>
-            <div>
-              <h4 style="font-size: 0.85rem; font-weight: 700; color: #0f172a;">${m.title}</h4>
-              <span style="font-size: 0.75rem; color: #64748b;">${m.time_str}</span>
+      // Yeniden tasarım: başlığın altında (renkli değil, gri) toplantı türü;
+      // saat, kartın ortasında dijital saat görünümlü bir "chip" içinde.
+      contentHtml = displayList.map(m => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.55rem 0.75rem; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9; margin-bottom: 0.45rem; gap: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.65rem; min-width: 0; flex: 1;">
+            <i class="far fa-calendar" style="color: #5b5fc7; font-size: 0.9rem; flex-shrink: 0;"></i>
+            <div style="min-width: 0;">
+              <h4 style="font-size: 0.82rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 0 0.2rem 0;">${m.title}</h4>
+              <span style="background: #eef1f5; color: #64748b; font-size: 0.65rem; font-weight: 700; padding: 0.12rem 0.45rem; border-radius: 5px; display: inline-block;">${m.meeting_type || 'Genel Toplantı'}</span>
             </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <span style="background: ${m.status === 'CANLI' ? '#dcfce7' : '#eff6ff'}; color: ${m.status === 'CANLI' ? '#166534' : '#1d4ed8'}; font-size: 0.68rem; font-weight: 800; padding: 0.15rem 0.45rem; border-radius: 4px;">${m.status}</span>
-            <button onclick="window.location.href='/prejoin/${m.meeting_code}'" style="background: #eeefec; color: #5b5fc7; border: none; border-radius: 6px; padding: 0.35rem 0.75rem; font-weight: 700; font-size: 0.75rem; cursor: pointer;">Katıl</button>
+
+          <div style="flex-shrink: 0;">
+            <span style="font-size: 0.86rem; font-weight: 800; color: #64748b; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap;">
+              ${m.time_str}
+            </span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0;">
+            <span style="background: ${m.status === 'CANLI' ? '#dcfce7' : '#eff6ff'}; color: ${m.status === 'CANLI' ? '#166534' : '#1d4ed8'}; font-size: 0.65rem; font-weight: 800; padding: 0.15rem 0.4rem; border-radius: 4px;">${m.status}</span>
+            <button onclick="window.location.href='/prejoin/${m.meeting_code}'" style="background: #eeefec; color: #5b5fc7; border: none; border-radius: 6px; padding: 0.3rem 0.65rem; font-weight: 700; font-size: 0.72rem; cursor: pointer;">Katıl</button>
           </div>
         </div>
       `).join('');
@@ -337,7 +372,9 @@ const Dashboard = {
     if (!container) return;
 
     let contentHtml = '';
-    if (!upcomingList || upcomingList.length === 0) {
+    const displayList = (upcomingList || []).slice(0, 5);
+
+    if (!displayList || displayList.length === 0) {
       contentHtml = `
         <div style="text-align: center; padding: 1rem 0.25rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
           <div style="width: 85px; height: 60px; margin-bottom: 0.65rem; display: flex; align-items: center; justify-content: center;">
@@ -356,14 +393,28 @@ const Dashboard = {
         </div>
       `;
     } else {
-      contentHtml = upcomingList.map((m, idx) => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 0; ${idx < upcomingList.length - 1 ? 'border-bottom: 1px solid #f1f5f9;' : ''}">
-          <div>
-            <h4 style="font-size: 0.85rem; font-weight: 700; color: #0f172a;">${m.title}</h4>
-            <span style="font-size: 0.75rem; color: #64748b; display: block;">${m.time_str}</span>
-            <span style="font-size: 0.72rem; color: #94a3b8;"><i class="fas fa-map-marker-alt"></i> ${m.location}</span>
+      // Yeniden tasarım: "Bugünkü Toplantılar" kartıyla tutarlı olacak
+      // şekilde her satır kendi (gri) kart kutusunda, solda ikon; konum
+      // kaldırıldı, başlığın altında (gri) toplantı türü; saat, dijital
+      // chip'te ortalı, altında ekstra gün etiketi (date_str) var.
+      contentHtml = displayList.map(m => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.55rem 0.75rem; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9; margin-bottom: 0.45rem; gap: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.65rem; min-width: 0; flex: 1;">
+            <i class="far fa-calendar" style="color: #5b5fc7; font-size: 0.9rem; flex-shrink: 0;"></i>
+            <div style="min-width: 0;">
+              <h4 style="font-size: 0.82rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 0 0.2rem 0;">${m.title}</h4>
+              <span style="background: #eef1f5; color: #64748b; font-size: 0.65rem; font-weight: 700; padding: 0.12rem 0.45rem; border-radius: 5px; display: inline-block;">${m.meeting_type || 'Genel Toplantı'}</span>
+            </div>
           </div>
-          <button onclick="window.location.href='/prejoin/${m.meeting_code}'" style="background: #f1f5f9; color: #4f46e5; border: none; border-radius: 6px; padding: 0.35rem 0.75rem; font-weight: 700; font-size: 0.75rem; cursor: pointer;">Katıl</button>
+
+          <div style="flex-shrink: 0; text-align: center;">
+            <span style="font-size: 0.86rem; font-weight: 800; color: #64748b; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap; display: block;">
+              ${m.time_str}
+            </span>
+            ${m.date_str ? `<span style="font-size: 0.65rem; color: #94a3b8; font-weight: 600; margin-top: 0.2rem; display: block;">${m.date_str}</span>` : ''}
+          </div>
+
+          <button onclick="window.location.href='/prejoin/${m.meeting_code}'" style="background: #eeefec; color: #5b5fc7; border: none; border-radius: 6px; padding: 0.3rem 0.65rem; font-weight: 700; font-size: 0.72rem; cursor: pointer; flex-shrink: 0;">Katıl</button>
         </div>
       `).join('');
     }
@@ -376,7 +427,7 @@ const Dashboard = {
     if (!container) return;
 
     let itemsHtml = `<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; width: 100%;">`;
-    
+
     if (todayList && todayList.length > 0) {
       itemsHtml += todayList.map(m => `
         <div style="background: #ffffff; border: 1px solid ${m.status === 'CANLI' ? '#5b5fc7' : '#e2e8f0'}; border-radius: 14px; padding: 1rem; display: flex; align-items: center; gap: 0.85rem; box-shadow: ${m.status === 'CANLI' ? '0 4px 12px rgba(91, 95, 199, 0.08)' : 'none'};">

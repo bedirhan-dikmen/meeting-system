@@ -81,7 +81,7 @@
       <div style="background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px; padding: 0.65rem 0.75rem;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem;">
           <i class="far fa-calendar-check" style="color: #5b5fc7; font-size: 0.95rem;"></i>
-          <a href="/meetings" style="font-size: 0.68rem; font-weight: 700; color: #5b5fc7; text-decoration: none;">Görüntüle</a>
+          <a href="/meetings?tab=scheduled" style="font-size: 0.68rem; font-weight: 700; color: #5b5fc7; text-decoration: none;">Görüntüle</a>
         </div>
         <span style="font-size: 0.72rem; font-weight: 600; color: #64748b;">Planlı Toplantılar</span>
         <h3 id="statCountScheduled" style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-top: 0.05rem; margin-bottom: 0;">0</h3>
@@ -100,11 +100,11 @@
       <!-- Stat 4 -->
       <div style="background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px; padding: 0.65rem 0.75rem;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem;">
-          <i class="far fa-clock" style="color: #d97706; font-size: 0.95rem;"></i>
+          <i class="far fa-sticky-note" style="color: #8b5cf6; font-size: 0.95rem;"></i>
           <a href="/history" style="font-size: 0.68rem; font-weight: 700; color: #5b5fc7; text-decoration: none;">Görüntüle</a>
         </div>
-        <span style="font-size: 0.72rem; font-weight: 600; color: #64748b;">Toplam Süre (Ay)</span>
-        <h3 id="statCountHours" style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin-top: 0.05rem; margin-bottom: 0;">0 saat</h3>
+        <span style="font-size: 0.72rem; font-weight: 600; color: #64748b;">Toplantı Notları</span>
+        <h3 id="statCountNotes" style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-top: 0.05rem; margin-bottom: 0;">0</h3>
       </div>
 
     </div>
@@ -119,6 +119,7 @@
       <div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
           <h3 style="font-size: 0.95rem; font-weight: 800; color: #0f172a;">Bugünkü Toplantılar</h3>
+          <a href="/calendar" style="font-size: 0.72rem; font-weight: 700; color: #5b5fc7; text-decoration: none;">Tümünü Gör &rarr;</a>
         </div>
 
         <div id="todayMeetingsListContainer">
@@ -134,6 +135,7 @@
     <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.1rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.03); min-height: 250px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
         <h3 style="font-size: 0.95rem; font-weight: 800; color: #0f172a;">Yaklaşan Toplantılar</h3>
+        <a href="/meetings?tab=scheduled" style="font-size: 0.72rem; font-weight: 700; color: #5b5fc7; text-decoration: none;">Tümünü Gör &rarr;</a>
       </div>
 
       <div id="upcomingMeetingsListContainer">

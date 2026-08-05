@@ -37,6 +37,13 @@ const Meetings = {
     } else if (action === 'quick') {
       this.openQuickMeetingModal();
     }
+
+    // Dashboard'daki "Tümünü Gör" / "Görüntüle" bağlantıları (ör. /meetings?tab=scheduled)
+    // doğrudan ilgili sekmeyi açık getirsin.
+    const tab = params.get('tab');
+    if (tab && ['live', 'scheduled', 'completed', 'all'].includes(tab)) {
+      this.switchTab(tab);
+    }
   },
 
   /**
@@ -885,7 +892,13 @@ const Meetings = {
       if (descEl) descEl.value = m.description || '';
       if (agendaEl) agendaEl.value = m.agenda || '';
       if (passcodeEl) passcodeEl.value = m.passcode || '';
-      if (lobbyEl) lobbyEl.checked = !!m.lobby_enabled;
+      // BUG FIX: Bekleme odası artık seçilebilir bir özellik değil — her
+      // toplantıda sabit/garanti olarak açık. Eskiden burada `m.lobby_enabled`
+      // okunup checkbox'a yazılıyordu; eski bir kayıt herhangi bir sebeple
+      // false gelseydi, kaydet'e basınca lobiyi YANLIŞLIKLA kapatabilirdi.
+      // Artık her zaman true'da sabit kalıyor (bkz. checkbox'ın kendisi de
+      // gizli+checked, base.html).
+      if (lobbyEl) lobbyEl.checked = true;
     }
 
     modal.classList.add('active');
@@ -941,6 +954,7 @@ const Meetings = {
       const codeEl = document.getElementById('infoMeetingCode');
       const activeCountEl = document.getElementById('infoMeetingActiveCount');
       const descEl = document.getElementById('infoMeetingDescription');
+      const agendaEl = document.getElementById('infoMeetingAgenda');
       const timeRangeEl = document.getElementById('infoMeetingTimeRange');
       const securityEl = document.getElementById('infoMeetingSecurity');
       const listEl = document.getElementById('infoMeetingParticipantsList');
@@ -948,7 +962,10 @@ const Meetings = {
 
       if (titleEl) titleEl.textContent = m.title || 'Toplantı Detayı';
       if (codeEl) codeEl.textContent = m.meeting_code || '-';
-      if (descEl) descEl.textContent = m.agenda || m.description || 'Açıklama veya gündem belirtilmedi.';
+      // BUG FIX: Açıklama ve Gündem eskiden TEK alanda (m.agenda || m.description
+      // ile biri diğerini eziyordu) gösteriliyordu — ikisi ayrı ayrı ve eksiksiz.
+      if (descEl) descEl.textContent = m.description || 'Açıklama belirtilmedi.';
+      if (agendaEl) agendaEl.textContent = m.agenda || 'Gündem belirtilmedi.';
       if (timeRangeEl) timeRangeEl.textContent = m.time_str || (m.scheduled_start ? new Date(m.scheduled_start).toLocaleString('tr-TR') : '-');
       if (securityEl) securityEl.textContent = m.passcode ? `Şifreli (${m.passcode})` : 'Şifresiz';
       if (joinBtn) joinBtn.href = `/prejoin/${m.meeting_code}`;
@@ -1083,7 +1100,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const duration = parseInt(document.getElementById('createDuration').value || '30', 10);
       const passcode = document.getElementById('createPasscode').value || '';
       const lobbyEnabled = document.getElementById('createLobbyEnabled').checked;
-      const isPrivate = document.getElementById('createIsPrivate').checked;
       const description = document.getElementById('createDescription').value || '';
       const agenda = document.getElementById('createAgenda').value || '';
       const invitedIds = Array.from(Meetings.selectedUserIds);
@@ -1104,7 +1120,6 @@ document.addEventListener('DOMContentLoaded', () => {
           duration_minutes: duration,
           passcode: passcode,
           lobby_enabled: lobbyEnabled,
-          is_private: isPrivate,
           description: description,
           agenda: agenda,
           invited_user_ids: invitedIds

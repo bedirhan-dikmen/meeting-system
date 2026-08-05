@@ -277,13 +277,10 @@
             </div>
           </div>
 
-          <!-- Privacy Option -->
-          <div>
-            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; font-weight: 700; color: #0f172a; cursor: pointer; margin: 0;">
-              <input type="checkbox" id="createIsPrivate" style="width: 15px; height: 15px; accent-color: #5b5fc7;">
-              <span><i class="fas fa-user-lock" style="color: #64748b; margin-right: 0.2rem;"></i> Gizli Oturum <span style="font-weight: 400; font-size: 0.76rem; color: #64748b;">(Sadece davet edilen kişiler katılabilir)</span></span>
-            </label>
-          </div>
+          <!-- NOT: "Gizli Oturum" seçeneği kullanıcı isteğiyle kaldırıldı —
+               toplantıları zaten sadece davetliler görebiliyor ve her odada
+               bekleme odası garanti olarak aktif, bu yüzden ayrı bir
+               "gizlilik" ayarına gerek kalmadı. -->
 
           <!-- Participant Selection Section (Ergonomik Doğrudan Liste + Herkesi Davet Et) -->
           <div>
@@ -339,23 +336,15 @@
           <!-- Info Banner -->
           <div style="background: #eeefec; border-left: 4px solid #5b5fc7; border-radius: 8px; padding: 0.85rem; font-size: 0.85rem; color: #334155; line-height: 1.4;">
             <strong style="color: #5b5fc7; display: block; margin-bottom: 0.2rem;"><i class="fas fa-info-circle"></i> Anlık Hızlı Oturum</strong>
-            Bu toplantı anında başlatılır. Şirket içi katılımcılar zaten davetli oldukları için şifre girmeden bekleme odasından geçer; misafirler odaya girmek için bu şifreyi kullanır.
+            Bu toplantı anında başlatılır. Şirket içi katılımcılar zaten davetli oldukları için bekleme odasından geçer; misafirler için oda anahtarı sistem tarafından otomatik oluşturulur (daha sonra toplantı bilgilerini düzenleyerek değiştirebilirsiniz).
           </div>
 
-          <!-- Oda Katılım Keyi (BUG FIX: Hızlı toplantıda eskiden şifre hiç
-               üretilmiyor/gösterilmiyordu — tam form (Planla) ile tutarlı
-               olması ve misafir girişinin güvenli kalması için buraya da
-               eklendi; Meetings.openQuickMeetingModal() açılışta otomatik
-               üretir. -->
-          <div>
-            <label style="font-size: 0.8rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">Oda Katılım Keyi</label>
-            <div style="display: flex; gap: 0.35rem;">
-              <input type="text" id="quickPasscode" maxlength="10" placeholder="58492" style="flex: 1; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; font-family: monospace; font-weight: 700;">
-              <button type="button" onclick="Meetings.generateRandomPasscode('quickPasscode')" style="background: #ffffff; color: #5b5fc7; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.5rem 0.65rem; font-weight: 700; font-size: 0.78rem; cursor: pointer; white-space: nowrap;">
-                <i class="fas fa-dice"></i> Üret
-              </button>
-            </div>
-          </div>
+          <!-- NOT: Oda katılım keyi (şifre) artık burada GÖRÜNMÜYOR — sistem
+               modal açılışında otomatik üretip sessizce gönderiyor (bkz.
+               Meetings.openQuickMeetingModal / formQuick submit). Kullanıcı
+               isterse toplantı oluşturulduktan sonra "Bilgileri Düzenle"den
+               değiştirebilir. -->
+          <input type="hidden" id="quickPasscode">
 
           <!-- Participant Selection Header & Select All Button -->
           <div>
@@ -421,16 +410,17 @@
             <textarea id="editAgenda" rows="2" class="form-control" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem;"></textarea>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-            <div>
-              <label style="font-size: 0.85rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.35rem;">Oda Şifresi (Passcode)</label>
-              <input type="text" id="editPasscode" placeholder="Şifresiz için boş bırakın" class="form-control" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem;">
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1.5rem;">
-              <input type="checkbox" id="editLobbyEnabled" style="width: 18px; height: 18px; cursor: pointer;">
-              <label for="editLobbyEnabled" style="font-size: 0.88rem; font-weight: 700; color: #0f172a; cursor: pointer;">Bekleme Odası (Lobi)</label>
-            </div>
+          <div>
+            <label style="font-size: 0.85rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.35rem;">Oda Şifresi (Passcode)</label>
+            <input type="text" id="editPasscode" placeholder="Şifresiz için boş bırakın" class="form-control" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem;">
           </div>
+
+          <!-- NOT: "Bekleme Odası (Lobi)" seçilebilir bir özellik olmaktan
+               çıkarıldı — her toplantı odasında zaten sabit/garanti olarak
+               aktif (statik), bu yüzden burada da kullanıcının kapatabileceği
+               bir seçenek olarak gösterilmiyor; her zaman açık gönderiliyor
+               (bkz. meetings.js formEdit submit handler). -->
+          <input type="checkbox" id="editLobbyEnabled" checked style="display: none;">
 
           <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid #f1f5f9; padding-top: 1rem; margin-top: 0.5rem;">
             <button type="button" onclick="Meetings.closeEditModal()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.6rem 1.2rem; font-weight: 700; font-size: 0.88rem; cursor: pointer;">Vazgeç</button>
@@ -465,9 +455,18 @@
           </div>
         </div>
 
+        <!-- BUG FIX: Açıklama ve Gündem eskiden TEK bir alanda (m.agenda ||
+             m.description ile biri diğerini eziyordu) gösteriliyordu; bu ikisi
+             backend'de zaten ayrı alanlar, burada da ayrı ayrı ve eksiksiz
+             gösteriliyor. -->
         <div>
-          <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 0.25rem;">Açıklama / Gündem</span>
+          <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 0.25rem;">Açıklama</span>
           <p id="infoMeetingDescription" style="color: #334155; margin: 0; font-weight: 500; background: #fafafa; padding: 0.65rem 0.85rem; border-radius: 8px; border: 1px solid #f1f5f9;">-</p>
+        </div>
+
+        <div>
+          <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 0.25rem;">Toplantı Gündemi</span>
+          <p id="infoMeetingAgenda" style="color: #334155; margin: 0; font-weight: 500; background: #fafafa; padding: 0.65rem 0.85rem; border-radius: 8px; border: 1px solid #f1f5f9; white-space: pre-wrap;">-</p>
         </div>
 
         <!-- Room Security & Time -->

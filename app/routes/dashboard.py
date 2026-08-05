@@ -11,11 +11,27 @@ from app.models.user import User
 from app.models.meeting import Meeting
 from app.models.meeting_participant import MeetingParticipant
 from app.models.participant_session import ParticipantSession
+from app.models.meeting_note import MeetingNote
 
 from app.core.tz import get_tr_now
 from app.services.signaling import signaling_manager
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard Analitik"])
+
+_MONTHS_TR = {1: "Ocak", 2: "Şubat", 3: "Mart", 4: "Nisan", 5: "Mayıs", 6: "Haziran",
+              7: "Temmuz", 8: "Ağustos", 9: "Eylül", 10: "Ekim", 11: "Kasım", 12: "Aralık"}
+
+
+def _format_day_prefix(s_date: datetime | None, now: datetime) -> str:
+    """'Bugün ' / 'Yarın ' / '5 Ağustos ' gibi bir gün öneki üretir (İlk Planlı
+    Toplantı ve Yaklaşan Toplantılar kartlarında ortak kullanılıyor)."""
+    if not s_date:
+        return ""
+    if s_date.date() == now.date():
+        return "Bugün "
+    if s_date.date() == (now + timedelta(days=1)).date():
+        return "Yarın "
+    return f"{s_date.day} {_MONTHS_TR.get(s_date.month, '')} "
 
 @router.get("/stats")
 def get_dashboard_stats(
@@ -153,33 +169,28 @@ def get_dashboard_stats(
         s_date = next_meeting_obj.scheduled_start
         s_time = s_date.strftime("%H:%M") if s_date else ""
         e_time = next_meeting_obj.scheduled_end.strftime("%H:%M") if next_meeting_obj.scheduled_end else ""
-        
-        time_prefix = ""
-        if s_date:
-            if s_date.date() == now.date():
-                time_prefix = "Bugün "
-            elif s_date.date() == (now + timedelta(days=1)).date():
-                time_prefix = "Yarın "
-            else:
-                months_tr = {1:"Ocak", 2:"Şubat", 3:"Mart", 4:"Nisan", 5:"Mayıs", 6:"Haziran", 7:"Temmuz", 8:"Ağustos", 9:"Eylül", 10:"Ekim", 11:"Kasım", 12:"Aralık"}
-                time_prefix = f"{s_date.day} {months_tr.get(s_date.month, '')} "
+        time_prefix = _format_day_prefix(s_date, now)
+
+        next_status_norm = (next_meeting_obj.status or "").lower()
+        next_is_live = next_status_norm in active_statuses
 
         next_meeting = {
             "id": str(next_meeting_obj.id),
             "title": next_meeting_obj.title,
             "meeting_code": next_meeting_obj.meeting_code,
+            "meeting_type": next_meeting_obj.meeting_type or "Genel Toplantı",
+            "status": "CANLI" if next_is_live else "Planlandı",
             "time_str": f"{time_prefix}{s_time} - {e_time}".strip(),
-            "location": next_meeting_obj.description or "Toplantı Odası"
         }
 
-    # 4. Bugünkü Toplantılar Listesi
+    # 4. Bugünkü Toplantılar Listesi (Maksimum 5 Toplantı)
     today_meetings_objs = user_meetings.filter(
         (
             (Meeting.scheduled_start >= today_start) & (Meeting.scheduled_start < today_end)
         ) | (
             func.lower(Meeting.status).in_(active_statuses)
         )
-    ).order_by(Meeting.scheduled_start.asc()).limit(10).all()
+    ).order_by(Meeting.scheduled_start.asc()).limit(5).all()
 
     today_list = []
     for m in today_meetings_objs:
@@ -192,6 +203,7 @@ def get_dashboard_stats(
             "id": str(m.id),
             "title": m.title,
             "meeting_code": m.meeting_code,
+            "meeting_type": m.meeting_type or "Genel Toplantı",
             "time_str": f"{s_time} - {e_time}",
             "status": "CANLI" if is_live_flag else "Başlayacak"
         })
@@ -203,15 +215,26 @@ def get_dashboard_stats(
 
     upcoming_list = []
     for m in upcoming_objs:
-        s_str = m.scheduled_start.strftime("%d %b %H:%M") if m.scheduled_start else ""
-        e_str = m.scheduled_end.strftime("%H:%M") if m.scheduled_end else ""
+        s_time = m.scheduled_start.strftime("%H:%M") if m.scheduled_start else ""
+        e_time = m.scheduled_end.strftime("%H:%M") if m.scheduled_end else ""
         upcoming_list.append({
             "id": str(m.id),
             "title": m.title,
             "meeting_code": m.meeting_code,
-            "time_str": f"{s_str} - {e_str}",
-            "location": m.description or "Toplantı Odası"
+            "meeting_type": m.meeting_type or "Genel Toplantı",
+            # BUG FIX: Önceden tarih+saat tek bir "time_str" string'inde
+            # birleşikti ("05 Ağu 14:30 - 15:00") — saati kartın ortasında
+            # büyük/dijital göstermek için ikisi artık AYRI alanlar: sadece
+            # saat aralığı (time_str) + ayrı bir gün etiketi (date_str, "Bugün"/
+            # "Yarın"/"5 Ağustos" gibi).
+            "time_str": f"{s_time} - {e_time}",
+            "date_str": _format_day_prefix(m.scheduled_start, now).strip()
         })
+
+    # Toplantı Notları ve Kararlar Sayısı
+    total_notes_count = db.query(func.count(MeetingNote.id)).filter(
+        (MeetingNote.author_id == user_id) | (MeetingNote.meeting_id.in_(user_meeting_ids))
+    ).scalar() or 0
 
     return {
         "total_users": total_users,
@@ -221,6 +244,7 @@ def get_dashboard_stats(
         "cancelled_meetings": cancelled_meetings_count,
         "this_month_meetings": this_month_meetings_count,
         "total_duration_hours": str(total_duration_hours).replace(".", ","),
+        "total_notes": total_notes_count,
         "live_meeting": live_meeting,
         "next_meeting": next_meeting,
         "today_list": today_list,
