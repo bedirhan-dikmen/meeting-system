@@ -149,6 +149,7 @@ const WebRTC = {
     this.renderLocalTile();
     this.updateMicUI();
     this.updateCameraUI();
+    this.setupResponsiveGridObserver();
     this.connectWebSocket();
     this.startTimer();
     this.bindRoomControls();
@@ -233,9 +234,7 @@ const WebRTC = {
           return;
         }
 
-        response = await fetch(`/api/v1/meetings/code/${this.meetingCode}`, {
-          headers: Auth.getAuthHeaders()
-        });
+        response = await Auth.fetchWithAuth(`/api/v1/meetings/code/${this.meetingCode}`);
         if (response.ok) {
           this.meetingInfo = await response.json();
 
@@ -245,11 +244,10 @@ const WebRTC = {
             this.currentUser = Auth.getUser();
           }
 
-          const isCreator = (this.currentUser && this.meetingInfo && (
-            String(this.meetingInfo.created_by) === String(this.currentUser.id) ||
-            String(this.meetingInfo.created_by) === String(this.currentUser.user_id)
-          ));
-          const isAdmin = (this.currentUser && (this.currentUser.role === 'admin' || this.currentUser.role === 'host' || this.currentUser.is_superuser));
+          const creatorId = String(this.meetingInfo?.created_by || '').toLowerCase();
+          const userId = String(this.currentUser?.id || this.currentUser?.user_id || '').toLowerCase();
+          const isCreator = Boolean(creatorId && userId && creatorId === userId);
+          const isAdmin = Boolean(this.currentUser && (this.currentUser.role === 'admin' || this.currentUser.role === 'host' || this.currentUser.role === 'manager' || this.currentUser.is_superuser));
 
           this.isHost = Boolean(isCreator || isAdmin);
         } else if (response.status === 401 || response.status === 403) {
@@ -298,12 +296,23 @@ const WebRTC = {
     if (this.isHost) return true;
     const u = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : this.currentUser;
     if (u) {
-      if (u.role === 'admin' || u.role === 'host' || u.role === 'manager' || u.is_superuser) return true;
+      const role = String(u.role || '').toLowerCase();
+      if (['admin', 'manager', 'host', 'moderator', 'yönetici', 'yonetici', 'müdür', 'mudur'].includes(role) || u.is_superuser) return true;
       if (this.meetingInfo && this.meetingInfo.created_by) {
         const creatorId = String(this.meetingInfo.created_by).toLowerCase();
         const userId = String(u.id || u.user_id || u.sub || '').toLowerCase();
         if (userId && creatorId === userId) return true;
       }
+    }
+    return false;
+  },
+
+  canShareScreenDirectly() {
+    if (this.isHost || this.isUserHost() || this.approvedScreenShare) return true;
+    const u = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : this.currentUser;
+    if (u) {
+      const role = String(u.role || '').toLowerCase();
+      if (['admin', 'manager', 'host', 'moderator', 'yönetici', 'yonetici', 'müdür', 'mudur'].includes(role) || u.is_superuser) return true;
     }
     return false;
   },
@@ -331,6 +340,26 @@ const WebRTC = {
 
   participantsMap: {}, // { userId: { id, name, avatar_url, role, isMicMuted, isCameraOff } }
 
+  // Otomatik yeniden bağlanma + kalp atışı durumu. Bunlar olmadan, yarı-kopuk
+  // (half-open) bir bağlantı istemci tarafında hiç fark edilmeden sessizce
+  // ölü kalabiliyordu: sunucu 4sn grace-period sonunda kullanıcıyı odadan
+  // düşürüyor ama istemci "hala bağlıyım" sanıp yeni katılan/kamera açıp
+  // kapatan kimseyi bir daha asla göremiyordu — F5 tek çözümdü.
+  signalingReconnectAttempts: 0,
+  signalingMaxReconnectDelay: 20000,
+  signalingHeartbeatTimer: null,
+  signalingReconnectTimer: null,
+  // Bu kodlarla kapanan bir bağlantı KASITLIDIR (yetkisiz erişim/kick/misafir
+  // reddi) — yeniden bağlanmaya ÇALIŞILMAMALI, aksi halde kullanıcı odadan
+  // atıldıktan hemen sonra kendini tekrar odaya sokmaya çalışan bir döngüye
+  // girer.
+  // NOT: 1000 (normal kapanış) buna bilerek dahil EDİLMEDİ — sunucu yeniden
+  // başlatma/deploy gibi durumlarda da bu kodla kapanabiliyor ve tam olarak
+  // böyle anlarda otomatik toparlanmasını istiyoruz. Kasıtlı "Ayrıl"/"Toplantıyı
+  // Bitir" akışları zaten hemen `window.location` ile sayfadan ayrılıyor,
+  // yani bu handler'ın reconnect dener durumda kalmasına fırsat kalmıyor.
+  SIGNALING_NO_RECONNECT_CODES: [1008, 4001, 4003],
+
   connectWebSocket() {
     const urlParams = new URLSearchParams(window.location.search);
     const guestToken = urlParams.get('guest_token') || sessionStorage.getItem('guest_token');
@@ -350,13 +379,17 @@ const WebRTC = {
     this.socket.onopen = () => {
       console.log("WebSocket Sinyalleşme Sunucusuna Bağlandı.");
       this.updateConnectionBadge('online', 'Bağlı');
+      this.signalingReconnectAttempts = 0;
+      this.startSignalingHeartbeat();
 
       const myName = `${this.currentUser?.first_name || ''} ${this.currentUser?.last_name || ''}`.trim() || 'Kullanıcı';
+      const myRole = (this.isHost || this.isUserHost()) ? 'admin' : (this.currentUser?.role || 'user');
 
       this.participantsMap[this.currentUser.id] = {
         id: this.currentUser.id,
         name: myName,
         avatar_url: this.currentUser?.avatar_url,
+        role: myRole,
         isMicMuted: this.isMicMuted,
         isCameraOff: this.isCameraOff
       };
@@ -384,6 +417,7 @@ const WebRTC = {
     };
 
     this.socket.onmessage = async (event) => {
+      if (event.data === 'pong') return; // Kalp atışı yanıtı — sinyal işlemeye gitmesin
       try {
         const data = JSON.parse(event.data);
         await this.handleSignal(data);
@@ -398,6 +432,8 @@ const WebRTC = {
 
     this.socket.onclose = (event) => {
       this.updateConnectionBadge('offline', 'Bağlantı Kesildi');
+      this.stopSignalingHeartbeat();
+
       if (event && (event.code === 1008 || event.code === 4001)) {
         if (window.Notifications) {
           Notifications.show("Toplantı oda erişim yetkiniz doğrulanamadı.", "danger", "Erişim Reddedildi");
@@ -411,8 +447,52 @@ const WebRTC = {
             window.location.replace('/login');
           }
         }, 1000);
+        return;
       }
+
+      // BUG FIX: Buradan önce hiçbir yeniden bağlanma denemesi YOKTU. Ağ
+      // kesintisi, kısa bir Wi-Fi kopması, laptop uyku modundan çıkışı,
+      // kurumsal proxy'nin boşta kalan soketi kesmesi gibi TAMAMEN NORMAL
+      // durumlarda bile bağlantı sessizce kopup bir daha asla kendini
+      // toparlamıyordu — kullanıcı sayfayı F5'lemeden yeni katılan kimseyi
+      // veya kamera/mikrofon değişikliklerini bir daha göremiyordu. Kicked/
+      // reddedilme/misafir onaysızlığı gibi KASITLI kapanma kodlarında
+      // (SIGNALING_NO_RECONNECT_CODES) yeniden bağlanmayı denemiyoruz.
+      if (event && this.SIGNALING_NO_RECONNECT_CODES.includes(event.code)) {
+        return;
+      }
+      if (!this.meetingCode || !this.isRoomJoined) return; // Oda bilinçli olarak terk edildi
+
+      this.signalingReconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(1.5, this.signalingReconnectAttempts), this.signalingMaxReconnectDelay);
+      console.warn(`[WebRTC] Sinyalleşme bağlantısı koptu, ${delay}ms sonra yeniden bağlanılacak (deneme ${this.signalingReconnectAttempts})...`);
+      clearTimeout(this.signalingReconnectTimer);
+      this.signalingReconnectTimer = setTimeout(() => {
+        this.updateConnectionBadge('reconnecting', 'Yeniden Bağlanıyor...');
+        this.connectWebSocket();
+      }, delay);
     };
+  },
+
+  startSignalingHeartbeat() {
+    this.stopSignalingHeartbeat();
+    // events.js'teki EventSync ile aynı ritimde (25sn): bağlantı gerçekten
+    // canlı mı diye periyodik olarak sunucuya "ping" gönderir. Yarı-kopuk
+    // bağlantılar genelde sessizce hiçbir hata fırlatmadan takılı kalır;
+    // düzenli ping/pong, tarayıcının bunu normalden çok daha hızlı fark
+    // etmesini (ve onclose/reconnect akışını tetiklemesini) sağlar.
+    this.signalingHeartbeatTimer = setInterval(() => {
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        this.socket.send('ping');
+      }
+    }, 25000);
+  },
+
+  stopSignalingHeartbeat() {
+    if (this.signalingHeartbeatTimer) {
+      clearInterval(this.signalingHeartbeatTimer);
+      this.signalingHeartbeatTimer = null;
+    }
   },
 
   renderParticipantsList() {
@@ -424,9 +504,13 @@ const WebRTC = {
     if (countBadge) countBadge.textContent = list.length;
 
     container.innerHTML = list.map(p => {
-      const isMe = (p.id === this.currentUser?.id);
-      const initials = (p.name?.[0] || 'K').toUpperCase();
-      const isHostUser = (p.id === this.meetingInfo?.created_by);
+      const isMe = (String(p.id) === String(this.currentUser?.id));
+      const pRole = String(p.role || '').toLowerCase();
+      const isHostUser = Boolean(
+        (this.meetingInfo?.created_by && p.id && String(p.id).toLowerCase() === String(this.meetingInfo.created_by).toLowerCase()) ||
+        ['admin', 'manager', 'host', 'moderator', 'yönetici', 'yonetici', 'müdür', 'mudur'].includes(pRole) ||
+        (isMe && (this.isHost || this.isUserHost()))
+      );
 
       return `
         <div class="participant-list-item">
@@ -1119,7 +1203,7 @@ const WebRTC = {
     const initials = (name[0] || 'K').toUpperCase();
     const avatarUrl = info.avatar_url;
     const isCameraOff = Boolean(info.isCameraOff);
-    const isHostUser = (remoteUserId === this.meetingInfo?.created_by);
+    const isHostUser = Boolean(this.meetingInfo?.created_by && remoteUserId && String(remoteUserId) === String(this.meetingInfo.created_by));
 
     let tile = document.getElementById(`remoteTile_${remoteUserId}`);
     const isPinned = (this.pinnedTileId === `remoteTile_${remoteUserId}`);
@@ -1316,7 +1400,12 @@ const WebRTC = {
     if (!shareArea || !grid) return;
 
     shareArea.style.setProperty('display', 'none', 'important');
-    grid.style.setProperty('display', 'grid', 'important');
+    // BUG FIX: Burada eskiden 'grid' set ediliyordu — bu, yeni dinamik ızgara
+    // sisteminin (bkz. reflowVideoGrid/computeOptimalGridLayout) dayandığı
+    // `display:flex; flex-wrap:wrap` modeliyle çakışıp her katılımcı kartının
+    // (grid-template-columns hiç tanımlı olmadığı için) 0x0 render edilmesine,
+    // yani odaya girer girmez TÜM kartların görünmez olmasına sebep oluyordu.
+    grid.style.setProperty('display', 'flex', 'important');
     if (topBar) topBar.style.setProperty('display', 'none', 'important');
     if (headerShareBadge) headerShareBadge.style.display = 'none';
 
@@ -1473,119 +1562,264 @@ const WebRTC = {
     return score;
   },
 
+  gridCurrentPage: 1,
+  // Gerçek konferans uygulamalarındaki (Zoom ~25, Teams/Meet büyük galeri ~49)
+  // sayfa başı kart sayısına yakın bir değer: aynı anda decode edilen video
+  // sayısını sınırlayarak 24+ katılımcılı toplantılarda donmayı/kasmayı önler.
+  gridTilesPerPage: 24,
+  // Kartlar arası boşluk (px). İnce bir ayraç çizgisi hissi için düşük
+  // tutuluyor; 0 yapılırsa kartlar tamamen bitişik (dip dibe) görünür.
+  GRID_GAP_PX: 6,
+
+  nextGridPage() {
+    const grid = document.getElementById('videoGrid');
+    if (!grid) return;
+    const allTiles = Array.from(grid.querySelectorAll('.participant-tile:not(.overflow-tile)'));
+    const totalPages = Math.ceil(allTiles.length / this.gridTilesPerPage) || 1;
+    if (this.gridCurrentPage < totalPages) {
+      this.gridCurrentPage++;
+      this.reflowVideoGrid();
+    }
+  },
+
+  prevGridPage() {
+    if (this.gridCurrentPage > 1) {
+      this.gridCurrentPage--;
+      this.reflowVideoGrid();
+    }
+  },
+
+  /**
+   * Gerçek konferans uygulamalarının (Zoom/Meet/Teams) kullandığı "alanı
+   * maksimize eden ızgara" algoritması. Sabit "2 kişi böyle görünsün, 4 kişi
+   * şöyle" kırılma noktaları YERİNE: verilen container boyutu ve kart sayısı
+   * için, 16:9 en-boy oranını koruyarak mümkün olan EN BÜYÜK kart boyutunu
+   * veren sütun sayısını dener dener bulur. Her olası sütun sayısında hem
+   * "genişliğe göre" hem "yüksekliğe göre" olası kart boyutu hesaplanır,
+   * taşmayı önlemek için küçük olan seçilir; en büyük alanı (width*height)
+   * veren seçenek kazanır. Bu tek algoritma; 1, 2, 3, 4, 8, 24+ katılımcı
+   * dahil HER senaryoyu (ayrı ayrı özel durum kodu yazmadan) doğru çözer.
+   */
+  computeOptimalGridLayout(containerWidth, containerHeight, tileCount, aspectRatio = 16 / 9, gap = this.GRID_GAP_PX) {
+    if (tileCount <= 0 || containerWidth <= 0 || containerHeight <= 0) {
+      return { cols: 1, rows: 1, tileWidth: Math.max(containerWidth, 0), tileHeight: Math.max(containerHeight, 0) };
+    }
+
+    let best = null;
+    for (let cols = 1; cols <= tileCount; cols++) {
+      const rows = Math.ceil(tileCount / cols);
+
+      const widthByCols = (containerWidth - gap * (cols - 1)) / cols;
+      const heightByCols = widthByCols / aspectRatio;
+
+      const heightByRows = (containerHeight - gap * (rows - 1)) / rows;
+      const widthByRows = heightByRows * aspectRatio;
+
+      // İkisinden hangisi daha küçükse onu kullan (diğer eksende taşma olmasın)
+      const tileWidth = heightByCols <= heightByRows ? widthByCols : widthByRows;
+      const tileHeight = heightByCols <= heightByRows ? heightByCols : heightByRows;
+
+      if (tileWidth <= 0 || tileHeight <= 0) continue;
+
+      const area = tileWidth * tileHeight;
+      if (!best || area > best.area) {
+        best = { cols, rows, tileWidth, tileHeight, area };
+      }
+    }
+
+    // UX İSTİSNASI: 2 katılımcı için saf alan-maksimizasyonu, container biraz
+    // "kare"ye yakınsa iki kartı alt alta (1 sütun) dizmeyi tercih edebiliyor.
+    // Zoom/Meet/Teams dahil TÜM gerçek toplantı uygulamaları 2 kişiyi her
+    // zaman yan yana gösterir (yüz yüze konuşma hissi); container gerçekten
+    // dikey (portre, ör. telefon) olmadıkça bu yerleşik beklentiyi koruyoruz.
+    if (tileCount === 2 && containerWidth >= containerHeight * 0.9) {
+      const gap1 = gap;
+      const sideBySideWidth = (containerWidth - gap1) / 2;
+      const sideBySideHeight = sideBySideWidth / aspectRatio;
+      if (sideBySideHeight <= containerHeight && sideBySideWidth > 0) {
+        best = { cols: 2, rows: 1, tileWidth: sideBySideWidth, tileHeight: sideBySideHeight, area: sideBySideWidth * sideBySideHeight };
+      }
+    }
+
+    return best || { cols: 1, rows: tileCount, tileWidth: containerWidth, tileHeight: containerWidth / aspectRatio };
+  },
+
   reflowVideoGrid() {
     const grid = document.getElementById('videoGrid');
     if (!grid) return;
 
-    // Reset inline grid styles
+    // Eski sabit "grid-1..grid-16" sınıf/CSS sistemi kaldırıldı (bkz.
+    // style.css) — iki farklı, birbiriyle çakışan katmanlama seti aynı
+    // seçicilere yazıyordu; bu da katılımcı sayısına göre kartların rastgele
+    // küçülmesine, gereksiz boşluğa ve bazı senaryolarda (2 katılımcı) video
+    // akışının hiç görünmemesine sebep oluyordu. Artık tüm boyutlandırma
+    // burada, container'ın gerçek anlık ölçüsüne göre hesaplanıyor.
     grid.style.gridTemplateColumns = '';
     grid.style.gridTemplateRows = '';
-    grid.style.gridTemplateAreas = '';
 
-    // Reset layout classes
-    grid.classList.remove('grid-1', 'grid-2', 'grid-3', 'grid-4', 'grid-5', 'grid-6', 'grid-8', 'grid-12', 'grid-multi');
-
-    // Remove existing overflow tile
     const existingOverflow = grid.querySelector('.overflow-tile');
     if (existingOverflow) existingOverflow.remove();
 
-    // Get all participant tiles currently in grid
     const allTiles = Array.from(grid.querySelectorAll('.participant-tile:not(.overflow-tile)'));
     const totalCount = allTiles.length;
+    const paginationControls = document.getElementById('gridPaginationControls');
+    const pageIndicator = document.getElementById('gridPageIndicator');
 
-    if (totalCount === 0) {
-      grid.classList.add('grid-1');
-      return;
-    }
+    if (totalCount === 0) return;
 
-    // Sort all tiles based on Smart Gallery Priority Score (Highest score first)
+    // FLIP animasyonu — 1. adım "First": kartların yeniden sıralama/boyutlandırma
+    // ÖNCESİ konum ve boyutlarını kaydet. CSS'in `transition: width, height`
+    // özelliği tek başına yetersizdi: flex-wrap içinde bir kartın SIRASI/KONUMU
+    // değiştiğinde (biri katılıp ayrılınca veya sohbet paneli açılıp kapanınca)
+    // tarayıcı bunu "geçiş" olarak değil anlık bir yer değiştirme olarak
+    // uyguluyor — kartlar sert/küt bir şekilde zıplıyordu. FLIP (First-Last-
+    // Invert-Play) tekniğiyle: eski konumu ölç, yeni yerleşimi uygula, aradaki
+    // farkı GPU-hızlandırmalı bir `transform` ile anında "geri sar", sonra bu
+    // transformu yumuşakça sıfıra animasyonla indir — sonuç, gerçek bir kayma/
+    // büyüme geçişi gibi görünür.
+    const flipFirstRects = new Map();
+    allTiles.forEach(tile => flipFirstRects.set(tile, tile.getBoundingClientRect()));
+
+    // Sort tiles based on Smart Gallery Priority Score (Highest score first)
     allTiles.sort((tileA, tileB) => {
       const idA = tileA.id.replace('remoteTile_', '').replace('localParticipantTile', this.currentUser?.id || 'local');
       const idB = tileB.id.replace('remoteTile_', '').replace('localParticipantTile', this.currentUser?.id || 'local');
       return this.getParticipantPriorityScore(idB) - this.getParticipantPriorityScore(idA);
     });
 
-    // Re-append sorted tiles back into grid in priority order
     allTiles.forEach(tile => grid.appendChild(tile));
 
-    if (totalCount <= 1) {
-      grid.classList.add('grid-1');
-      allTiles.forEach(tile => {
-        tile.style.setProperty('display', 'flex', 'important');
-        const vid = tile.querySelector('video');
-        if (vid && vid.paused) vid.play().catch(e => { });
-      });
-    } else if (totalCount === 2) {
-      grid.classList.add('grid-2');
-      allTiles.forEach(tile => {
-        tile.style.setProperty('display', 'flex', 'important');
-        const vid = tile.querySelector('video');
-        if (vid && vid.paused) vid.play().catch(e => { });
-      });
-    } else if (totalCount === 3) {
-      grid.classList.add('grid-3');
-      allTiles.forEach(tile => {
-        tile.style.setProperty('display', 'flex', 'important');
-        const vid = tile.querySelector('video');
-        if (vid && vid.paused) vid.play().catch(e => { });
-      });
-    } else if (totalCount === 4) {
-      grid.classList.add('grid-4');
-      allTiles.forEach(tile => {
-        tile.style.setProperty('display', 'flex', 'important');
-        const vid = tile.querySelector('video');
-        if (vid && vid.paused) vid.play().catch(e => { });
-      });
-    } else if (totalCount <= 8) {
-      grid.classList.add('grid-8');
-      allTiles.forEach(tile => {
-        tile.style.setProperty('display', 'flex', 'important');
-        const vid = tile.querySelector('video');
-        if (vid && vid.paused) vid.play().catch(e => { });
-      });
-    } else if (totalCount <= 12) {
-      grid.classList.add('grid-12');
-      allTiles.forEach(tile => {
-        tile.style.setProperty('display', 'flex', 'important');
-        const vid = tile.querySelector('video');
-        if (vid && vid.paused) vid.play().catch(e => { });
-      });
-    } else {
-      // 13+ participants: STRICTLY CAP AT 12 SLOTS (3 ROWS x 4 COLS)
-      // Exactly 11 participant tiles + 1 overflow tile = 12 total tiles on screen!
-      grid.classList.add('grid-12');
-      const maxVisibleParticipantTiles = 11;
-      const overflowCount = totalCount - maxVisibleParticipantTiles;
+    // Sayfalama: 24+ katılımcı senaryosunda aynı anda çok fazla video
+    // decode edilip donmaya/performans düşüşüne yol açmaması için, o an
+    // görünmeyen sayfalardaki videolar duraklatılır (bağlantı canlı kalır,
+    // sadece render/decode durur) — sayfa değişince anında devam eder.
+    let visibleTiles = allTiles;
+    if (totalCount > this.gridTilesPerPage) {
+      const totalPages = Math.ceil(totalCount / this.gridTilesPerPage);
+      if (this.gridCurrentPage > totalPages) this.gridCurrentPage = totalPages;
+      if (this.gridCurrentPage < 1) this.gridCurrentPage = 1;
+
+      const startIndex = (this.gridCurrentPage - 1) * this.gridTilesPerPage;
+      const endIndex = startIndex + this.gridTilesPerPage;
 
       allTiles.forEach((tile, index) => {
         const vid = tile.querySelector('video');
-        if (index < maxVisibleParticipantTiles) {
-          tile.style.setProperty('display', 'flex', 'important');
-          // Bandwidth/CPU optimization: play video for visible tiles
-          if (vid && vid.paused) vid.play().catch(e => { });
-        } else {
-          tile.style.setProperty('display', 'none', 'important');
-          // Bandwidth/CPU optimization: pause video for hidden tiles
-          if (vid && !vid.paused) vid.pause();
+        const isVisible = index >= startIndex && index < endIndex;
+        tile.style.setProperty('display', isVisible ? 'flex' : 'none', 'important');
+        if (vid) {
+          if (isVisible && vid.paused) vid.play().catch(() => { });
+          else if (!isVisible && !vid.paused) vid.pause();
         }
       });
+      visibleTiles = allTiles.slice(startIndex, endIndex);
 
-      // Append 12th slot as "+N Daha fazla" overflow tile
-      const overflowTile = document.createElement('div');
-      overflowTile.className = 'participant-tile overflow-tile';
-      overflowTile.onclick = () => {
-        if (typeof toggleSidebarTab === 'function') {
-          toggleSidebarTab('participants');
-        }
-      };
-      overflowTile.innerHTML = `
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem; text-align: center;">
-          <div class="overflow-count" style="font-size: 1.6rem; font-weight: 800; color: #5b5fc7;">+${overflowCount}</div>
-          <div class="overflow-label" style="font-size: 0.82rem; font-weight: 700; color: #475569;">Daha fazla</div>
-        </div>
-      `;
-      grid.appendChild(overflowTile);
+      if (paginationControls) {
+        paginationControls.style.display = 'flex';
+        if (pageIndicator) pageIndicator.textContent = `Sayfa ${this.gridCurrentPage} / ${totalPages}`;
+      }
+    } else {
+      this.gridCurrentPage = 1;
+      if (paginationControls) paginationControls.style.display = 'none';
+
+      allTiles.forEach(tile => {
+        tile.style.setProperty('display', 'flex', 'important');
+        const vid = tile.querySelector('video');
+        if (vid && vid.paused) vid.play().catch(() => { });
+      });
     }
+
+    // Container'ın GERÇEK anlık boyutunu ölç (sohbet/kenar paneli açık ya da
+    // kapalı, pencere ne boyutta olursa olsun) ve o an görünen kart sayısı
+    // için optimum sütun sayısı + kart boyutunu hesaplayıp inline uygula.
+    //
+    // BUG FIX: `getBoundingClientRect()` container'ın PADDING'i dahil border-box
+    // ölçüsünü verir; ama flex öğeleri sadece İÇ (content-box) alana sığar.
+    // Padding'i düşmeden hesaplanan kart boyutu container'a birkaç piksel
+    // fazla geliyor, bu da flex-wrap'ın 2. kartı bir alt satıra itmesine
+    // (yan yana durması gereken 2 katılımcının alt alta dizilmesine) sebep
+    // oluyordu. Gerçek kullanılabilir alan = rect - padding.
+    const rect = grid.getBoundingClientRect();
+    const gridComputedStyle = window.getComputedStyle(grid);
+    const paddingX = parseFloat(gridComputedStyle.paddingLeft || 0) + parseFloat(gridComputedStyle.paddingRight || 0);
+    const paddingY = parseFloat(gridComputedStyle.paddingTop || 0) + parseFloat(gridComputedStyle.paddingBottom || 0);
+    const availableWidth = Math.max(0, rect.width - paddingX);
+    const availableHeight = Math.max(0, rect.height - paddingY);
+    const layout = this.computeOptimalGridLayout(availableWidth, availableHeight, visibleTiles.length);
+
+    grid.style.gap = `${this.GRID_GAP_PX}px`;
+    visibleTiles.forEach(tile => {
+      // BUG FIX: `tile.style.width = ...` (important bayrağı olmadan) yazılan
+      // inline stil, style.css'teki genel `.participant-tile { width:100%
+      // !important; height:100% !important }` kuralına karşı KAYBEDİYORDU
+      // (CSS kaskad kuralı: normal-öncelikli inline stil, !important'lı bir
+      // stylesheet kuralına asla kazanamaz). Sonuç: her kart, hesaplanan
+      // boyuttan bağımsız olarak her zaman container'ın %100'üne geriliyor —
+      // 2+ katılımcıda kartların üst üste binmesine/bozulmasına yol açıyordu.
+      // `setProperty(..., 'important')` ile bu artık düzgün kazanıyor.
+      tile.style.setProperty('width', `${Math.floor(layout.tileWidth)}px`, 'important');
+      tile.style.setProperty('height', `${Math.floor(layout.tileHeight)}px`, 'important');
+    });
+
+    // FLIP — 2/3. adım "Invert" + "Play": yeni (Last) konumla eski (First)
+    // konum arasındaki farkı hesaplayıp transform ile telafi eder, sonra bu
+    // transformu bir sonraki frame'de sıfıra animasyonla indirir.
+    visibleTiles.forEach(tile => {
+      const first = flipFirstRects.get(tile);
+      if (!first || first.width === 0) return; // Yeni eklenen kart — zıplayacak eski konumu yok
+
+      const last = tile.getBoundingClientRect();
+      const deltaX = first.left - last.left;
+      const deltaY = first.top - last.top;
+      const scaleX = last.width ? first.width / last.width : 1;
+      const scaleY = last.height ? first.height / last.height : 1;
+
+      if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1 && Math.abs(scaleX - 1) < 0.01 && Math.abs(scaleY - 1) < 0.01) {
+        return; // Konum/boyut zaten aynı, animasyona gerek yok
+      }
+
+      // NOT: style.css'teki `.video-grid .participant-tile { transition: ... !important }`
+      // kuralı, `!important` olmadan yazılan bir inline `transition:none`'ı ezerdi
+      // — FLIP'in ilk adımı (ters transformu ANINDA, geçişsiz uygulamak) bu
+      // yüzden `setProperty(..., 'important')` ile yapılıyor.
+      tile.style.setProperty('transition', 'none', 'important');
+      tile.style.transformOrigin = 'top left';
+      tile.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+
+      // Tarayıcıyı yukarıdaki "ters" transformu gerçekten uygulamaya zorla,
+      // sonra bir sonraki frame'de sıfıra animasyonla indir.
+      requestAnimationFrame(() => {
+        tile.getBoundingClientRect(); // reflow'u zorla
+        tile.style.setProperty('transition', 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)', 'important');
+        tile.style.transform = '';
+        const clearInlineTransition = () => {
+          tile.style.removeProperty('transition');
+          tile.removeEventListener('transitionend', clearInlineTransition);
+        };
+        tile.addEventListener('transitionend', clearInlineTransition);
+      });
+    });
+  },
+
+  _gridResizeObserver: null,
+
+  /**
+   * Video grid container'ını izler; sohbet/kenar paneli açılıp kapandığında,
+   * pencere yeniden boyutlandığında veya ekran paylaşımı bitip galeri
+   * görünümüne dönüldüğünde — HANGİ SEBEPLE olursa olsun container'ın
+   * boyutu değiştiğinde — ızgarayı otomatik olarak yeniden hesaplar. Her
+   * tetikleyici noktayı (sidebar toggle fonksiyonu, resize event'i, ...) tek
+   * tek elle dinlemek yerine tek, güvenilir bir mekanizma.
+   */
+  setupResponsiveGridObserver() {
+    const grid = document.getElementById('videoGrid');
+    if (!grid || this._gridResizeObserver) return;
+
+    let debounceTimer = null;
+    this._gridResizeObserver = new ResizeObserver(() => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => this.reflowVideoGrid(), 80);
+    });
+    this._gridResizeObserver.observe(grid);
   },
 
   sendChatMessage(text) {
@@ -2117,8 +2351,8 @@ const WebRTC = {
     }
 
     container.innerHTML = filtered.map(p => {
-      const isSelf = (p.id === this.currentUser?.id);
-      const isHostUser = (p.id === this.meetingInfo?.created_by || p.role === 'host');
+      const isSelf = (String(p.id) === String(this.currentUser?.id));
+      const isHostUser = Boolean((this.meetingInfo?.created_by && p.id && String(p.id) === String(this.meetingInfo.created_by)) || p.role === 'host' || p.role === 'admin' || p.role === 'moderator');
       const isSpeaking = !!p.isSpeaking;
       const initials = (p.name?.[0] || 'K').toUpperCase();
       const isMicMuted = !!p.isMicMuted;
@@ -2309,8 +2543,8 @@ const WebRTC = {
       return;
     }
 
-    // 2. Eğer kullanıcı Yönetici (Host) ise VEYA izin onaylandıysa doğrudan paylaşımı başlatır
-    if (this.isHost || this.approvedScreenShare) {
+    // 2. Eğer kullanıcı Yönetici/Host/Müdür (Hiyerarşik Üst) ise VEYA izin onaylandıysa doğrudan paylaşımı başlatır
+    if (this.canShareScreenDirectly()) {
       await this.startScreenShareFlow();
       return;
     }

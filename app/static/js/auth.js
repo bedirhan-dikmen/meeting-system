@@ -4,7 +4,15 @@
 
 const Auth = {
   getToken() {
-    return localStorage.getItem('access_token');
+    let token = localStorage.getItem('access_token');
+    if (!token) {
+      const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/);
+      if (match && match[1]) {
+        token = decodeURIComponent(match[1]);
+        try { localStorage.setItem('access_token', token); } catch(e) {}
+      }
+    }
+    return token;
   },
 
   getUser() {
@@ -72,8 +80,10 @@ const Auth = {
   },
 
   async fetchWithAuth(url, options = {}) {
-    options.headers = options.headers || this.getAuthHeaders();
-    if (!options.headers['Authorization']) {
+    options.headers = options.headers || {};
+    const authHeaders = this.getAuthHeaders();
+    options.headers = { ...authHeaders, ...options.headers };
+    if (!options.headers['Authorization'] && !options.headers['authorization']) {
       const token = this.getToken();
       if (token) options.headers['Authorization'] = `Bearer ${token}`;
     }

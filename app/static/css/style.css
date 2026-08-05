@@ -893,179 +893,17 @@ body {
   overflow: hidden;
 }
 
-.video-grid {
-  flex: 1;
-  padding: 0.5rem;
-  display: grid;
-  gap: 1rem;
-  align-content: center;
-  justify-content: center;
-  overflow-y: auto;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  width: 100%;
-  height: 100%;
-}
-
-/* ==========================================================================
-   16:9 HD LANDSCAPE VIDEO GRID SYSTEM (4 TOP, 4 MIDDLE, 4 BOTTOM = 12 MAX TILES)
-   ========================================================================== */
-
-.video-grid {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 100% !important;
-  height: 100% !important;
-  padding: 0.75rem !important;
-  overflow-y: auto !important;
-  box-sizing: border-box !important;
-}
-
-/* ALL PARTICIPANT TILES MANDATORY 16:9 LANDSCAPE ASPECT RATIO */
-.participant-tile {
-  aspect-ratio: 16 / 9 !important;
-  background: #0f172a !important;
-  border: 1px solid #e2e8f0 !important;
-  border-radius: 14px !important;
-  position: relative !important;
-  overflow: hidden !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.06) !important;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-.participant-tile video {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-}
-
-/* 1 PARTICIPANT: SINGLE LARGE CENTERED 16:9 CARD */
-.video-grid.grid-1 {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-.video-grid.grid-1 .participant-tile {
-  width: 820px !important;
-  max-width: 90vw !important;
-  max-height: 72vh !important;
-}
-
-/* 2 PARTICIPANTS: 2 SIDE-BY-SIDE 16:9 LANDSCAPE CARDS */
-.video-grid.grid-2 {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 1rem !important;
-}
-
-.video-grid.grid-2 .participant-tile {
-  width: 520px !important;
-  max-width: 46vw !important;
-  max-height: 58vh !important;
-}
-
-/* 3 PARTICIPANTS: 1 CENTERED TOP 16:9 CARD, 2 SIDE-BY-SIDE 16:9 CARDS BELOW */
-.video-grid.grid-3 {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  grid-template-rows: auto auto !important;
-  justify-items: center !important;
-  align-content: center !important;
-  gap: 0.85rem !important;
-  max-width: 960px !important;
-  margin: 0 auto !important;
-}
-
-.video-grid.grid-3 .participant-tile:nth-child(1) {
-  grid-column: 1 / 3 !important;
-  justify-self: center !important;
-  width: 440px !important;
-  max-width: 45vw !important;
-  max-height: 38vh !important;
-}
-
-.video-grid.grid-3 .participant-tile:nth-child(2),
-.video-grid.grid-3 .participant-tile:nth-child(3) {
-  width: 440px !important;
-  max-width: 45vw !important;
-  max-height: 38vh !important;
-}
-
-/* 4 PARTICIPANTS: EQUAL 2x2 GRID OF 16:9 CARDS */
-.video-grid.grid-4 {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  grid-template-rows: 1fr 1fr !important;
-  justify-items: center !important;
-  align-content: center !important;
-  gap: 0.85rem !important;
-  max-width: 960px !important;
-  margin: 0 auto !important;
-}
-
-.video-grid.grid-4 .participant-tile {
-  width: 440px !important;
-  max-width: 45vw !important;
-  max-height: 38vh !important;
-}
-
-/* 5 TO 8 PARTICIPANTS: 2 ROWS OF UP TO 4 COLUMNS OF 16:9 CARDS */
-.video-grid.grid-8 {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
-  align-content: center !important;
-  justify-content: center !important;
-  gap: 0.75rem !important;
-  max-width: 1150px !important;
-  margin: 0 auto !important;
-}
-
-.video-grid.grid-8 .participant-tile {
-  width: 100% !important;
-  max-height: 34vh !important;
-}
-
-/* 9 TO 12 PARTICIPANTS: STRICT 3 ROWS x 4 COLUMNS (4 TOP, 4 MIDDLE, 4 BOTTOM = 12 MAX TILES) */
-.video-grid.grid-12,
-.video-grid.grid-5,
-.video-grid.grid-6,
-.video-grid.grid-multi {
-  display: grid !important;
-  grid-template-columns: repeat(4, 1fr) !important;
-  grid-template-rows: repeat(3, 1fr) !important;
-  align-content: center !important;
-  justify-content: center !important;
-  gap: 0.65rem !important;
-  max-width: 1200px !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  margin: 0 auto !important;
-  overflow: hidden !important;
-}
-
-.video-grid.grid-12 .participant-tile,
-.video-grid.grid-5 .participant-tile,
-.video-grid.grid-6 .participant-tile,
-.video-grid.grid-multi .participant-tile {
-  width: 100% !important;
-  height: 100% !important;
-  max-height: 25vh !important;
-  aspect-ratio: 16 / 9 !important;
-}
-
-/* TOP CAROUSEL BAR TILES FOR SCREEN SHARE MODE */
-.top-carousel-bar .participant-tile {
-  height: 100% !important;
-  width: auto !important;
-  aspect-ratio: 16 / 9 !important;
-  flex-shrink: 0 !important;
-}
+/* NOT: Bu dosyada eskiden burada, aşağıdaki "DİNAMİK TOPLANTI ODASI VİDEO
+   IZGARASI" bloğuyla (bkz. .video-grid tanımları) ÇAKIŞAN, iki farklı katmanlama
+   sistemi (flex + grid, sabit piksel/vw genişlikleri + yüzdesel calc()
+   genişlikleri) barındıran ikinci bir `.video-grid` / `.video-grid.grid-N` /
+   `.participant-tile` tanım seti vardı. İkisi aynı seçicilere aynı anda
+   `!important` ile yazdığı için katılımcı sayısına göre kartların rastgele
+   küçülmesi, gereksiz boşluk oluşması ve bazı senaryolarda (ör. 2 katılımcı)
+   video akışının görünmemesi gibi öngörülemez sonuçlar veriyordu. Tüm ızgara
+   yerleşimi artık TEK bir yerden, dinamik olarak (bkz. style.css'teki
+   "DİNAMİK TOPLANTI ODASI VİDEO IZGARASI" bloğu ve webrtc.js
+   `reflowVideoGrid`/`computeOptimalGridLayout`) yönetiliyor. */
 
 /* OVERFLOW TILE STYLING (+N DAHA FAZLA) */
 .participant-tile.overflow-tile {
@@ -1077,37 +915,6 @@ body {
 .participant-tile.overflow-tile:hover {
   background: #e2e8f0 !important;
   border-color: #5b5fc7 !important;
-}
-
-.participant-tile {
-  background: #ffffff;
-  border: 1px solid #e1dfdd;
-  border-radius: 14px;
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  width: 100%;
-  height: 100%;
-}
-
-.participant-tile:hover {
-  border-color: #c7d2fe;
-  box-shadow: 0 8px 24px -4px rgba(91, 95, 199, 0.15);
-}
-
-.participant-tile.active-speaker {
-  border: 2px solid #5b5fc7 !important;
-  box-shadow: 0 0 20px rgba(91, 95, 199, 0.4) !important;
-}
-
-.participant-tile video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 /* TRANSLUCENT DARK OVERLAY PILL WITH WHITE TEXT AT BOTTOM-LEFT */
@@ -4474,7 +4281,6 @@ body {
 
 .screenshare-container,
 #screenShareArea {
-  display: flex !important;
   flex: 1 !important;
   width: 100% !important;
   height: 100% !important;
@@ -4487,6 +4293,13 @@ body {
   margin: 0 auto !important;
   padding: 0 !important;
   box-sizing: border-box !important;
+}
+
+.screenshare-container[style*="display: none"],
+.screenshare-container[style*="display:none"],
+#screenShareArea[style*="display: none"],
+#screenShareArea[style*="display:none"] {
+  display: none !important;
 }
 
 #screenShareGrid {
@@ -4705,53 +4518,52 @@ body {
 
 
 
-display: grid !important;
-width: 100% !important;
-height: 100% !important;
-min-height: 0 !important;
-gap: 0.75rem !important;
-box-sizing: border-box !important;
-position: relative !important;
-overflow: hidden !important;
+/* ==========================================================================
+   DİNAMİK TOPLANTI ODASI VİDEO IZGARASI (1'den 24+ katılımcıya kadar)
+   ==========================================================================
+   Sabit "grid-1..grid-16" kırılma noktaları ve yüzdesel calc() genişlikleri
+   yerine, gerçek konferans uygulamalarının (Zoom/Meet/Teams) kullandığı
+   "alanı maksimize eden ızgara" algoritması kullanılıyor: webrtc.js'teki
+   `computeOptimalGridLayout()`, container'ın GERÇEK anlık genişlik/yüksekliğini
+   ölçüp, verilen katılımcı sayısı için 16:9 kartları en büyük şekilde
+   sığdıracak sütun sayısını hesaplar ve her karta tam piksel genişlik/yükseklik
+   inline olarak yazar. Bu sayede:
+     - Kartlar arası boşluk (gap) tek bir yerden (GRID_GAP_PX) kontrol edilir;
+       ince bir ayraç çizgisi hissi için düşük tutulur, istenirse 0'a çekilip
+       kartlar tamamen bitişik (dip dibe) yapılabilir.
+     - Sohbet/kenar paneli açılıp kapandığında veya pencere yeniden
+       boyutlandığında (ResizeObserver ile) ızgara otomatik yeniden hesaplanır.
+     - 24+ katılımcıda da (mevcut sayfalama ile birlikte) kartlar bozulmadan,
+       donma yaşanmadan öngörülebilir şekilde yerleşir.
+   ========================================================================== */
+.video-grid {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  gap: 6px !important; /* JS her reflow'da bu değeri kendi hesapladığı gap ile ezer */
+  box-sizing: border-box !important;
+  position: relative !important;
+  overflow: hidden !important;
+  padding: 0.5rem !important;
+  margin: 0 auto !important;
 }
 
-.video-grid.grid-1 {
-  grid-template-columns: 1fr !important;
-  grid-template-rows: 1fr !important;
-}
-
-.video-grid.grid-2 {
-  grid-template-columns: repeat(2, 1fr) !important;
-  grid-template-rows: 1fr !important;
-}
-
-@media (max-width: 640px) {
-  .video-grid.grid-2 {
-    grid-template-columns: 1fr !important;
-    grid-template-rows: repeat(2, 1fr) !important;
-  }
-}
-
-.video-grid.grid-3,
-.video-grid.grid-4 {
-  grid-template-columns: repeat(2, 1fr) !important;
-  grid-template-rows: repeat(2, 1fr) !important;
-}
-
-.video-grid.grid-5,
-.video-grid.grid-6 {
-  grid-template-columns: repeat(3, 1fr) !important;
-  grid-template-rows: repeat(2, 1fr) !important;
-}
-
-.video-grid.grid-8 {
-  grid-template-columns: repeat(4, 1fr) !important;
-  grid-template-rows: repeat(2, 1fr) !important;
-}
-
-.video-grid.grid-12 {
-  grid-template-columns: repeat(4, 1fr) !important;
-  grid-template-rows: repeat(3, 1fr) !important;
+.video-grid .participant-tile {
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), height 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease, box-shadow 0.2s ease !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  flex: 0 0 auto !important;
+  /* width/height: her karta computeOptimalGridLayout() tarafından hesaplanan
+     tam piksel değer inline stil olarak yazılır (bkz. reflowVideoGrid). */
 }
 
 /* PARTICIPANT TILE CONTAINER */
@@ -4797,11 +4609,24 @@ overflow: hidden !important;
   width: 76px !important;
   height: 76px !important;
   border-radius: 50% !important;
-  display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   flex-shrink: 0 !important;
   z-index: 5 !important;
+}
+
+.participant-tile > div[id^="localAvatar"][style*="display: none"],
+.participant-tile > div[id^="localAvatar"][style*="display:none"],
+.participant-tile > div[id^="remoteAvatar_"][style*="display: none"],
+.participant-tile > div[id^="remoteAvatar_"][style*="display:none"] {
+  display: none !important;
+}
+
+.participant-tile > div[id^="localAvatar"][style*="display: flex"],
+.participant-tile > div[id^="localAvatar"][style*="display:flex"],
+.participant-tile > div[id^="remoteAvatar_"][style*="display: flex"],
+.participant-tile > div[id^="remoteAvatar_"][style*="display:flex"] {
+  display: flex !important;
 }
 
 .participant-tile > div[id^="localAvatar"] img,

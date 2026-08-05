@@ -214,7 +214,19 @@
 
             <!-- MAIN DYNAMIC VIDEO GRID (When NO screen share is active) -->
             <div id="videoGrid" class="video-grid grid-1"
-              style="flex: 1; height: 100%; width: 100%; transition: all 0.3s ease; display: grid; gap: 0.85rem; border-radius: 14px; overflow-y: auto;">
+              style="flex: 1; height: 100%; width: 100%; transition: all 0.3s ease; display: flex; flex-wrap: wrap; gap: 0.75rem; border-radius: 14px; overflow: hidden;">
+            </div>
+
+            <!-- TEAMS LARGE GALLERY FLOATING PAGINATION BAR (Appears when 17+ participants) -->
+            <div id="gridPaginationControls"
+              style="display: none; position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 50; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(10px); padding: 0.35rem 0.85rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.18); box-shadow: 0 8px 24px rgba(0,0,0,0.3); color: #ffffff; align-items: center; gap: 0.75rem;">
+              <button onclick="WebRTC.prevGridPage()" class="tile-action-btn" title="Önceki Sayfa" style="background: transparent; color: #ffffff; border: none; font-size: 0.85rem; cursor: pointer; padding: 0.2rem 0.5rem; border-radius: 6px;">
+                <i class="fas fa-chevron-left"></i> Önceki
+              </button>
+              <span id="gridPageIndicator" style="font-size: 0.8rem; font-weight: 700; letter-spacing: 0.03em; color: #cbd5e1;">Sayfa 1 / 3</span>
+              <button onclick="WebRTC.nextGridPage()" class="tile-action-btn" title="Sonraki Sayfa" style="background: transparent; color: #ffffff; border: none; font-size: 0.85rem; cursor: pointer; padding: 0.2rem 0.5rem; border-radius: 6px;">
+                Sonraki <i class="fas fa-chevron-right"></i>
+              </button>
             </div>
 
             <!-- DYNAMIC FLOATING SCREEN SHARE CARD (Height-Constrained 16:9 Card with Hover Scale & Interactive Controls) -->
@@ -855,10 +867,12 @@
         const user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
         let meetingInfo = null;
         try {
-          const meetingRes = await fetch(`/api/v1/meetings/code/${MEETING_CODE}`, {
-            headers: (typeof Auth !== 'undefined' && Auth.getAuthHeaders) ? Auth.getAuthHeaders() : {}
-          });
-          if (meetingRes.ok) meetingInfo = await meetingRes.json();
+          const meetingRes = await Auth.fetchWithAuth(`/api/v1/meetings/code/${MEETING_CODE}`);
+          if (meetingRes.ok) {
+            meetingInfo = await meetingRes.json();
+            window.currentMeetingInfo = meetingInfo;
+            if (typeof WebRTC !== 'undefined') WebRTC.meetingInfo = meetingInfo;
+          }
         } catch (e) { }
 
         const isAdmin = Boolean(user && (user.role === 'admin' || user.is_superuser));
@@ -1090,16 +1104,27 @@
         }
 
         try {
-          const meetingId = WebRTC.meetingInfo?.id || null;
+          let meetingId = WebRTC.meetingInfo?.id || window.currentMeetingInfo?.id || null;
+          if (!meetingId) {
+            try {
+              const meetingRes = await Auth.fetchWithAuth(`/api/v1/meetings/code/${MEETING_CODE}`);
+              if (meetingRes.ok) {
+                const data = await meetingRes.json();
+                WebRTC.meetingInfo = data;
+                window.currentMeetingInfo = data;
+                meetingId = data.id;
+              }
+            } catch (e) {}
+          }
+
           if (!meetingId) {
             Notifications.show('Toplantı kimliği bulunamadı, davet gönderilemedi.', 'warning', 'Hata');
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Davet Et'; }
             return;
           }
 
-          const res = await fetch('/api/v1/participants/invite', {
+          const res = await Auth.fetchWithAuth('/api/v1/participants/invite', {
             method: 'POST',
-            headers: Auth.getAuthHeaders(),
             body: JSON.stringify({ meeting_id: meetingId, user_id: userId, role: 'participant' })
           });
 

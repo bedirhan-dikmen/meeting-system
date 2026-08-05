@@ -400,34 +400,46 @@
       goToStep(3);
       document.getElementById('guestDisplayBadge').textContent = guestTokenData.guest_name;
 
-      // WebSocket ile lobi bağlantısı kur
+      // BUG FIX: Önceden bu bağlantı `in_lobby=true` olmadan açılıyordu; backend
+      // (routes/signaling.py) bu durumda misafiri GERÇEKTEN ODAYA KATILMIŞ
+      // sayıp herkese 'user-joined' yayınlıyordu (host'ta "misafir giriş yaptı"
+      // bildirimi olarak görülen buydu) — onay/red diyaloğu hiç tetiklenmiyordu.
+      // Ayrıca eskiden gönderilen 'guest-join-request' / beklenen
+      // 'guest-join-response' mesaj tipleri, backend'in lobi onayında fiilen
+      // yolladığı 'lobby-approved' / 'lobby-rejected' tipleriyle hiç eşleşmiyordu;
+      // bu yüzden misafir onaylansa bile ekranı sonsuza dek "onay bekleniyor"da
+      // kalıyordu. Artık kayıtlı kullanıcılarla (prejoin.js) BİREBİR AYNI,
+      // zaten doğrulanmış lobi protokolü kullanılıyor.
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/api/v1/signaling/ws/${MEETING_CODE}?guest_token=${encodeURIComponent(guestTokenData.guest_token)}`;
+      const wsUrl = `${protocol}//${window.location.host}/api/v1/signaling/ws/${MEETING_CODE}?guest_token=${encodeURIComponent(guestTokenData.guest_token)}&in_lobby=true`;
 
       guestWs = new WebSocket(wsUrl);
 
       guestWs.onopen = () => {
-        // Host'a talep mesajı gönder
+        // Host'a lobi katılım talebi gönder (kayıtlı kullanıcı akışıyla aynı protokol)
         guestWs.send(JSON.stringify({
-          type: 'guest-join-request',
-          guest_id: guestTokenData.guest_id,
-          guest_name: guestTokenData.guest_name
+          type: 'lobby-join-request',
+          user_info: {
+            id: guestTokenData.guest_id,
+            name: guestTokenData.guest_name,
+            role: 'guest',
+            is_guest: true,
+            in_lobby: true
+          }
         }));
       };
 
       guestWs.onmessage = (evt) => {
         try {
           const data = JSON.parse(evt.data);
-          if (data.type === 'guest-join-response' && data.guest_id === guestTokenData.guest_id) {
-            if (data.approved) {
-              Notifications.show('Yönetici katılımınızı onayladı! Odalara bağlanılıyor...', 'success', 'Onaylandı');
-              setTimeout(() => {
-                window.location.replace(`/room/${MEETING_CODE}?guest_token=${encodeURIComponent(guestTokenData.guest_token)}`);
-              }, 800);
-            } else {
-              document.getElementById('step3Container').style.display = 'none';
-              document.getElementById('rejectedContainer').style.display = 'block';
-            }
+          if (data.type === 'lobby-approved') {
+            Notifications.show('Yönetici katılımınızı onayladı! Odaya bağlanılıyor...', 'success', 'Onaylandı');
+            setTimeout(() => {
+              window.location.replace(`/room/${MEETING_CODE}?guest_token=${encodeURIComponent(guestTokenData.guest_token)}`);
+            }, 800);
+          } else if (data.type === 'lobby-rejected' || data.type === 'guest-rejected' || data.type === 'kicked') {
+            document.getElementById('step3Container').style.display = 'none';
+            document.getElementById('rejectedContainer').style.display = 'block';
           }
         } catch (e) { console.warn(e); }
       };

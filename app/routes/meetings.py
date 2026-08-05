@@ -41,7 +41,7 @@ async def create_meeting(
             "created_by": str(host_id)
         }
     )
-    return new_meeting
+    return enrich_meeting_active_users(new_meeting)
 
 from app.services.signaling import signaling_manager
 

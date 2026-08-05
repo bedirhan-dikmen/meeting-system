@@ -66,12 +66,21 @@ def create_guest_token(meeting_id: Union[UUID, str], guest_name: str, guest_id: 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login", auto_error=False)
 
-def get_current_user_claims(token: str = Depends(oauth2_scheme)) -> dict:
+from fastapi import Request
+
+def get_current_user_claims(
+    request: Request = None,
+    token: Optional[str] = Depends(oauth2_scheme_optional)
+) -> dict:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Geçersiz veya süresi dolmuş kimlik doğrulama token'ı.",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if not token and request:
+        token = request.cookies.get("access_token")
+    if not token:
+        raise credentials_exception
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: Optional[str] = payload.get("sub")

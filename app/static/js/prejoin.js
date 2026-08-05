@@ -354,14 +354,22 @@ const Prejoin = {
       await this.fetchMeetingInfo(meetingCode);
     }
     const user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
-    const isAdmin = Boolean(user && (user.role === 'admin' || user.is_superuser));
+    // BUG FIX: Burada sadece 'admin' rolü kontrol ediliyordu; 'manager' rolündeki
+    // kullanıcılar (webrtc.js'teki isHost/isUserHost/canShareScreenDirectly ile
+    // TUTARSIZ şekilde) toplantıyı kendileri oluşturmadıysa yine de lobiye
+    // düşüp onay bekliyordu. "Yöneticiler odaya girerken izin almamalı" kuralı
+    // burada da uygulanacak şekilde 'manager' role eklendi.
+    const role = String(user?.role || '').toLowerCase();
+    const isAdmin = Boolean(user && (['admin', 'manager'].includes(role) || user.is_superuser));
     const isHost = Boolean(this.meetingInfo && user && (
       String(this.meetingInfo.created_by).toLowerCase() === String(user.id || user.user_id || '').toLowerCase()
     ));
 
     console.log("[Prejoin] Proceed check. User:", user?.email, "IsAdmin:", isAdmin, "IsHost:", isHost);
 
-    // Yalnızca sistem yöneticisi (admin/superuser) veya toplantıyı oluşturan Oda Yöneticisi (Host) direkt odaya geçer
+    // Yalnızca sistem yöneticisi (admin/manager/superuser) veya toplantıyı
+    // oluşturan Oda Yöneticisi (Host/Editör) direkt odaya geçer; sıradan
+    // kullanıcılar ve misafirler lobiye alınıp onay bekler.
     if (isAdmin || isHost) {
       this.cleanup();
       window.location.href = `/room/${meetingCode}`;

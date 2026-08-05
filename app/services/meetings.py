@@ -34,15 +34,23 @@ def create_new_meeting(db: Session, meeting_data: MeetingCreate, host_id: UUID) 
         duration = meeting_data.duration_minutes or 30
         scheduled_end = scheduled_start + timedelta(minutes=duration)
 
+    m_type = meeting_data.meeting_type or "Genel Toplantı"
+    if meeting_data.status:
+        m_status = meeting_data.status
+    elif m_type == "Hızlı Toplantı":
+        m_status = "canlı"
+    else:
+        m_status = "planlandı"
+
     db_meeting = Meeting(
         title=meeting_data.title,
         description=meeting_data.description,
         scheduled_start=scheduled_start,
         scheduled_end=scheduled_end,
         meeting_code=code,
-        meeting_type=meeting_data.meeting_type or "Genel Toplantı",
+        meeting_type=m_type,
         agenda=meeting_data.agenda,
-        status=meeting_data.status or "planlandı",
+        status=m_status,
         passcode=meeting_data.passcode,
         lobby_enabled=bool(meeting_data.lobby_enabled),
         is_private=bool(meeting_data.is_private),
@@ -83,28 +91,33 @@ def create_new_meeting(db: Session, meeting_data: MeetingCreate, host_id: UUID) 
                     MeetingParticipant.meeting_id == db_meeting.id,
                     MeetingParticipant.user_id == target_user_id
                 ).first()
-                if existing_p:
-                    continue
+                if not existing_p:
+                    participant = MeetingParticipant(
+                        meeting_id=db_meeting.id,
+                        user_id=target_user_id,
+                        role="participant",
+                        status="pending"
+                    )
+                    db.add(participant)
 
-                participant = MeetingParticipant(
-                    meeting_id=db_meeting.id,
-                    user_id=target_user_id,
-                    role="participant",
-                    status="pending"
-                )
-                db.add(participant)
+                start_dt = db_meeting.scheduled_start
+                start_str = start_dt.strftime('%d.%m.%Y %H:%M') if hasattr(start_dt, 'strftime') else str(start_dt or '')
 
-                # Bildirim oluştur
                 notif = Notification(
                     user_id=target_user_id,
                     title="Yeni Toplantı Daveti",
-                    message=f"'{db_meeting.title}' toplantısına davet edildiniz. Tarih: {db_meeting.scheduled_start.strftime('%d.%m.%Y %H:%M')}",
+                    message=f"'{db_meeting.title}' toplantısına davet edildiniz. Tarih: {start_str}",
                     meeting_code=code
                 )
                 db.add(notif)
 
-    db.commit()
-    db.refresh(db_meeting)
+    try:
+        db.commit()
+        db.refresh(db_meeting)
+    except Exception as e:
+        db.rollback()
+        print(f"[create_new_meeting] Bildirim ekleme hatası: {e}")
+
     return db_meeting
 
 from sqlalchemy.orm import Session, selectinload

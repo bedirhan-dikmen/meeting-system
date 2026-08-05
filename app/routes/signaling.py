@@ -104,6 +104,18 @@ async def websocket_endpoint(
         await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
         return
 
+    # ── Hiyerarşi / yetki bayrakları ─────────────────────────────────────────
+    # "Editör" = toplantıyı oluşturan oda sahibi (meeting.created_by).
+    # "Yönetici" = sistem genelinde admin/manager rolüne sahip kullanıcı.
+    # Bir kullanıcı ikisini birden taşıyabilir (kendi oluşturduğu toplantıda
+    # hem editör hem sistem yöneticisi). İkisinden biri true ise "ayrıcalıklı"
+    # sayılır: lobi onayı/ekran paylaşımı izni GEREKMEZ ve lobi/paylaşım talebi
+    # bildirimleri SADECE bu kullanıcılara gider (herkese değil).
+    is_meeting_host = bool((not is_guest) and user_id_str and str(meeting.created_by) == str(user_id_str))
+    is_privileged_role = str(user_info.get("role", "")).lower() in ("admin", "manager")
+    user_info["is_host"] = is_meeting_host
+    user_info["is_privileged"] = bool(is_meeting_host or is_privileged_role)
+
     session_id = None
 
     if not is_guest:
@@ -167,6 +179,18 @@ async def websocket_endpoint(
     try:
         while True:
             data_text = await websocket.receive_text()
+
+            # KALP ATIŞI (heartbeat): İstemci bağlantının canlı olup olmadığını
+            # anlamak için periyodik "ping" gönderir. Bu olmadan, yarı-kopuk
+            # (half-open) bir TCP bağlantısı istemci tarafında hiç fark edilmeden
+            # sessizce ölü kalabiliyor; sunucu grace-period sonunda kullanıcıyı
+            # odadan düşürüyor ama istemcinin kendisi bunu asla öğrenemiyor —
+            # bu da "yeni biri geldiğinde/kamerasını açıp kapattığında eski
+            # kullanıcılar göremiyor, F5 gerekiyor" şikayetinin kök nedeniydi.
+            if data_text == "ping":
+                await websocket.send_text("pong")
+                continue
+
             try:
                 data = json.loads(data_text)
             except (json.JSONDecodeError, TypeError):
@@ -217,6 +241,14 @@ async def websocket_endpoint(
             if data.get("type") == "screen-share-stop":
                 if meeting_code in signaling_manager.active_screen_shares:
                     del signaling_manager.active_screen_shares[meeting_code]
+
+            if data.get("type") == "screen-share-request":
+                # BUG FIX: Bu talep eskiden odadaki HERKESE yayınlanıp sadece
+                # istemci tarafında (webrtc.js) `isHost` kontrolüyle filtreleniyordu
+                # — yani her katılımcının cihazına gereksiz yere ulaşıyordu.
+                # Artık sadece editör/yönetici (ayrıcalıklı) katılımcılara gider.
+                await signaling_manager.broadcast_to_privileged(meeting_code, data)
+                continue
 
             if data.get("type") == "lobby-join-request":
                 user_info_val = data.get("user_info") if isinstance(data.get("user_info"), dict) else user_info

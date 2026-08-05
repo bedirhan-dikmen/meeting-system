@@ -19,12 +19,39 @@ class SignalingManager:
     def is_user_approved(self, meeting_code: str, user_id: str) -> bool:
         return user_id in self.approved_lobby_users.get(meeting_code, set())
 
+    def _get_privileged_user_ids(self, meeting_code: str) -> List[str]:
+        """Odada şu an bağlı olan 'editör' (toplantı sahibi) veya 'yönetici'
+        (admin/manager rolü) katılımcıların user_id listesini döner."""
+        room = self.active_rooms.get(meeting_code, {})
+        privileged = []
+        for uid, data in room.items():
+            if not isinstance(data, dict):
+                continue
+            info = data.get("info") or {}
+            if info.get("is_privileged") or info.get("is_host"):
+                privileged.append(uid)
+        return privileged
+
+    async def broadcast_to_privileged(self, meeting_code: str, message: dict, exclude_user: Optional[str] = None):
+        """Bir mesajı SADECE odadaki editör/yönetici katılımcılara gönderir.
+        Lobi katılım talebi ve ekran paylaşım izni gibi yönetimsel bildirimler
+        eskiden yanlışlıkla odadaki HERKESE broadcast edilip istemci tarafında
+        (webrtc.js) `isHost` kontrolüyle filtreleniyordu; artık kaynağında,
+        sunucu tarafında doğru kişilere hedefleniyor."""
+        recipients = [uid for uid in self._get_privileged_user_ids(meeting_code) if uid != exclude_user]
+        for uid in recipients:
+            await self.send_targeted_message(meeting_code, uid, message)
+
     async def add_pending_lobby_request(self, meeting_code: str, user_id: str, user_info: dict):
         if meeting_code not in self.pending_lobby_requests:
             self.pending_lobby_requests[meeting_code] = {}
         self.pending_lobby_requests[meeting_code][user_id] = user_info
 
-        await self.broadcast_to_room(
+        # BUG FIX: Bu talep eskiden odadaki HERKESE (exclude_user hariç)
+        # yayınlanıyordu — sıradan bir katılımcı bile "biri katılmak istiyor,
+        # onayla/reddet" bildirimini görüyordu. Artık sadece editör/yönetici
+        # (toplantı sahibi veya admin/manager rolündeki) katılımcılara gider.
+        await self.broadcast_to_privileged(
             meeting_code=meeting_code,
             message={
                 "type": "lobby-join-request",

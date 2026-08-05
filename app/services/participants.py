@@ -5,6 +5,14 @@ from app.models.meeting_participant import MeetingParticipant
 from app.schemas.participants import MeetingParticipantCreate, MeetingParticipantUpdate
 
 def invite_user_to_meeting(db: Session, participant_data: MeetingParticipantCreate) -> MeetingParticipant:
+    from app.models.notification import Notification
+    from app.models.meeting import Meeting
+
+    # Meeting bilgisini al
+    meeting = db.query(Meeting).filter(Meeting.id == participant_data.meeting_id).first()
+    m_code = meeting.meeting_code if meeting else None
+    m_title = meeting.title if meeting else "Toplantı"
+
     # Kullanıcının zaten bu toplantıya davet edilip edilmediğini kontrol et
     existing = db.query(MeetingParticipant).filter(
         MeetingParticipant.meeting_id == participant_data.meeting_id,
@@ -12,18 +20,32 @@ def invite_user_to_meeting(db: Session, participant_data: MeetingParticipantCrea
     ).first()
 
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Bu kullanıcı zaten bu toplantıya davet edilmiş veya katılmış."
+        notif = Notification(
+            user_id=participant_data.user_id,
+            title="Toplantı Daveti",
+            message=f"'{m_title}' toplantısına katılmanız için hatırlatma daveti gönderildi.",
+            meeting_code=m_code
         )
+        db.add(notif)
+        db.commit()
+        return existing
 
     db_participant = MeetingParticipant(
         meeting_id=participant_data.meeting_id,
         user_id=participant_data.user_id,
-        role=participant_data.role,
+        role=participant_data.role or "participant",
         status="invited"
     )
     db.add(db_participant)
+
+    notif = Notification(
+        user_id=participant_data.user_id,
+        title="Yeni Toplantı Daveti",
+        message=f"'{m_title}' toplantısına davet edildiniz.",
+        meeting_code=m_code
+    )
+    db.add(notif)
+
     db.commit()
     db.refresh(db_participant)
     return db_participant

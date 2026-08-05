@@ -5,42 +5,86 @@ from app.core.security import get_password_hash
 
 logger = logging.getLogger(__name__)
 
-from sqlalchemy import text
+from sqlalchemy import text, inspect
 
-def check_and_migrate_sqlite(db: Session) -> None:
-    """SQLite veritabanı tablolarına eksik sütunları otomatik ekler.
 
-    NOT: Base.metadata.create_all() sadece eksik TABLOLARI oluşturur, var olan
-    bir tabloya sonradan modele eklenen sütunları eklemez. Bu yüzden model
-    değişikliklerinde burada elle bir kontrol/ALTER eklemek gerekiyor.
+def auto_migrate_missing_columns(db: Session) -> None:
+    """Modellerde tanımlı olup fiziksel tabloda henüz bulunmayan sütunları otomatik ekler.
+
+    SQLite VE PostgreSQL için ortak (dialect-agnostic) çalışır.
+
+    NEDEN GEREKLİ: Bu projede şemayı fiilen yöneten mekanizma
+    `Base.metadata.create_all()` — bu sadece EKSİK TABLOLARI oluşturur, var olan
+    bir tabloya sonradan modele eklenen sütunları asla eklemez. `alembic/` altında
+    migration dosyaları var ama hiçbir yerde (dockerfile, nginx-entrypoint.sh,
+    docker-compose.yml) fiilen `alembic upgrade head` çalıştırılmıyor. Sonuç:
+    kalıcı bir Postgres/SQLite volume'u modele eklenen yeni sütunlar konusunda
+    kalıcı olarak eski şemada takılı kalabiliyor.
+
+    Canlıda tam olarak bu yaşandı: `meeting_notes.note_type` ve
+    `notifications.meeting_code` sütunları production Postgres'te fiziksel
+    olarak hiç yoktu; bu da `/meetings/{code}` ve `/notifications` uçlarının
+    500 ile çökmesine ve `create_new_meeting`'in davet/bildirim insert'lerinin
+    sessizce rollback olmasına (davetli kullanıcının katılımcı kaydı hiç
+    oluşmamasına) sebep oluyordu.
     """
-    if db.bind and db.bind.dialect.name == "sqlite":
-        try:
-            cursor = db.execute(text("PRAGMA table_info(notifications)"))
-            cols = [row[1] for row in cursor.fetchall()]
-            if "meeting_code" not in cols:
-                db.execute(text("ALTER TABLE notifications ADD COLUMN meeting_code VARCHAR"))
-                db.commit()
-                print("[INIT DB] SQLite notifications tablosuna 'meeting_code' sütunu eklendi.")
-        except Exception as e:
-            db.rollback()
-            print(f"[INIT DB MIGRATION ERROR] {e}")
+    try:
+        from app.core.database import Base
 
-        try:
-            cursor = db.execute(text("PRAGMA table_info(meeting_notes)"))
-            cols = [row[1] for row in cursor.fetchall()]
-            if cols and "note_type" not in cols:
-                db.execute(text("ALTER TABLE meeting_notes ADD COLUMN note_type VARCHAR(20) NOT NULL DEFAULT 'general'"))
-                db.commit()
-                print("[INIT DB] SQLite meeting_notes tablosuna 'note_type' sütunu eklendi.")
-        except Exception as e:
-            db.rollback()
-            print(f"[INIT DB MIGRATION ERROR] {e}")
+        inspector = inspect(db.bind)
+        existing_tables = set(inspector.get_table_names())
+        dialect_name = db.bind.dialect.name
+
+        for table in Base.metadata.sorted_tables:
+            if table.name not in existing_tables:
+                continue  # Tablo hiç yoksa create_all() zaten oluşturacak
+
+            try:
+                existing_cols = {c["name"] for c in inspector.get_columns(table.name)}
+            except Exception as e:
+                print(f"[AUTO MIGRATE] '{table.name}' sütunları okunamadı: {e}")
+                continue
+
+            for col in table.columns:
+                if col.name in existing_cols:
+                    continue
+
+                try:
+                    col_type_sql = col.type.compile(dialect=db.bind.dialect)
+                except Exception:
+                    print(f"[AUTO MIGRATE] '{table.name}.{col.name}' tipi bu dialect için derlenemedi, atlanıyor.")
+                    continue
+
+                default_sql = ""
+                default_val = getattr(getattr(col, "default", None), "arg", None)
+                if default_val is not None and not callable(default_val):
+                    if isinstance(default_val, bool):
+                        default_sql = f" DEFAULT {'TRUE' if default_val else 'FALSE'}"
+                    elif isinstance(default_val, (int, float)):
+                        default_sql = f" DEFAULT {default_val}"
+                    elif isinstance(default_val, str):
+                        default_sql = f" DEFAULT '{default_val.replace(chr(39), chr(39) * 2)}'"
+
+                # NOT: Var olan satırları kırmamak için burada NOT NULL kısıtı
+                # uygulanmıyor; yeni sütun nullable eklenir, uygulama/ORM katmanı
+                # yeni kayıtlar için değeri zaten sağlıyor.
+                try:
+                    ddl = f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {col_type_sql}{default_sql}'
+                    db.execute(text(ddl))
+                    db.commit()
+                    print(f"[AUTO MIGRATE] {table.name}.{col.name} sütunu eklendi ({dialect_name}).")
+                except Exception as e:
+                    db.rollback()
+                    print(f"[AUTO MIGRATE ERROR] {table.name}.{col.name}: {e}")
+    except Exception as e:
+        db.rollback()
+        print(f"[AUTO MIGRATE ERROR] Genel hata: {e}")
+
 
 def init_db(db: Session) -> None:
     """Veritabanı başlangıç kullanıcılarını ve hiyerarşiyi otomatik tohumlar."""
     try:
-        check_and_migrate_sqlite(db)
+        auto_migrate_missing_columns(db)
         from seed_hierarchy import seed_hierarchy
         seed_hierarchy()
     except Exception as e:
