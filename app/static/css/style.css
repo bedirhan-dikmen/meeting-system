@@ -893,6 +893,28 @@ body {
   overflow: hidden;
 }
 
+/* EKRAN PAYLAŞIMI SIRASINDA DİNAMİK KART YERLEŞİMİ
+   .meeting-stage-container artık DİKEY bir sütun: üstte tam genişlikte
+   .top-carousel-bar (sadece ekran paylaşımında görünür), altında sahne +
+   kenar paneli (.stage-lower-row) yan yana. Böylece kenar paneli (Kişiler/
+   Sohbet/Notlar) açıkken bile katılımcı kartları tam genişlikte kalır; panel
+   üstteki şeridin yüksekliği kadar YUKARIDAN kısalır (bkz. .stage-lower-row).
+   Ekran paylaşımı yokken üst şerit `display:none` olduğundan 0 yer kaplar ve
+   davranış eskisiyle birebir aynıdır (panel tam yüksekliğe geri döner). */
+.meeting-stage-container {
+  flex-direction: column;
+}
+
+.stage-lower-row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  gap: 0.85rem;
+  overflow: hidden;
+  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* NOT: Bu dosyada eskiden burada, aşağıdaki "DİNAMİK TOPLANTI ODASI VİDEO
    IZGARASI" bloğuyla (bkz. .video-grid tanımları) ÇAKIŞAN, iki farklı katmanlama
    sistemi (flex + grid, sabit piksel/vw genişlikleri + yüzdesel calc()
@@ -922,7 +944,10 @@ body {
   position: absolute;
   bottom: 0.75rem;
   left: 0.75rem;
-  background: rgba(20, 20, 26, 0.72) !important;
+  /* BUG FIX: Kullanıcı isteğiyle arka plan daha saydam yapıldı (0.72 -> 0.38);
+     bulanıklaştırma (backdrop-filter) korunduğu için metin yine okunabilir
+     kalıyor, sadece kart arkasındaki video daha az örtülüyor. */
+  background: rgba(20, 20, 26, 0.38) !important;
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;
   border-radius: 8px;
@@ -1037,59 +1062,112 @@ body {
   margin-top: 0.25rem;
 }
 
-/* TOP CAROUSEL BAR (12-GRID SPLIT: 3X PROPORTION ~ 24VH HEIGHT RATIO - 4:3 CARDS) */
-.top-carousel-bar {
+/* TOP CAROUSEL BAR — Ekran paylaşımı sırasında tüm katılımcı kartlarının
+   taşındığı üstteki şerit.
+   BUG FIX: Bu blok önceden dosyada ikinci bir yerde (bkz. "Screen Share Mode &
+   Bottom Participants Strip" — artık kaldırıldı) AYNI seçiciye çakışan
+   height/min-height/max-height değerleri yazılıyordu (ikinci blokta
+   max-height, buradaki min-height'tan küçüktü — tarayıcı min-height'ı
+   önceliklendirdiğinden sonuç öngörülemez/gereksiz yüksek oluyordu). Artık
+   TEK kaynak burada: şerit belirgin biçimde alçaltıldı (ekran paylaşım
+   alanına daha fazla dikey yer bırakmak için), yatay kaydırma çubuğu
+   (`overflow-x: auto` + özel ince scrollbar stili) ile çok katılımcılı
+   toplantılarda herkes kaydırarak birbirini görebiliyor. */
+.top-carousel-bar,
+.bottom-carousel-bar {
   display: flex;
   align-items: center;
+  /* Varsayılan: kartlar konteynere sığdığı sürece ORTALI dizilir (daha
+     temiz görünüm). Kartlar taşıp yatay kaydırma gerektiğinde JS
+     (reflowTopCarouselBar) `.carousel-overflowing` sınıfını ekleyip SOLA
+     dayalı dizilime geçiriyor — aksi halde ortalı+taşma birlikte olsaydı
+     kullanıcı ilk kartları görebilmek için hem sağa hem sola kaydırmak
+     zorunda kalırdı. */
   justify-content: center;
-  gap: 0.85rem;
+  gap: 0.65rem;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 0.3rem 0;
+  padding: 0.3rem 0.25rem;
   width: 100%;
-  height: 24vh;
-  min-height: 145px;
-  max-height: 180px;
+  height: 15vh !important;
+  min-height: 110px !important;
+  max-height: 130px !important;
   flex-shrink: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(91, 95, 199, 0.4) transparent;
 }
 
-.top-carousel-bar .participant-tile {
+.top-carousel-bar.carousel-overflowing,
+.bottom-carousel-bar.carousel-overflowing {
+  justify-content: flex-start;
+}
+
+.top-carousel-bar::-webkit-scrollbar,
+.bottom-carousel-bar::-webkit-scrollbar {
+  height: 7px;
+}
+
+.top-carousel-bar::-webkit-scrollbar-track,
+.bottom-carousel-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.top-carousel-bar::-webkit-scrollbar-thumb,
+.bottom-carousel-bar::-webkit-scrollbar-thumb {
+  background: rgba(91, 95, 199, 0.35);
+  border-radius: 10px;
+}
+
+.top-carousel-bar::-webkit-scrollbar-thumb:hover,
+.bottom-carousel-bar::-webkit-scrollbar-thumb:hover {
+  background: rgba(91, 95, 199, 0.55);
+}
+
+.top-carousel-bar .participant-tile,
+.bottom-carousel-bar .participant-tile {
   height: 100% !important;
-  max-height: 170px !important;
-  min-height: 135px !important;
+  max-height: 120px !important;
+  min-height: 100px !important;
   aspect-ratio: 4 / 3 !important;
   width: auto !important;
-  min-width: 160px !important;
-  max-width: 220px !important;
+  min-width: 130px !important;
+  max-width: 175px !important;
   flex-shrink: 0 !important;
-  border-radius: 14px !important;
+  border-radius: 12px !important;
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06) !important;
 }
 
 .top-carousel-bar .participant-tile .avatar {
-  width: 52px !important;
-  height: 52px !important;
-  font-size: 1.3rem !important;
+  width: 44px !important;
+  height: 44px !important;
+  font-size: 1.1rem !important;
 }
 
 .top-carousel-bar .participant-tile .tile-overlay-pill {
-  padding: 0.22rem 0.6rem !important;
-  font-size: 0.74rem !important;
-  gap: 0.3rem !important;
+  padding: 0.2rem 0.55rem !important;
+  font-size: 0.7rem !important;
+  gap: 0.28rem !important;
   max-width: 92% !important;
 }
 
 .top-carousel-bar .participant-tile .tile-overlay-pill strong {
-  font-size: 0.74rem !important;
+  font-size: 0.7rem !important;
   font-weight: 700 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
-  max-width: 105px !important;
+  max-width: 90px !important;
   display: inline-block !important;
 }
 
-/* DYNAMIC HOVERABLE SCREEN SHARE CARD FRAME (HEIGHT-CONSTRAINED 16:9 PROPORTIONAL CARD) */
+/* DYNAMIC SCREEN SHARE CARD FRAME
+   BUG FIX: `aspect-ratio: 16/9` sabitti — paylaşılan ekran/pencere 16:9
+   olmadığında (ör. dikey pencere, dar bir uygulama) kartın etrafında
+   gereksiz siyah boşluk (letterbox/pillarbox) oluşuyordu. Artık gerçek
+   video meta verisi geldiğinde (bkz. webrtc.js
+   _setupScreenShareAspectRatioSync) bu oran JS'ten inline olarak asıl
+   paylaşılan içeriğin oranına güncelleniyor; buradaki 16/9 sadece meta veri
+   gelene kadarki makul bir varsayılan. */
 .screenshare-card-frame {
   position: relative;
   display: flex;
@@ -1105,40 +1183,78 @@ body {
   background: #0f172a;
   box-shadow: 0 6px 24px rgba(15, 23, 42, 0.08);
   overflow: hidden;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+  /* NOT: Kullanıcı isteğiyle hover'da büyüme (scale) efekti kaldırıldı —
+     ekran paylaşımı kartında buna gerek yok, sadece üç-nokta butonu
+     (aşağıda) hover'da beliriyor/kayboluyor. */
+  transition: box-shadow 0.3s ease;
 }
 
-.screenshare-card-frame:hover {
-  transform: scale(1.015);
-  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.14);
-}
-
-/* SCREENSHARE HOVER ACTION TOOLBAR (HIDDEN BY DEFAULT, FADES IN ON CARD HOVER) */
-.screenshare-hover-actions {
+/* Üç-nokta butonu SADECE fare kart üzerine geldiğinde görünür, çekilince
+   kaybolur — video kartlarındaki (`.tile-more-btn` varsayılan opacity:0.75,
+   dokunmatik erişilebilirlik için) davranıştan FARKLI olarak, burada
+   kullanıcının açıkça istediği "sadece hover" davranışı uygulanıyor. */
+.screenshare-card-frame .tile-more-btn {
   opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s ease;
-  transform: translateY(-6px);
 }
 
-.screenshare-card-frame:hover .screenshare-hover-actions {
+.screenshare-card-frame:hover .tile-more-btn {
   opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
 }
 
-/* EXPANDED ROOM SIDEBAR (1.5X WIDER DRAWER FOR PARTICIPANTS, CHAT & NOTES: 480px) */
+/* ==========================================================================
+   ROOM SIDEBAR (Kişiler / Sohbet / Notlar Drawer)
+   BUG FIX: Bu seçiciye dosyada AYNI ANDA ÜÇ farklı yerde (bkz. aşağıdaki iki
+   "NOT" işareti) çakışan kural seti + room.html'de bunları da ezen ağır
+   inline stiller vardı — hangi değerin gerçekten uygulandığı belirsizdi.
+   Artık TEK kaynak burada: açık/kapalı durumu `display` yerine `.open`
+   sınıfıyla yönetiliyor (bkz. webrtc.js toggleSidebarTab/closeSidebar), bu
+   da yumuşak bir açılış animasyonu (geçiş) eklemeyi mümkün kılıyor —
+   önceden anlık display:none/flex sıçraması vardı.
+   ========================================================================== */
 .room-sidebar {
-  width: 480px !important;
-  min-width: 440px !important;
-  max-width: 520px !important;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: none;
+  flex-direction: column;
+  width: 480px;
+  min-width: 440px;
+  max-width: 520px;
+  height: 100%;
+  flex-shrink: 0;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid #e1dfdd;
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.1);
+  overflow: hidden;
+  position: relative;
+  z-index: 85;
+}
+
+.room-sidebar.open {
+  display: flex;
+  animation: sidebarSlideIn 0.28s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Masaüstünde panel sahnenin YANINA sığdığı için karartma katmanına gerek
+   yok — sadece dar ekranlarda (bkz. 920px breakpoint) devreye girer. */
+.room-sidebar-backdrop {
+  display: none;
+}
+
+@keyframes sidebarSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(18px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
 }
 
 @media (max-width: 1300px) {
   .room-sidebar {
-    width: 380px !important;
-    min-width: 340px !important;
+    width: 380px;
+    min-width: 340px;
   }
 }
 
@@ -1186,14 +1302,9 @@ body {
   box-shadow: 0 4px 15px rgba(225, 29, 72, 0.4);
 }
 
-.room-sidebar {
-  width: 340px;
-  background: #ffffff;
-  border-left: 1px solid #e1dfdd;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-}
+/* NOT: `.room-sidebar`'ın asıl/tek tanımı artık yukarıda (bkz. "ROOM SIDEBAR"
+   bloğu) — burada dosyanın başka bir yerinde bu seçiciye çakışan ikinci bir
+   kural seti (width:340px, border-left vb.) vardı, kaldırıldı. */
 
 /* Toast Notifications */
 .toast-container {
@@ -1250,28 +1361,11 @@ body {
   }
 }
 
-/* Screen Share Mode & Bottom Participants Strip */
-.top-carousel-bar,
-.bottom-carousel-bar {
-  display: flex;
-  gap: 0.85rem;
-  overflow-x: auto;
-  padding: 0.5rem 0.25rem;
-  max-height: 125px;
-  transition: all 0.3s ease;
-  z-index: 80;
-}
-
-.top-carousel-bar .participant-tile,
-.bottom-carousel-bar .participant-tile {
-  width: 175px;
-  min-width: 175px;
-  height: 100px;
-  aspect-ratio: 16/9;
-  flex-shrink: 0;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
+/* NOT: Burada eskiden ("Screen Share Mode & Bottom Participants Strip") aynı
+   `.top-carousel-bar`/`.bottom-carousel-bar` seçicilerine dosyanın yukarısındaki
+   asıl tanımla ÇAKIŞAN (farklı max-height, farklı kart boyutu) ikinci bir kural
+   seti vardı — kaldırıldı, tek kaynak artık yukarıdaki "TOP CAROUSEL BAR"
+   bloğu (bkz. ilgili not orada). */
 
 .screenshare-container {
   flex: 1;
@@ -1286,6 +1380,21 @@ body {
   transition: all 0.4s ease;
 }
 
+/* Ekran paylaşımı kartı için de video kartlarıyla (bkz. .participant-tile:fullscreen)
+   tutarlı, sağlam tam ekran davranışı. */
+.screenshare-container:fullscreen,
+.screenshare-container:-webkit-full-screen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  z-index: 2147483647 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
 .screenshare-container video {
   max-width: 100%;
   max-height: 100%;
@@ -1294,50 +1403,100 @@ body {
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.9);
 }
 
-/* Real-time Room Sidebar & Tabs */
-.room-sidebar {
-  width: 360px;
-  background: var(--bg-card);
-  border-left: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  position: relative;
-  z-index: 85;
-}
+/* NOT: `.room-sidebar`'ın asıl/tek tanımı dosyanın yukarısında (bkz. "ROOM
+   SIDEBAR" bloğu) — burada da AYNI seçiciye üçüncü bir çakışan tanım vardı,
+   kaldırıldı. */
 
+/* Sidebar Sekme Çubuğu (Kişiler / Sohbet / Notlar) — "pill" tasarımı,
+   room.html'deki eski ağır inline stillerin yerini alıyor; artık hover/
+   active durumları ve geçişler TAMAMEN buradan yönetiliyor. */
 .sidebar-tabs {
   display: flex;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-secondary);
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e1dfdd;
+  flex-shrink: 0;
+}
+
+.sidebar-tabs-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sidebar-tabs-group::-webkit-scrollbar {
+  display: none;
 }
 
 .sidebar-tab {
-  flex: 1;
-  padding: 0.85rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 0.4rem;
-  transition: var(--transition);
-  position: relative;
+  padding: 0.5rem 0.85rem;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #616161;
+  font-weight: 800;
+  font-size: 0.84rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
 }
 
 .sidebar-tab:hover {
-  color: var(--text-primary);
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.sidebar-tab:active {
+  transform: scale(0.96);
 }
 
 .sidebar-tab.active {
-  color: var(--accent-primary);
-  border-bottom-color: var(--accent-primary);
-  background: rgba(99, 102, 241, 0.08);
+  color: var(--accent-primary, #5b5fc7);
+  background: var(--accent-light, rgba(91, 95, 199, 0.12));
+  border-color: rgba(91, 95, 199, 0.35);
+}
+
+.sidebar-tab:focus-visible,
+.sidebar-close-btn:focus-visible {
+  outline: 2px solid var(--accent-primary, #5b5fc7);
+  outline-offset: 1px;
+}
+
+.participant-count-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  opacity: 0.75;
+}
+
+.sidebar-close-btn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #616161;
+  font-size: 1.05rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease;
+}
+
+.sidebar-close-btn:hover {
+  background: #fef2f2;
+  color: #e11d48;
+  transform: rotate(90deg);
 }
 
 .tab-badge {
@@ -1351,9 +1510,27 @@ body {
 
 .tab-content {
   flex: 1;
-  display: flex;
+  display: none;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
+}
+
+.tab-content.active-tab {
+  display: flex;
+  animation: tabContentFadeIn 0.2s ease both;
+}
+
+@keyframes tabContentFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Chat Module */
@@ -1455,6 +1632,13 @@ body {
   color: var(--text-primary);
   line-height: 1.45;
   white-space: pre-wrap;
+  /* BUG FIX: Enter'a basılmadan yazılan uzun/boşluksuz bir metin (ör. uzun bir
+     kelime veya URL), `overflow-wrap` olmadan konteynerden TAŞIP yatay bir
+     kaydırma çubuğuna sebep oluyordu. Giriş kutusundaki (textarea) doğal
+     davranışla (aşağı doğru satır kaydırma) tutarlı olması için burada da
+     gerektiğinde kelime ortasından satır kırılıyor — asla yana taşmıyor. */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* Teams-style Participant Roster Items */
@@ -2360,11 +2544,20 @@ body {
 .participant-tile {
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease, border-color 0.25s ease !important;
   position: relative;
+  transform-origin: center center;
 }
 
+/* BUG FIX: Önceki `scale(1.025)` büyük kartlarda (az katılımcılı toplantılarda)
+   ızgara aralığından (0.75rem) daha fazla piksel büyüyüp sağdaki/soldaki komşu
+   kartın üzerine biniyordu — transform katılımcı sayısına göre reflow'u
+   TETİKLEMEDİĞİNDEN (salt görsel boyama aşaması), komşu kartlarla çakışma
+   oluşuyordu. Artık kart kendi merkezinden (transform-origin: center) çok daha
+   ölçülü bir oranda büyüyor; yükseklik/genişlik ne olursa olsun büyüme miktarı
+   ızgara boşluğunu asla aşmayacak kadar küçük tutuluyor — taşma yok, sadece
+   hafif bir "kaldırma" (translateY) + gölge ile öne çıkma hissi. */
 .participant-tile:hover {
-  transform: scale(1.025) translateY(-2px) !important;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16) !important;
+  transform: scale(1.008) translateY(-3px) !important;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.2) !important;
   z-index: 20;
 }
 
@@ -2384,6 +2577,11 @@ body {
   justify-content: center;
   font-size: 0.85rem;
   cursor: pointer;
+  /* Kullanıcı isteğiyle: buton yalnızca fare kart üzerine geldiğinde görünür,
+     çekilince kaybolur (ekran paylaşımı kartındaki üç-nokta ile tutarlı).
+     NOT: Bu, dokunmatik (mobil/tablet) cihazlarda butonu hover olmadan
+     erişilemez kılar — bilinçli bir tercih olarak kullanıcı tarafından
+     istendi. */
   opacity: 0;
   transition: opacity 0.2s ease, background 0.2s ease, transform 0.2s ease;
   z-index: 40;
@@ -2401,29 +2599,109 @@ body {
   transform: scale(1.1);
 }
 
-/* Context Menu Popover triggered by 3-dots */
-.card-context-menu {
-  position: absolute;
-  top: 2.75rem;
-  right: 0.6rem;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.2);
+/* ==========================================================================
+   ORTAK "FLOATING" BAĞLAM MENÜSÜ (video kartı VE kişiler barı üç-nokta
+   menüleri) — bkz. webrtc.js WebRTC.openFloatingMenu(). document.body'ye
+   eklenir, `position: fixed` ile bağımsız bir katmandır; artık hiçbir kartın
+   veya satırın `overflow: hidden`'ından etkilenmez, kart boyutu ne olursa
+   olsun (büyümüş/küçülmüş) her zaman tam görünür ve erişilebilir. Camsı/yarı
+   saydam yüzey + yumuşak açılış geçişi, odanın genel Teams-vari tasarımıyla
+   tutarlı. */
+.wrtc-floating-menu {
+  position: fixed;
+  z-index: 999999;
+  min-width: 225px;
+  max-width: 265px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(203, 213, 225, 0.65);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
   padding: 0.55rem;
-  width: 215px;
-  z-index: 100;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  animation: fadeIn 0.18s ease;
+  gap: 0.25rem;
+  opacity: 0;
+  transform: scale(0.96) translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
 }
 
-.card-context-menu .menu-item {
+.wrtc-floating-menu.open {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+
+.wrtc-menu-header {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #0f172a;
+  padding: 0.3rem 0.5rem 0.5rem 0.5rem;
+  border-bottom: 1px solid rgba(203, 213, 225, 0.6);
+  margin-bottom: 0.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wrtc-menu-self-tag {
+  font-weight: 600;
+  color: #64748b;
+  font-size: 0.76rem;
+}
+
+.wrtc-menu-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #94a3b8;
+  letter-spacing: 0.03em;
+  padding: 0.15rem 0.5rem;
+  text-transform: uppercase;
+}
+
+.wrtc-menu-volume-row {
+  padding: 0.1rem 0.5rem 0.4rem 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.wrtc-menu-volume-row input[type="range"] {
+  width: 100%;
+  accent-color: #5b5fc7;
+}
+
+.wrtc-menu-volume-row span {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #475569;
+  min-width: 32px;
+  text-align: right;
+}
+
+.wrtc-menu-divider {
+  height: 1px;
+  background: rgba(203, 213, 225, 0.6);
+  margin: 0.25rem 0.15rem;
+}
+
+.wrtc-menu-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.wrtc-floating-menu .menu-item {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.45rem 0.65rem;
+  padding: 0.5rem 0.65rem;
   border-radius: 8px;
   font-size: 0.8rem;
   font-weight: 700;
@@ -2432,16 +2710,21 @@ body {
   border: none;
   width: 100%;
   cursor: pointer;
+  text-align: left;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.card-context-menu .menu-item:hover {
-  background: #f1f5f9;
+.wrtc-floating-menu .menu-item:hover {
+  background: rgba(241, 245, 249, 0.9);
   color: #4f46e5;
 }
 
-.card-context-menu .menu-item.danger-item:hover {
-  background: #ffe4e6;
+.wrtc-floating-menu .menu-item.danger-item {
+  color: #e11d48;
+}
+
+.wrtc-floating-menu .menu-item.danger-item:hover {
+  background: rgba(255, 228, 230, 0.9);
   color: #e11d48;
 }
 
@@ -4321,11 +4604,21 @@ body {
   margin: 0 auto !important;
 }
 
+/* BUG FIX: Burada `width/height: 100% !important` ile kart HER ZAMAN
+   konteynerin tamamını dolduruyordu — paylaşılan ekranın gerçek oranı 16:9'dan
+   farklı olduğunda (dikey pencere, dar bir uygulama vb.) kart içindeki video
+   `object-fit:contain` ile küçülüp ortalanıyor ama kartın kendi (neredeyse
+   siyah, #090d16) arka planı geniş "boş" alanlar olarak görünüyordu — sanki
+   video etrafında büyük bir siyahlık varmış gibi. Artık width/height BURADAN
+   kaldırıldı; gerçek boyut webrtc.js `_setupScreenShareAspectRatioSync()`
+   tarafından video meta verisine (videoWidth/videoHeight) göre piksel
+   cinsinden `!important` ile inline hesaplanıyor (inline !important her
+   zaman stylesheet !important'ı yener) — kart artık gerçekten paylaşılan
+   içeriğin oranını tam olarak sarıyor, taşma da olmuyor (max-width/height
+   hâlâ garanti). */
 .screenshare-card-frame,
 #screenShareCardFrame {
   position: relative !important;
-  width: 100% !important;
-  height: 100% !important;
   max-width: 100% !important;
   max-height: 100% !important;
   display: flex !important;
@@ -4414,6 +4707,29 @@ body {
     height: 100% !important;
     z-index: 999999 !important;
     margin-left: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: -12px 0 32px rgba(15, 23, 42, 0.18) !important;
+  }
+
+  /* Tablet/dar ekranda kenar paneli artık sahnenin ÜSTÜNE bindiği için,
+     arkasını hafifçe karartan bir backdrop katmanı — hem "bu bir katman"
+     algısını netleştiriyor hem de üzerine dokunarak kapatmayı (standart
+     mobil çekmece davranışı) mümkün kılıyor (bkz. webrtc.js closeSidebar). */
+  .room-sidebar-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(2px);
+    z-index: 999998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  .room-sidebar-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 
@@ -4566,6 +4882,16 @@ body {
      tam piksel değer inline stil olarak yazılır (bkz. reflowVideoGrid). */
 }
 
+/* BUG FIX: Sayfa her açıldığında/yenilendiğinde ızgaranın gerçek konteyner
+   boyutu oturana kadar 1-2 düzeltme reflow'u yaşanıyordu; yukarıdaki geçiş
+   (transition) bu düzeltmeleri ANİMASYONLA gösterdiğinden kullanıcının kendi
+   kartı aniden büyüyüp küçülüyormuş gibi bir "titreme" oluşuyordu (bkz.
+   webrtc.js joinRoom — `suppress-tile-transition` sınıfı yerleşim oturana
+   kadar geçici olarak eklenir). */
+.video-grid.suppress-tile-transition .participant-tile {
+  transition: none !important;
+}
+
 /* PARTICIPANT TILE CONTAINER */
 .participant-tile {
   position: relative !important;
@@ -4580,6 +4906,27 @@ body {
   justify-content: center !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
   transition: all 0.25s ease !important;
+}
+
+/* BUG FIX (tam ekran çalışmıyordu): `.participant-tile`'ın kendi
+   `position: relative !important` kuralı, tarayıcının Fullscreen API'si için
+   normalde uyguladığı `position: fixed` UA stilini eziyordu (yazar
+   `!important`, UA stilini her zaman yener) — kart teknik olarak
+   `document.fullscreenElement` oluyordu ama görsel olarak eski küçük
+   konumunda/boyutunda kalıyordu. `:fullscreen` sözde-sınıfı bare
+   `.participant-tile`'dan daha spesifik olduğundan burada tanımlanan
+   kurallar (rakip kural da !important olduğu için yine !important ile)
+   doğru şekilde kazanır ve kart gerçekten tüm ekranı kaplar. */
+.participant-tile:fullscreen,
+.participant-tile:-webkit-full-screen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  z-index: 2147483647 !important;
+  border-radius: 0 !important;
 }
 
 .participant-tile video {
@@ -4668,9 +5015,10 @@ body {
   z-index: 15 !important;
 }
 
-.participant-tile .card-context-menu {
-  z-index: 20 !important;
-}
+/* NOT: Üç-nokta bağlam menüsü artık `.participant-tile`'ın İÇİNDE değil —
+   document.body'ye eklenen bağımsız `.wrtc-floating-menu` katmanında (bkz.
+   webrtc.js openFloatingMenu). Kartın overflow:hidden'ından etkilenmemesi
+   için kasıtlı olarak böyle; kendi z-index'i (999999) yeterli. */
 
 .participant-tile .active-speaker-badge {
   z-index: 12 !important;

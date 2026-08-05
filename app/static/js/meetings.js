@@ -577,9 +577,9 @@ const Meetings = {
   /* --------------------------------------------------------------------------
      MODAL & PASSCODE & PARTICIPANT HANDLERS
      -------------------------------------------------------------------------- */
-  generateRandomPasscode() {
+  generateRandomPasscode(targetId = 'createPasscode') {
     const randomCode = Math.floor(10000 + Math.random() * 90000);
-    const passcodeEl = document.getElementById('createPasscode');
+    const passcodeEl = document.getElementById(targetId);
     if (passcodeEl) passcodeEl.value = randomCode;
   },
 
@@ -851,6 +851,10 @@ const Meetings = {
     await this.loadCompanyUsers();
     // Varsayılan olarak HERKESİ DAVET ET aktif
     this.toggleQuickSelectAll(true);
+    // BUG FIX: Hızlı toplantı eskiden hiç şifre üretmiyordu (misafirler
+    // şifresiz doğrudan girebiliyordu) — tam form (Planla) ile tutarlı
+    // olsun diye burada da otomatik bir oda anahtarı üretiliyor.
+    this.generateRandomPasscode('quickPasscode');
   },
 
   closeQuickMeetingModal() {
@@ -1139,6 +1143,11 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const now = new Date();
         const localStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+        // BUG FIX: Şifre eskiden hep "" (boş) gönderiliyordu — misafirler bu
+        // odaya hiç şifresiz doğrudan girebiliyordu. Artık tam form (Planla)
+        // ile tutarlı şekilde, modal açılışında otomatik üretilen anahtar
+        // kullanılıyor (kullanıcı isterse elle değiştirebilir).
+        const quickPasscode = document.getElementById('quickPasscode')?.value || '';
         const payload = {
           title: "Hızlı Toplantı",
           scheduled_start: localStart,
@@ -1146,7 +1155,7 @@ document.addEventListener('DOMContentLoaded', () => {
           meeting_type: "Hızlı Toplantı",
           agenda: "Anlık hızlı başlatılan oturum",
           description: "Hızlı Oturum",
-          passcode: "",
+          passcode: quickPasscode,
           lobby_enabled: true,
           invited_user_ids: Array.from(Meetings.quickSelectedUserIds)
         };

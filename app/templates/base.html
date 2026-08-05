@@ -339,7 +339,22 @@
           <!-- Info Banner -->
           <div style="background: #eeefec; border-left: 4px solid #5b5fc7; border-radius: 8px; padding: 0.85rem; font-size: 0.85rem; color: #334155; line-height: 1.4;">
             <strong style="color: #5b5fc7; display: block; margin-bottom: 0.2rem;"><i class="fas fa-info-circle"></i> Anlık Hızlı Oturum</strong>
-            Bu toplantı oda şifresi olmadan doğrudan anlık olarak başlatılır. Seçilen katılımcılara anında katılım bildirimi gönderilir.
+            Bu toplantı anında başlatılır. Şirket içi katılımcılar zaten davetli oldukları için şifre girmeden bekleme odasından geçer; misafirler odaya girmek için bu şifreyi kullanır.
+          </div>
+
+          <!-- Oda Katılım Keyi (BUG FIX: Hızlı toplantıda eskiden şifre hiç
+               üretilmiyor/gösterilmiyordu — tam form (Planla) ile tutarlı
+               olması ve misafir girişinin güvenli kalması için buraya da
+               eklendi; Meetings.openQuickMeetingModal() açılışta otomatik
+               üretir. -->
+          <div>
+            <label style="font-size: 0.8rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">Oda Katılım Keyi</label>
+            <div style="display: flex; gap: 0.35rem;">
+              <input type="text" id="quickPasscode" maxlength="10" placeholder="58492" style="flex: 1; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; font-family: monospace; font-weight: 700;">
+              <button type="button" onclick="Meetings.generateRandomPasscode('quickPasscode')" style="background: #ffffff; color: #5b5fc7; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.5rem 0.65rem; font-weight: 700; font-size: 0.78rem; cursor: pointer; white-space: nowrap;">
+                <i class="fas fa-dice"></i> Üret
+              </button>
+            </div>
           </div>
 
           <!-- Participant Selection Header & Select All Button -->

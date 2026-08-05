@@ -115,6 +115,7 @@ def get_public_meeting_info(meeting_code: str):
 
 
 @router.post("/token", response_model=GuestTokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/join", response_model=GuestTokenResponse, status_code=status.HTTP_201_CREATED)
 def create_guest_token(payload: GuestTokenRequest):
     """
     Misafirin adını ve oda şifresini doğrular.

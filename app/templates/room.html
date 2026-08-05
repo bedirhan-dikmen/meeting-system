@@ -199,17 +199,31 @@
       </header>
 
       <!-- VIEW MODE 1: DYNAMIC WEBRTC STAGE CONTAINER (MICROSOFT TEAMS CANVAS) -->
-      <div id="meetingStageContainer" class="room-main room-stage-bg"
+      <div id="meetingStageContainer" class="room-main room-stage-bg meeting-stage-container"
         style="display: flex; width: 100%; height: calc(100vh - 56px); position: relative; overflow: hidden; background: #f3f2f8; padding: 0.85rem;">
+
+        <!-- TOP CAROUSEL BAR FOR PARTICIPANTS: BUG FIX — eskiden #stageMainArea'nın
+             içindeydi, yani sadece sahnenin genişliğini kaplıyordu; kenar paneli
+             (Kişiler/Sohbet/Notlar) açıkken kartlar daralan dar bir şeride
+             sıkışıyordu. Artık #meetingStageContainer'ın DOĞRUDAN ve İLK çocuğu —
+             tam genişlikte, hem sahnenin HEM kenar panelinin ÜSTÜNDE. Ekran
+             paylaşımı sırasında kenar paneli açık olsa bile tüm katılımcı
+             kartları burada tam genişlikte kalır; panel bu şeridin ALTINDA
+             başlar (bkz. .stage-lower-row / .meeting-stage-container CSS'i). -->
+        <div id="topCarouselBar" class="top-carousel-bar" style="display: none;">
+        </div>
+
+        <!-- SAHNE + KENAR PANELİ ALT SATIRI: Ekran paylaşımı olmadığında bu satır
+             #meetingStageContainer'ın tüm yüksekliğini kaplar (topCarouselBar
+             gizliyken 0 yer kaplar) — davranış eskisiyle birebir aynı. Ekran
+             paylaşımı başlayınca üstteki şerit yer kapladıkça bu satır otomatik
+             kısalır; kenar paneli de dahil olmak üzere her şey buna göre
+             daralır/dinamik uyum sağlar. -->
+        <div class="stage-lower-row">
 
         <!-- STAGE MAIN CONTENT AREA -->
         <div id="stageMainArea"
-          style="flex: 1; display: flex; flex-direction: column; height: 100%; gap: 0.75rem; min-width: 0; position: relative; overflow: hidden;">
-
-          <!-- TOP CAROUSEL BAR FOR PARTICIPANTS (12-Grid 3X proportion: ~24vh height ratio, 4:3 squarish cards) -->
-          <div id="topCarouselBar" class="top-carousel-bar"
-            style="display: none; height: 24vh; min-height: 145px; max-height: 180px; flex-shrink: 0; gap: 0.85rem; overflow-x: auto; overflow-y: hidden; padding: 0.3rem 0; align-items: center; justify-content: center;">
-          </div>
+          style="flex: 1; display: flex; min-width: 0; height: 100%; position: relative; overflow: hidden;">
 
           <!-- CENTER STAGE SECTION: Video Grid (NO screen share) OR Screen Share Area (WITH screen share) -->
           <div id="stageCenterSection"
@@ -256,37 +270,14 @@
                         Durdur</button>
                     </div>
 
-                    <!-- TOP-RIGHT INTERACTIVE HOVER CONTROLS BAR (Audio Mute, Fullscreen, Settings) -->
-                    <div class="screenshare-hover-actions"
-                      style="position: absolute; top: 0.75rem; right: 0.75rem; z-index: 40; display: flex; align-items: center; gap: 0.4rem; background: rgba(15,23,42,0.88); padding: 0.3rem 0.6rem; border-radius: 20px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.18); box-shadow: 0 4px 14px rgba(0,0,0,0.3);">
-
-                      <!-- Audio Mute / Unmute Toggle Button -->
-                      <button id="btnToggleShareAudio" onclick="WebRTC.toggleScreenShareAudio()" class="tile-action-btn"
-                        title="Paylaşım Sesini Aç / Kapat"
-                        style="background: transparent; color: #ffffff; border: none; padding: 0.25rem 0.45rem; border-radius: 10px; font-size: 0.85rem; cursor: pointer;">
-                        <i class="fas fa-volume-up" id="iconShareAudio"></i>
-                      </button>
-
-                      <div style="width: 1px; height: 14px; background: rgba(255,255,255,0.25);"></div>
-
-                      <!-- Fullscreen Toggle Button -->
-                      <button onclick="WebRTC.toggleFullscreen('screenShareArea')" class="tile-action-btn"
-                        title="Tam Ekran Modu"
-                        style="background: transparent; color: #ffffff; border: none; padding: 0.25rem 0.45rem; border-radius: 10px; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
-                        <i class="fas fa-expand"></i>
-                        <span style="font-size: 0.75rem; font-weight: 700;">Tam Ekran</span>
-                      </button>
-
-                      <div style="width: 1px; height: 14px; background: rgba(255,255,255,0.25);"></div>
-
-                      <!-- Settings Icon Button -->
-                      <button onclick="WebRTC.showShareSettingsModal()" class="tile-action-btn"
-                        title="Paylaşım Ayarları"
-                        style="background: transparent; color: #ffffff; border: none; padding: 0.25rem 0.45rem; border-radius: 10px; font-size: 0.85rem; cursor: pointer;">
-                        <i class="fas fa-cog"></i>
-                      </button>
-
-                    </div>
+                    <!-- TOP-RIGHT 3-DOTS CONTEXT MENU BUTTON: diğer video kartlarıyla
+                         tutarlı olacak şekilde, eskiden her zaman açık duran hover
+                         ikon satırı yerine tek bir üç-nokta butonu (bkz.
+                         WebRTC.openScreenShareMenu) — ses seviyesi/sessize alma ve
+                         tam ekran buradan yönetiliyor. -->
+                    <button class="tile-more-btn" onclick="WebRTC.openScreenShareMenu(event)" title="Ekran Paylaşımı Seçenekleri" style="position: absolute; top: 0.75rem; right: 0.75rem; z-index: 40;">
+                      <i class="fas fa-ellipsis-v" style="font-size: 0.8rem;"></i>
+                    </button>
                   </div>
 
                 </div>
@@ -306,33 +297,35 @@
 
         </div>
 
-        <!-- INLINE ROOM SIDEBAR (Katılımcılar, Sohbet & Notlar Drawer - 1.5X Wider: 480px) -->
-        <div id="roomSidebar" class="room-sidebar"
-          style="display: none; background: #ffffff; border: 1px solid #e1dfdd; border-radius: 14px; width: 480px; height: 100%; flex-shrink: 0; margin-left: 0.85rem; box-shadow: 0 4px 20px rgba(0,0,0,0.06); overflow: hidden;">
-          <div class="sidebar-tabs"
-            style="background: #ffffff; border-bottom: 1px solid #e1dfdd; display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 1rem;">
-            <div style="display: flex; gap: 0.5rem;">
+        <!-- Dar ekranlarda kenar paneli sahnenin üstüne bindiğinde arkayı
+             karartan katman — tıklanınca paneli kapatır (bkz. closeSidebar). -->
+        <div id="roomSidebarBackdrop" class="room-sidebar-backdrop" onclick="closeSidebar()"></div>
+
+        <!-- ROOM SIDEBAR (Katılımcılar, Sohbet & Notlar Drawer) — genişlik, renk,
+             gölge, geçiş animasyonu tamamen .room-sidebar CSS sınıfından
+             (style.css) yönetiliyor; sekmeler artık ağır inline stiller yerine
+             .sidebar-tab / .sidebar-close-btn sınıflarını kullanıyor (hover/
+             active durumları ve geçişler tek yerden yönetiliyor). -->
+        <div id="roomSidebar" class="room-sidebar">
+          <div class="sidebar-tabs">
+            <div class="sidebar-tabs-group">
               <button id="tabBtnParticipants" type="button" class="sidebar-tab active"
-                onclick="switchSidebarTab('participants')"
-                style="font-weight: 800; font-size: 0.85rem; color: #5b5fc7; background: #eef2ff; border: 1px solid #c7d2fe; padding: 0.45rem 0.95rem; border-radius: 8px; cursor: pointer;">
+                onclick="switchSidebarTab('participants')">
                 <i class="fas fa-users"></i> Kişiler <span class="participant-count-badge">(12)</span>
               </button>
-              <button id="tabBtnChat" type="button" class="sidebar-tab" onclick="switchSidebarTab('chat')"
-                style="font-weight: 800; font-size: 0.85rem; color: #616161; background: transparent; border: none; padding: 0.45rem 0.95rem; cursor: pointer;">
+              <button id="tabBtnChat" type="button" class="sidebar-tab" onclick="switchSidebarTab('chat')">
                 <i class="fas fa-comments"></i> Sohbet
               </button>
-              <button id="tabBtnNotes" type="button" class="sidebar-tab" onclick="switchSidebarTab('notes')"
-                style="font-weight: 800; font-size: 0.85rem; color: #616161; background: transparent; border: none; padding: 0.45rem 0.95rem; cursor: pointer;">
+              <button id="tabBtnNotes" type="button" class="sidebar-tab" onclick="switchSidebarTab('notes')">
                 <i class="far fa-sticky-note"></i> Notlar
               </button>
             </div>
-            <button type="button" onclick="closeSidebar()"
-              style="background: none; border: none; padding: 0.4rem; color: #616161; font-size: 1.1rem; cursor: pointer;">✕</button>
+            <button type="button" class="sidebar-close-btn" onclick="closeSidebar()" title="Kapat">✕</button>
           </div>
 
           <!-- TAB 1: KATILIMCILAR -->
-          <div id="tabContentParticipants" class="tab-content"
-            style="display: flex; flex-direction: column; height: calc(100% - 52px); padding: 1rem; background: #ffffff;">
+          <div id="tabContentParticipants" class="tab-content active-tab"
+            style="padding: 1rem; background: #ffffff;">
             <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 0.75rem;">
               <div style="position: relative;">
                 <i class="fas fa-search"
@@ -340,10 +333,6 @@
                 <input type="text" placeholder="Katılımcı ara..." oninput="WebRTC.renderParticipantsList(this.value)"
                   style="width: 100%; padding: 0.45rem 0.75rem 0.45rem 2.2rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 0.82rem; outline: none;">
               </div>
-              <button class="btn btn-secondary" onclick="WebRTC.muteAllParticipants()"
-                style="width: 100%; padding: 0.45rem; border-radius: 8px; font-size: 0.8rem; font-weight: 700; color: #5b5fc7; background: #eef2ff; border: 1px solid #c7d2fe; cursor: pointer;">
-                Tümünü Sessize Al
-              </button>
             </div>
 
             <div id="participantsListContainer"
@@ -352,31 +341,25 @@
           </div>
 
           <!-- TAB 2: SOHBET -->
-          <div id="tabContentChat" class="tab-content"
-            style="display: none; flex-direction: column; height: calc(100% - 52px);">
-            <div id="chatMessagesContainer" class="chat-messages"
-              style="flex: 1; padding: 1rem; overflow-y: auto; background: #ffffff; display: flex; flex-direction: column; gap: 0.85rem;">
+          <div id="tabContentChat" class="tab-content">
+            <div id="chatMessagesContainer" class="chat-messages">
               <div
                 style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.8rem; color: #64748b; text-align: center;">
                 <i class="fas fa-lock" style="color: #5b5fc7; margin-right: 0.3rem;"></i> Canlı sohbet odası aktif.
               </div>
             </div>
 
-            <div class="yeb-chat-footer"
-              style="padding: 0.75rem; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; gap: 0.5rem;">
+            <div class="yeb-chat-footer">
               <input id="chatInputText" type="text" class="yeb-chat-input" placeholder="Mesajınızı yazın..."
-                onkeypress="handleChatKeyPress(event)"
-                style="flex: 1; padding: 0.5rem 0.85rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none;">
-              <button id="btnSendChat" type="button" class="yeb-chat-send-btn" onclick="sendRoomChatMessage()"
-                style="padding: 0.5rem 0.85rem; border-radius: 8px; background: #5b5fc7; color: #fff; border: none; cursor: pointer;">
+                onkeypress="handleChatKeyPress(event)">
+              <button id="btnSendChat" type="button" class="yeb-chat-send-btn" onclick="sendRoomChatMessage()">
                 <i class="fas fa-paper-plane"></i>
               </button>
             </div>
           </div>
 
           <!-- TAB 3: NOTLAR SIDEBAR TAB -->
-          <div id="tabContentNotes" class="tab-content"
-            style="display: none; flex-direction: column; height: calc(100% - 52px); padding: 1rem; background: #ffffff;">
+          <div id="tabContentNotes" class="tab-content" style="padding: 1rem; background: #ffffff;">
 
             <!-- Sub-Tab Switcher (Genel Notlar vs Kişisel Notlar) -->
             <div
@@ -391,8 +374,12 @@
               </button>
             </div>
 
-            <!-- Note Input Form -->
-            <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <!-- Note Input Form: Genel Notlar formu SADECE editör/yönetici
+                 rolündeki kullanıcılara görünür (bkz. switchSidebarNotesSubTab
+                 — 'general' seçiliyken WebRTC.isUserHost() değilse gizlenir).
+                 Kişisel Notlar herkese açık kalır. Backend de (routes/
+                 meeting_notes.py) aynı kısıtlamayı doğruluyor. -->
+            <div id="sidebarNoteFormContainer" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem;">
               <textarea id="sidebarNoteText" placeholder="Genel toplantı kararı veya duyurusu yazın..."
                 style="width: 100%; height: 75px; padding: 0.55rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 0.82rem; outline: none; resize: none;"></textarea>
               <button type="button" id="btnPublishSidebarNote" onclick="publishSidebarNote()"
@@ -400,12 +387,17 @@
                 <i class="fas fa-paper-plane"></i> Genel Notu Yayınla & Kaydet
               </button>
             </div>
+            <div id="sidebarGeneralNoteViewOnlyNotice" style="display: none; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 0.65rem 0.75rem; font-size: 0.78rem; color: #64748b; text-align: center; margin-bottom: 0.75rem;">
+              <i class="fas fa-eye" style="color: #94a3b8; margin-right: 0.3rem;"></i> Genel notları yalnızca görüntüleyebilirsiniz — oluşturma yetkisi toplantı editörü/yöneticilerindedir.
+            </div>
 
             <!-- Notes Feed List -->
             <div id="sidebarNotesFeedContainer"
-              style="display: flex; flex-direction: column; gap: 0.65rem; flex: 1; overflow-y: auto; padding-right: 0.2rem;">
+              style="display: flex; flex-direction: column; gap: 0.65rem; flex: 1; overflow-y: auto; overflow-x: hidden; padding-right: 0.2rem;">
             </div>
           </div>
+        </div>
+        <!-- /.stage-lower-row -->
         </div>
 
       </div>
@@ -414,7 +406,7 @@
 
     <!-- VIEW MODE 2: DEDICATED 2-TAB EXECUTIVE NOTES DASHBOARD -->
     <div id="meetingNotesContainer"
-      style="display: none; flex: 1; padding: 2rem; background: #f8fafc; overflow-y: auto;">
+      style="display: none; flex: 1; padding: 2rem; background: #f8fafc; overflow-y: auto; overflow-x: hidden;">
       <div style="max-width: 1100px; margin: 0 auto;">
 
         <div class="notes-tab-bar">
@@ -660,6 +652,26 @@
               <button type="button" onclick="copyModalInviteLink()" id="copyLinkBtn"
                 style="padding: 0.5rem 1rem; background: #5b5fc7; color: #fff; border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; transition: background 0.18s;"
                 onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='#5b5fc7'">
+                <i class="fas fa-copy"></i> Kopyala
+              </button>
+            </div>
+          </div>
+
+          <!-- Oda Kodu Kutusu: Şirket içi katılımcılar /prejoin ekranında bu
+               kodu doğrudan kullanabilir; misafirler için yukarıdaki bağlantı
+               zaten kodu içeriyor, bu sadece hızlı paylaşım/hatırlama içindir. -->
+          <div>
+            <div
+              style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.65rem;">
+              <i class="fas fa-key" style="color: #d97706; margin-right: 0.4rem;"></i> Oda Kodu
+            </div>
+            <div
+              style="display: flex; gap: 0.6rem; align-items: center; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px; padding: 0.75rem 0.75rem;">
+              <input type="text" id="modalInviteRoomCode" readonly
+                style="flex: 1; border: none; background: transparent; font-size: 0.95rem; font-family: monospace; color: #92400e; font-weight: 800; letter-spacing: 0.03em; outline: none; min-width: 0;">
+              <button type="button" onclick="copyModalRoomCode()" id="copyRoomCodeBtn"
+                style="padding: 0.5rem 1rem; background: #d97706; color: #fff; border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; transition: background 0.18s;"
+                onmouseover="this.style.background='#b45309'" onmouseout="this.style.background='#d97706'">
                 <i class="fas fa-copy"></i> Kopyala
               </button>
             </div>
@@ -962,6 +974,13 @@
         Notifications.show('Toplantı katılım bağlantısı panoya kopyalandı.', 'success', 'Bağlantı Kopyalandı');
       }
 
+      function copyModalRoomCode() {
+        const input = document.getElementById('modalInviteRoomCode');
+        const code = input ? input.value : MEETING_CODE;
+        navigator.clipboard.writeText(code);
+        Notifications.show('Oda kodu panoya kopyalandı.', 'success', 'Kod Kopyalandı');
+      }
+
       let allInviteUsers = [];
       let inviteSuccessCount = 0;
 
@@ -985,6 +1004,9 @@
 
         const linkInput = document.getElementById('modalInviteLinkInput');
         if (linkInput) linkInput.value = `${window.location.origin}/guest/${MEETING_CODE}`;
+
+        const roomCodeInput = document.getElementById('modalInviteRoomCode');
+        if (roomCodeInput) roomCodeInput.value = MEETING_CODE;
 
         const modal = document.getElementById('roomInviteModal');
         if (!modal) return;
@@ -1394,50 +1416,63 @@
         }
       }
 
+      // BUG FIX: Panelin açılıp/kapanması ve sekme geçişleri eskiden ham inline
+      // stil atamalarıyla (style.display, style.background, ...) yapılıyordu —
+      // anlık sıçrama vardı, hiç geçiş/animasyon yoktu. Artık tamamen CSS
+      // sınıfları (.open / .active-tab, bkz. style.css) toggle ediliyor; yumuşak
+      // geçişler oradan geliyor. Panel görünürlüğü artık `.open` sınıfının
+      // varlığından okunuyor (style.display değil) — dar ekranlarda paneli
+      // kapatan backdrop katmanı da burada senkron yönetiliyor.
       function toggleSidebarTab(tabName) {
         if (activeMainView !== 'stage') switchMainView('stage');
         const sidebar = document.getElementById('roomSidebar');
-        if (sidebar.style.display === 'none' || activeSidebarTab !== tabName) {
-          sidebar.style.display = 'flex';
+        if (!sidebar) return;
+        const isOpen = sidebar.classList.contains('open');
+        if (!isOpen || activeSidebarTab !== tabName) {
+          openSidebar();
           switchSidebarTab(tabName);
         } else {
-          sidebar.style.display = 'none';
+          closeSidebar();
         }
+      }
+
+      function openSidebar() {
+        const sidebar = document.getElementById('roomSidebar');
+        const backdrop = document.getElementById('roomSidebarBackdrop');
+        if (sidebar) sidebar.classList.add('open');
+        if (backdrop) backdrop.classList.add('open');
         WebRTC.reflowVideoGrid();
+        // BUG FIX: Panel açılınca sahne (ve ekran paylaşımı konteyneri)
+        // genişliği CSS geçişiyle (0.4s) ANİMASYONLU değişiyor. Ekran
+        // paylaşımı kartını bu geçiş bitmeden (eski/ara genişlikle) yeniden
+        // "contain" hesabıyla oturtursak, geçiş tamamlandığında kart yanlış
+        // boyutta kalıp video elementinin kendi (native, CSS'le
+        // renklendirilemeyen) siyah letterbox çubuklarını gösteriyordu.
+        // Geçiş süresinden biraz uzun bekleyip GERÇEK son boyutla yeniden
+        // hesaplıyoruz.
+        setTimeout(() => WebRTC._fitScreenShareFrame(), 420);
       }
 
       function switchSidebarTab(tabName) {
         activeSidebarTab = tabName;
         ['tabBtnChat', 'tabBtnParticipants', 'tabBtnNotes'].forEach(id => {
           const btn = document.getElementById(id);
-          if (btn) {
-            btn.classList.remove('active');
-            btn.style.background = 'transparent';
-            btn.style.color = '#616161';
-            btn.style.border = 'none';
-          }
+          if (btn) btn.classList.remove('active');
         });
 
         ['tabContentChat', 'tabContentParticipants', 'tabContentNotes'].forEach(id => {
           const el = document.getElementById(id);
-          if (el) el.style.display = 'none';
+          if (el) el.classList.remove('active-tab');
         });
 
         const activeBtnId = (tabName === 'chat') ? 'tabBtnChat' : (tabName === 'notes' ? 'tabBtnNotes' : 'tabBtnParticipants');
         const activeContentId = (tabName === 'chat') ? 'tabContentChat' : (tabName === 'notes' ? 'tabContentNotes' : 'tabContentParticipants');
 
         const btn = document.getElementById(activeBtnId);
-        if (btn) {
-          btn.classList.add('active');
-          btn.style.background = '#eef2ff';
-          btn.style.color = '#5b5fc7';
-          btn.style.border = '1px solid #c7d2fe';
-        }
+        if (btn) btn.classList.add('active');
 
         const content = document.getElementById(activeContentId);
-        if (content) {
-          content.style.display = 'flex';
-        }
+        if (content) content.classList.add('active-tab');
 
         if (tabName === 'notes') {
           renderSidebarNotesFeed();
@@ -1446,8 +1481,14 @@
 
       function closeSidebar() {
         const sidebar = document.getElementById('roomSidebar');
-        if (sidebar) sidebar.style.display = 'none';
+        const backdrop = document.getElementById('roomSidebarBackdrop');
+        if (sidebar) sidebar.classList.remove('open');
+        if (backdrop) backdrop.classList.remove('open');
         WebRTC.reflowVideoGrid();
+        // BUG FIX: bkz. openSidebar() — aynı sebeple, panel kapanınca da
+        // sahne genişliği geçişi bittikten sonra ekran paylaşımı kartını
+        // yeniden oturtuyoruz.
+        setTimeout(() => WebRTC._fitScreenShareFrame(), 420);
       }
 
       let currentSidebarNoteType = 'general';
@@ -1492,6 +1533,18 @@
             btnPublish.innerHTML = `<i class="fas fa-lock"></i> Kişisel Notu Kaydet`;
           }
         }
+
+        // BUG FIX: Genel Notlar formu artık sadece editör/yönetici rolündeki
+        // kullanıcılara görünür — diğerleri (backend de aynısını doğruluyor,
+        // bkz. routes/meeting_notes.py) sadece akışı görüntüleyebilir, bir
+        // "salt okunur" bilgi notu görür. Kişisel Notlar herkese açık kalır.
+        const isPrivileged = (typeof WebRTC !== 'undefined') && WebRTC.isUserHost();
+        const formContainer = document.getElementById('sidebarNoteFormContainer');
+        const viewOnlyNotice = document.getElementById('sidebarGeneralNoteViewOnlyNotice');
+        const showForm = (type !== 'general') || isPrivileged;
+        if (formContainer) formContainer.style.display = showForm ? 'flex' : 'none';
+        if (viewOnlyNotice) viewOnlyNotice.style.display = showForm ? 'none' : 'block';
+
         renderSidebarNotesFeed();
       }
 
@@ -1504,19 +1557,30 @@
         const meetingId = WebRTC.meetingInfo?.id;
 
         if (currentSidebarNoteType === 'general') {
+          // BUG FIX: Bu POST'un yanıtı (oluşturulan notun gerçek DB id'si)
+          // eskiden hiç okunmuyordu — bu yüzden yayınlanan genel notların
+          // silinebilmesi (kişisel notlardaki gibi bir çarpı butonuyla)
+          // mümkün değildi, çünkü hangi notun silineceğini belirtecek bir
+          // kimlik hiçbir yere iletilmiyordu. Artık id yakalanıp
+          // broadcastNote()'a geçiliyor.
+          let createdNoteId = null;
           try {
             if (meetingId && typeof Auth !== 'undefined' && Auth.getToken()) {
-              await fetch('/api/v1/notes/', {
+              const res = await fetch('/api/v1/notes/', {
                 method: 'POST',
                 headers: Auth.getAuthHeaders(),
                 body: JSON.stringify({ meeting_id: meetingId, content: content, note_type: 'general' })
               });
+              if (res.ok) {
+                const created = await res.json();
+                createdNoteId = created?.id || null;
+              }
             }
           } catch (e) {
             console.error("Genel not kaydedilirken hata:", e);
           }
           if (typeof WebRTC !== 'undefined' && WebRTC.broadcastNote) {
-            WebRTC.broadcastNote(content);
+            WebRTC.broadcastNote(content, createdNoteId);
           }
           input.value = '';
         } else {
@@ -1575,18 +1639,46 @@
                 <span style="font-size: 0.74rem; font-weight: 700; color: #059669;"><i class="fas fa-lock"></i> Özel Not • ${item.timestamp}</span>
                 <button onclick="deleteSidebarPersonalNote(${item.id})" style="background: none; border: none; color: #ef4444; font-size: 0.85rem; cursor: pointer;" title="Sil">&times;</button>
               </div>
-              <p style="font-size: 0.85rem; color: #14532d; margin: 0; line-height: 1.4; white-space: pre-wrap;">${item.text}</p>
+              <p style="font-size: 0.85rem; color: #14532d; margin: 0; line-height: 1.4; white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word;">${item.text}</p>
             </div>
           `).join('');
         } else {
-          const existingCards = container.querySelectorAll('.note-card');
-          if (existingCards.length === 0 && !container.innerHTML.includes('note-card')) {
+          // BUG FIX: Bu dal eskiden konteyner'da HALİHAZIRDA kart olup
+          // olmadığına bakıyordu — ama Kişisel Notlar'a geçiş konteyner'ın
+          // tüm içeriğini (innerHTML) değiştirdiğinden, geri dönüldüğünde
+          // kartlar zaten DOM'dan silinmiş oluyordu ve bir daha asla geri
+          // gelmiyordu (sayfa yenilenip loadExistingNotes() yeniden
+          // çalışana kadar). Artık WebRTC.generalNotesCache'ten (canlı
+          // yayınlanan + sayfa açılışında çekilen tüm genel notların
+          // tutulduğu önbellek) HER SEFERİNDE yeniden çiziliyor.
+          const cache = (typeof WebRTC !== 'undefined' && Array.isArray(WebRTC.generalNotesCache))
+            ? WebRTC.generalNotesCache : [];
+
+          if (cache.length === 0) {
             container.innerHTML = `
               <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 1.25rem; text-align: center; color: #64748b; font-size: 0.85rem;">
                 <i class="fas fa-bullhorn" style="color: #5b5fc7; font-size: 1.2rem; margin-bottom: 0.4rem; display: block;"></i>
                 Genel toplantı kararları burada listelenir.
               </div>
             `;
+          } else {
+            const myId = (typeof WebRTC !== 'undefined') ? WebRTC.currentUser?.id : null;
+            container.innerHTML = cache.map(note => {
+              const isOwnNote = note.note_id && note.sender_id && String(note.sender_id) === String(myId);
+              return `
+              <div class="note-card" data-note-id="${note.note_id || ''}" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.85rem; margin-bottom: 0.65rem; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.3rem;">
+                  <div style="font-size: 0.75rem; font-weight: 700; color: #4f46e5;">
+                    <i class="fas fa-bullhorn"></i> ${note.author || 'Toplantı Kararı'} • ${note.created_at || ''}
+                  </div>
+                  ${isOwnNote ? `
+                    <button onclick="WebRTC.deleteGeneralNote('${note.note_id}', this)" style="background: none; border: none; color: #ef4444; font-size: 0.85rem; cursor: pointer; flex-shrink: 0;" title="Notu Sil">&times;</button>
+                  ` : ''}
+                </div>
+                <div class="note-card-body" style="font-size: 0.88rem; color: #0f172a; line-height: 1.5; white-space: pre-wrap;">${note.content}</div>
+              </div>
+            `;
+            }).join('');
           }
         }
       }
@@ -1751,7 +1843,7 @@
               <i class="fas fa-trash-alt"></i>
             </button>
           </div>
-          <p style="font-size: 0.9rem; color: #0f172a; margin: 0; line-height: 1.5; white-space: pre-wrap;">${item.text}</p>
+          <p style="font-size: 0.9rem; color: #0f172a; margin: 0; line-height: 1.5; white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word;">${item.text}</p>
         </div>
       `).join('');
       }

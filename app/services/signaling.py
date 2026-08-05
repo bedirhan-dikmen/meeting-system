@@ -1,7 +1,7 @@
 import json
 import asyncio
 from fastapi import WebSocket
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 class SignalingManager:
     def __init__(self):
@@ -24,6 +24,18 @@ class SignalingManager:
 
     def is_user_approved(self, meeting_code: str, user_id: str) -> bool:
         return user_id in self.approved_lobby_users.get(meeting_code, set())
+
+    def is_privileged(self, meeting_code: str, user_id: str) -> bool:
+        """Bir kullanıcının o odada şu an ayrıcalıklı (toplantı sahibi/editör
+        veya admin-manager rolü) olup olmadığını döner. Kick, zorla mikrofon/
+        kamera kapatma gibi yönetimsel komutlar bu kontrolden geçmeden ASLA
+        uygulanmamalı — istemci tarafı kontrolü tek başına güvenilir değildir."""
+        room = self.active_rooms.get(meeting_code, {})
+        data = room.get(user_id)
+        if not isinstance(data, dict):
+            return False
+        info = data.get("info") or {}
+        return bool(info.get("is_privileged") or info.get("is_host"))
 
     def _get_privileged_user_ids(self, meeting_code: str) -> List[str]:
         """Odada şu an bağlı olan 'editör' (toplantı sahibi) veya 'yönetici'
@@ -315,7 +327,7 @@ class SignalingManager:
                     self.active_screen_shares.pop(meeting_code, None)
                     self.room_editors.pop(meeting_code, None)
                 elif was_present:
-                    message = {
+                    message: Dict[str, Any] = {
                         "type": "user-left",
                         "sender_id": user_id,
                         "message": "Kullanıcı odadan ayrıldı."

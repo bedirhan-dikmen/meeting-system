@@ -54,6 +54,13 @@ const Prejoin = {
       const audioInputs = devices.filter(d => d.kind === 'audioinput');
       const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
 
+      // BUG FIX: Cihazda kamera/mikrofon donanımı hiç yoksa buton eskiden
+      // sadece görsel olarak "disabled" yapılıyordu — `isCameraOff`/
+      // `isMicMuted` bayrakları güncellenmiyordu. Bu yüzden sessionStorage'a
+      // (ve oradan oda ekranına) "kamera/mikrofon AÇIK" bilgisi kaydediliyor,
+      // katılımcı listesinde ve üst barda olmayan bir cihaz "açık" gibi
+      // gözüküyordu. Donanım yoksa durum artık kesin olarak "kapalı"ya
+      // zorlanıyor ve kaydediliyor.
       const btnCam = document.getElementById('btnToggleCamPrejoin');
       if (btnCam) {
         if (videoDevices.length === 0) {
@@ -62,6 +69,7 @@ const Prejoin = {
           btnCam.style.background = '#f8fafc';
           btnCam.style.color = '#94a3b8';
           btnCam.style.border = '1px solid #e2e8f0';
+          this.isCameraOff = true;
         } else {
           btnCam.disabled = false;
         }
@@ -83,6 +91,12 @@ const Prejoin = {
           }
         }
       });
+      if (audioInputs.length === 0) {
+        this.isMicMuted = true;
+      }
+      if (videoDevices.length === 0 || audioInputs.length === 0) {
+        this.savePrejoinState();
+      }
 
       if (videoSelect) {
         if (videoDevices.length > 0) {

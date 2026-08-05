@@ -307,7 +307,36 @@ async def websocket_endpoint(
                 continue
 
             if data.get("type") == "host-kick" and target_id:
-                await signaling_manager.kick_user(meeting_code, target_id, reason="Kicked")
+                # BUG FIX: Bu komut hiç yetki kontrolünden geçmiyordu — teoride
+                # odadaki HERKES (sıradan katılımcı, hatta misafir) başka birini
+                # çıkarabilirdi. Artık sadece o an ayrıcalıklı (editör/admin/
+                # manager) olan gönderen uygulanır.
+                if signaling_manager.is_privileged(meeting_code, user_id_str):
+                    await signaling_manager.kick_user(meeting_code, target_id, reason="Kicked")
+                continue
+
+            # GÜVENLİK KRİTİK: Yönetici/editör bir katılımcının mikrofonunu/
+            # kamerasını uzaktan yalnızca KAPATABİLİR — asla AÇAMAZ (böyle bir
+            # komut kasıtlı olarak hiç var edilmedi). Kamera/mikrofonu açmak
+            # her koşulda yalnızca kullanıcının kendi cihazındaki kendi
+            # eylemiyle mümkündür. Sunucu burada gönderenin GERÇEKTEN
+            # ayrıcalıklı olduğunu (istemcinin iddiasına değil, sunucudaki
+            # active_rooms kaydına bakarak) doğrulamadan bu komutu ASLA
+            # hedefe iletmez.
+            if data.get("type") == "host-force-mic-mute" and target_id:
+                if signaling_manager.is_privileged(meeting_code, user_id_str):
+                    await signaling_manager.send_targeted_message(meeting_code, target_id, {
+                        "type": "force-mic-mute",
+                        "sender_id": user_id_str
+                    })
+                continue
+
+            if data.get("type") == "host-force-camera-off" and target_id:
+                if signaling_manager.is_privileged(meeting_code, user_id_str):
+                    await signaling_manager.send_targeted_message(meeting_code, target_id, {
+                        "type": "force-camera-off",
+                        "sender_id": user_id_str
+                    })
                 continue
 
             # Host toplantıyı bitirdiğinde DB güncellemesi

@@ -118,6 +118,23 @@ const WebRTC = {
 
     this.bindAutoplayUnlock();
 
+    // BUG FIX: Sayfa her açıldığında (F5 dahil), kartın gerçek konteyner
+    // boyutu (kenar paneli/üst şerit CSS'i henüz oturmadan) İLK reflow'da
+    // yanlış/geçici ölçülüp, hemen ardından (ResizeObserver'ın gerçek boyutu
+    // tespit etmesiyle) doğru değere düzeltiliyordu. `.participant-tile`'ın
+    // width/height geçişi (0.2s) bu iki ölçüm arasındaki farkı ANİMASYONLA
+    // gösterdiğinden, kullanıcının kendi kartı büyüyüp küçülüyormuş gibi
+    // (sanki tam ekrana girip çıkıyormuş gibi) bir "titreme" oluşuyordu.
+    // Yerleşim daha oturmadan bu geçişi geçici olarak kapatıyoruz.
+    const initialGrid = document.getElementById('videoGrid');
+    if (initialGrid) initialGrid.classList.add('suppress-tile-transition');
+
+    // BUG FIX: F5 ile sayfa yenilendiğinde sohbet tamamen sıfırlanıyordu —
+    // artık aynı sekme/oturum içinde (sessionStorage) saklanan geçmiş geri
+    // oynatılıyor. Gerçek "sıfırlama" sadece bilinçli "Ayrıl"da olur (bkz.
+    // leaveMeeting/endMeeting -> clearChatHistory()).
+    this.restoreChatHistory();
+
     // Fetch Meeting Details
     await this.fetchMeetingInfo();
     await this.loadExistingNotes();
@@ -150,6 +167,19 @@ const WebRTC = {
       }
     }
 
+    // GÜVENCE (savunma amaçlı, ikinci katman): Prejoin ekranından gelen
+    // isCameraOff/isMicMuted bayrakları bazen cihazın GERÇEK donanım durumuyla
+    // (kamera/mikrofon hiç yoksa) uyuşmuyordu — kart üst barda ve Kişiler
+    // barında "açık" görünüp altında gerçekte hiç video/audio track'i
+    // olmuyordu. Burada gerçek stream'in track'lerine bakılarak durum kesin
+    // olarak düzeltiliyor: track yoksa "açık" gösterilemez.
+    if (!this.localStream || this.localStream.getVideoTracks().length === 0) {
+      this.isCameraOff = true;
+    }
+    if (!this.localStream || this.localStream.getAudioTracks().length === 0) {
+      this.isMicMuted = true;
+    }
+
     if (this.localStream) {
       this.localStream.getVideoTracks().forEach(t => t.enabled = !this.isCameraOff);
       this.localStream.getAudioTracks().forEach(t => t.enabled = !this.isMicMuted);
@@ -165,6 +195,31 @@ const WebRTC = {
     this.connectWebSocket();
     this.startTimer();
     this.bindRoomControls();
+    this._setupScreenShareAspectRatioSync();
+
+    // Pencere yeniden boyutlandırıldığında üst şeridin ortalı/sola-dayalı
+    // taşma durumu (bkz. reflowTopCarouselBar) da yeniden değerlendirilsin.
+    if (!this._resizeListenerBound) {
+      this._resizeListenerBound = true;
+      let resizeDebounce = null;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeDebounce);
+        resizeDebounce = setTimeout(() => this.reflowTopCarouselBar(), 120);
+      });
+    }
+
+    // Yerleşim birkaç reflow turuyla (ResizeObserver dahil) oturduktan sonra
+    // geçişi geri açıyoruz — bundan sonraki GERÇEK boyut değişiklikleri
+    // (katılımcı ekleme/çıkarma, ekran paylaşımı vb.) yine yumuşak animasyonlu
+    // kalıyor, sadece açılıştaki "titreme" bastırılıyor.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const g = document.getElementById('videoGrid');
+          if (g) g.classList.remove('suppress-tile-transition');
+        }, 250);
+      });
+    });
 
     // Sayfa yenilendiğinde/kapatıldığında aktif ekran paylaşımını oda üyeleri için temizle
     window.addEventListener('beforeunload', () => {
@@ -173,6 +228,14 @@ const WebRTC = {
       }
     });
   },
+
+  // Sidebar'daki "Genel Notlar" sub-tab'i, Kişisel Notlar'a geçilip geri
+  // dönüldüğünde kartların hâlâ DOM'da olacağını varsayıyordu (bkz.
+  // room.html renderSidebarNotesFeed) — ama Kişisel Notlar'a geçiş konteyner'ın
+  // TÜM innerHTML'ini kişisel notlarla değiştiriyor, genel not kartlarını
+  // yok ediyordu. Genel notlar artık burada (WebRTC tarafında) bir önbellekte
+  // de tutuluyor; room.html geri dönüşte bu önbellekten yeniden çiziyor.
+  generalNotesCache: [],
 
   async loadExistingNotes() {
     if (!this.meetingInfo?.id) return;
@@ -183,11 +246,29 @@ const WebRTC = {
       });
       if (res.ok) {
         const notes = await res.json();
-        notes.forEach(note => {
+        // BUG FIX: Backend bu uç noktadan genel notlarla BİRLİKTE kullanıcının
+        // kendi kişisel notlarını da (note_type: 'personal') karışık döndürüyor
+        // — eskiden hepsi ayrım yapılmadan "Toplantı Kararı" kartı olarak genel
+        // akışa (hem sidebar hem dashboard) basılıyordu, yani kişisel notlar
+        // yanlışlıkla herkese açık gibi görünen bir bölümde beliriyordu. Artık
+        // sadece 'general' (veya tipi belirtilmemiş eski kayıtlar) burada
+        // gösteriliyor; kişisel notlar zaten ayrı olarak localStorage'dan
+        // (renderSidebarNotesFeed) render ediliyor.
+        // Ayrıca backend en yeniden en eskiye sıralı döndürüyor; renderLiveNote
+        // prepend ettiği için sırayla işlenirse ters (eski üstte) görünüyordu —
+        // ters çevirip prepend edince doğru (en yeni üstte) sıra elde ediliyor.
+        const generalNotes = notes.filter(n => (n.note_type || 'general') === 'general');
+        generalNotes.slice().reverse().forEach(note => {
           this.renderLiveNote({
             content: note.content,
             author: 'Toplantı Notu',
-            created_at: new Date(note.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            created_at: new Date(note.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            // BUG FIX: Sayfa yüklenirken çekilen (daha önce yayınlanmış) genel
+            // notlar için de note_id/sender_id iletiliyor — böylece kendi
+            // yazdığınız eski bir genel not, sayfayı yenilediğinizde de
+            // silinebilir kalıyor (önceden bu bilgi hiç aktarılmıyordu).
+            note_id: note.id,
+            sender_id: note.author_id
           });
         });
       }
@@ -310,6 +391,21 @@ const WebRTC = {
 
         const btnOptionSettings = document.getElementById('btnOptionEditSettings');
         if (btnOptionSettings) btnOptionSettings.style.display = this.isUserHost() ? 'flex' : 'none';
+
+        // BUG FIX: Kişiler barındaki "Genel Notlar" oluşturma formu (sidebarNoteText
+        // + yayınla butonu) eskiden sub-tab tıklanana kadar HERKESE görünür
+        // kalıyordu (varsayılan inline stilde gizli değildi). Editör/yönetici
+        // bilgisi burada netleştiği anda, kullanıcı hiç sub-tab'e tıklamasa
+        // bile doğru görünürlük baştan uygulanır — sadece görüntüleme
+        // yetkisi olanlar formu asla görmez.
+        const sidebarNoteForm = document.getElementById('sidebarNoteFormContainer');
+        const sidebarNoteViewOnlyNotice = document.getElementById('sidebarGeneralNoteViewOnlyNotice');
+        if (sidebarNoteForm && sidebarNoteViewOnlyNotice) {
+          const noteType = (typeof currentSidebarNoteType !== 'undefined') ? currentSidebarNoteType : 'general';
+          const showNoteForm = (noteType !== 'general') || this.isUserHost();
+          sidebarNoteForm.style.display = showNoteForm ? 'flex' : 'none';
+          sidebarNoteViewOnlyNotice.style.display = showNoteForm ? 'none' : 'block';
+        }
 
         if (this.isUserHost()) {
           this.startLobbyPolling();
@@ -523,51 +619,10 @@ const WebRTC = {
     }
   },
 
-  renderParticipantsList() {
-    const container = document.getElementById('participantsListContainer');
-    const countBadge = document.getElementById('participantCountBadge');
-    if (!container) return;
-
-    const list = Object.values(this.participantsMap);
-    if (countBadge) countBadge.textContent = list.length;
-
-    container.innerHTML = list.map(p => {
-      const isMe = (String(p.id) === String(this.currentUser?.id));
-      const pRole = String(p.role || '').toLowerCase();
-      const isHostUser = Boolean(
-        (this.meetingInfo?.created_by && p.id && String(p.id).toLowerCase() === String(this.meetingInfo.created_by).toLowerCase()) ||
-        ['admin', 'manager', 'host', 'moderator', 'yönetici', 'yonetici', 'müdür', 'mudur'].includes(pRole) ||
-        (isMe && (this.isHost || this.isUserHost()))
-      );
-
-      return `
-        <div class="participant-list-item">
-          <div class="participant-info">
-            <div class="participant-avatar-sm">
-              ${p.avatar_url ? `<img src="${p.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : initials}
-            </div>
-            <div>
-              <div style="font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
-                <span>${p.name}</span>
-                ${isMe ? '<span style="font-size: 0.75rem; color: var(--text-secondary);">(Siz)</span>' : ''}
-              </div>
-              <span class="role-badge ${isHostUser ? 'role-badge-admin' : 'role-badge-user'}">
-                ${isHostUser ? 'Yönetici' : 'Katılımcı'}
-              </span>
-            </div>
-          </div>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <i class="fas ${p.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${p.isMicMuted ? 'var(--accent-rose)' : 'var(--accent-emerald)'}; font-size: 0.9rem;"></i>
-            ${this.isHost && !isMe ? `
-              <button onclick="WebRTC.kickParticipant('${p.id}')" class="btn btn-danger" style="padding: 0.2rem 0.4rem; font-size: 0.7rem;" title="Çıkar">
-                <i class="fas fa-user-minus"></i>
-              </button>
-            ` : ''}
-          </div>
-        </div>
-      `;
-    }).join('');
-  },
+  // NOT: renderParticipantsList() burada eskiden ikinci kez (kırık/eksik bir
+  // `initials` referansıyla) tanımlıydı — JS obje literal'inde aynı anahtar iki
+  // kez yazılınca sonuncusu geçerli olur, bu yüzden bu blok zaten hiç
+  // çalışmıyordu (ÖLÜ KOD). Tek ve güncel tanım dosyanın altında duruyor.
 
   sendSignal(data) {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
@@ -580,6 +635,13 @@ const WebRTC = {
 
     switch (data.type) {
       case 'room-state':
+        // NOT: currentEditorId, aşağıdaki renderParticipantsList() çağrısından
+        // ÖNCE atanmalı — aksi halde ilk çizimde "Toplantı Sahibi" etiketi
+        // henüz bilinmeyen editöre göre (varsayılana) düşer ve ancak bir
+        // sonraki olayda düzelirdi.
+        if (data.editor_id !== undefined) {
+          this.currentEditorId = data.editor_id;
+        }
         if (Array.isArray(data.users)) {
           data.users.forEach(u => {
             if (u && u.id && !u.in_lobby) {
@@ -605,9 +667,6 @@ const WebRTC = {
               await this.createPeerConnection(uStr, isInitiator);
             }
           }
-        }
-        if (data.editor_id !== undefined) {
-          this.currentEditorId = data.editor_id;
         }
         if (Array.isArray(data.pending_lobby_requests)) {
           data.pending_lobby_requests.forEach(req => {
@@ -688,13 +747,19 @@ const WebRTC = {
         break;
 
       case 'editor-changed':
+        // BUG FIX: Toplantı sahibi (editör) değiştiğinde Kişiler barındaki
+        // "Toplantı Sahibi" etiketi eskiden hiç yenilenmiyordu — yeni editör
+        // belli olsa bile arayüzde eski kişi sahip görünmeye devam ediyordu.
+        // Artık her değişimde liste anında yeniden çiziliyor.
         this.currentEditorId = data.editor_id || null;
+        this.renderParticipantsList();
         break;
 
       case 'editor-assigned':
         // Sunucu bu odanın tek editörünü bana (ör. eski editör ayrıldığı için)
         // devretti — bekleyen tüm lobi taleplerini şimdi bana iletiyor.
         this.currentEditorId = data.editor_id || null;
+        this.renderParticipantsList();
         if (typeof Notifications !== 'undefined') {
           Notifications.show("Artık bu toplantının editörüsünüz. Katılım taleplerini siz yöneteceksiniz.", "info", "Editör Yetkisi Devredildi");
         }
@@ -703,6 +768,18 @@ const WebRTC = {
             if (req) this.showLobbyApprovalNotification(req);
           });
         }
+        break;
+
+      // GÜVENLİK KRİTİK: Bu iki mesaj sadece o odada gerçekten ayrıcalıklı
+      // olan biri sunucu tarafında doğrulandıktan SONRA bize ulaşır (bkz.
+      // routes/signaling.py host-force-mic-mute/host-force-camera-off).
+      // Yalnızca KAPATMA yönünde çalışırlar — açma yönü yok.
+      case 'force-mic-mute':
+        this.forceMuteMicRemote();
+        break;
+
+      case 'force-camera-off':
+        this.forceCameraOffRemote();
         break;
 
       case 'video-offer':
@@ -815,6 +892,10 @@ const WebRTC = {
         Notifications.show(`Yönetici yeni bir not yayınladı: "${(data.content || '').slice(0, 35)}..."`, 'success', 'Toplantı Notu');
         break;
 
+      case 'note-deleted':
+        if (data.note_id) this._removeGeneralNoteFromUI(data.note_id);
+        break;
+
       case 'user-left':
         const leavingId = String(senderId || data.user_info?.id || '');
         if (leavingId) {
@@ -866,6 +947,7 @@ const WebRTC = {
         if (this.socket) {
           try { this.socket.close(4003, "Kicked/Rejected"); } catch (e) { }
         }
+        this.clearChatHistory();
         setTimeout(() => {
           sessionStorage.removeItem('guest_token');
           window.location.replace(isGuestUser ? `/guest/${this.meetingCode}` : '/');
@@ -884,6 +966,7 @@ const WebRTC = {
         if (typeof Notifications !== 'undefined') {
           Notifications.show("Toplantı yönetici tarafından sonlandırıldı.", "info", "Toplantı Sona Erdi");
         }
+        this.clearChatHistory();
         setTimeout(() => {
           window.location.href = isGuestUser ? `/guest/${this.meetingCode}` : `/reports/${this.meetingInfo?.id || ''}`;
         }, 1200);
@@ -1220,30 +1303,15 @@ const WebRTC = {
         ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials}
       </div>
       
-      <!-- TOP-RIGHT 3-DOTS CONTEXT MENU BUTTON -->
-      <button class="tile-more-btn" onclick="WebRTC.toggleCardContextMenu(event, 'local')" title="Kart Seçenekleri" style="position: absolute; top: 0.65rem; right: 0.65rem; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; z-index: 15; backdrop-filter: blur(4px);">
+      <!-- TOP-RIGHT 3-DOTS CONTEXT MENU BUTTON (bkz. WebRTC.openTileMenu — menü artık
+           document.body'de bağımsız "floating" katman olarak açılıyor, kartın kendi
+           overflow:hidden'ından etkilenmiyor) -->
+      <button class="tile-more-btn" onclick="WebRTC.openTileMenu(event, 'local')" title="Kart Seçenekleri" style="position: absolute; top: 0.65rem; right: 0.65rem; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; z-index: 15; backdrop-filter: blur(4px);">
         <i class="fas fa-ellipsis-v" style="font-size: 0.8rem;"></i>
       </button>
 
-      <!-- CONTEXT MENU POPOVER -->
-      <div id="cardContextMenu_local" class="card-context-menu" style="display: none;">
-        <button class="menu-item" onclick="WebRTC.toggleCamera()">
-          <i class="fas ${this.isCameraOff ? 'fa-video' : 'fa-video-slash'}" style="color: #5b5fc7;"></i> ${this.isCameraOff ? 'Kamerayı Aç' : 'Kamerayı Kapat'}
-        </button>
-        <button class="menu-item" onclick="WebRTC.toggleMic()">
-          <i class="fas ${this.isMicMuted ? 'fa-microphone' : 'fa-microphone-slash'}" style="color: #10b981;"></i> ${this.isMicMuted ? 'Mikrofonu Aç' : 'Mikrofonu Kapat'}
-        </button>
-        <button class="menu-item" onclick="WebRTC.togglePin('localParticipantTile')">
-          <i class="fas ${isPinned ? 'fa-compress' : 'fa-expand'}" style="color: #0ea5e9;"></i> ${isPinned ? 'Odaklamayı Kaldır' : 'Odakla / Büyüt'}
-        </button>
-        <button class="menu-item" onclick="WebRTC.toggleFullscreen('localParticipantTile')">
-          <i class="fas fa-expand-arrows-alt" style="color: #8b5cf6;"></i> Tam Ekran
-        </button>
-      </div>
-
       <!-- TRANSLUCENT DARK OVERLAY PILL WITH WHITE TEXT AT BOTTOM-LEFT -->
       <div class="tile-overlay-pill">
-        <i class="fas fa-thumbtack" style="font-size: 0.72rem; color: #ffffff; opacity: 0.85;"></i>
         <strong style="color: #ffffff; font-weight: 700;">${name} (Siz)</strong>
         <i class="fas ${this.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${this.isMicMuted ? '#f87171' : '#ffffff'}; font-size: 0.8rem;"></i>
       </div>
@@ -1305,34 +1373,15 @@ const WebRTC = {
         </div>
       ` : ''}
 
-      <!-- TOP-RIGHT 3-DOTS CONTEXT MENU BUTTON -->
-      <button class="tile-more-btn" onclick="WebRTC.toggleCardContextMenu(event, '${remoteUserId}')" title="Katılımcı Seçenekleri" style="position: absolute; top: 0.65rem; right: 0.65rem; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; z-index: 15; backdrop-filter: blur(4px);">
+      <!-- TOP-RIGHT 3-DOTS CONTEXT MENU BUTTON (bkz. WebRTC.openTileMenu — menü artık
+           document.body'de bağımsız "floating" katman olarak açılıyor, kartın kendi
+           overflow:hidden'ından etkilenmiyor) -->
+      <button class="tile-more-btn" onclick="WebRTC.openTileMenu(event, '${remoteUserId}')" title="Katılımcı Seçenekleri" style="position: absolute; top: 0.65rem; right: 0.65rem; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; z-index: 15; backdrop-filter: blur(4px);">
         <i class="fas fa-ellipsis-v" style="font-size: 0.8rem;"></i>
       </button>
 
-      <!-- CONTEXT MENU POPOVER -->
-      <div id="cardContextMenu_${remoteUserId}" class="card-context-menu" style="display: none;">
-        <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; padding: 0.2rem 0.4rem;">SES AYARI</div>
-        <div style="padding: 0.2rem 0.4rem; display: flex; align-items: center; gap: 0.5rem;">
-          <input type="range" min="0" max="100" value="${Math.round(currentVol * 100)}" 
-                 oninput="WebRTC.setRemoteVolume('${remoteUserId}', this.value)" style="width: 100%; accent-color: #5b5fc7;">
-          <span id="cardVolumeLabel_${remoteUserId}" style="font-size: 0.75rem; font-weight: 800; color: #475569; min-width: 32px;">${Math.round(currentVol * 100)}%</span>
-        </div>
-        <button class="menu-item" onclick="WebRTC.toggleRemoteMute('${remoteUserId}')">
-          <i class="fas ${isLocalMuted ? 'fa-volume-up' : 'fa-volume-mute'}" style="color: #f43f5e;"></i> ${isLocalMuted ? 'Sesi Aç' : 'Sessize Al'}
-        </button>
-        <div style="height: 1px; background: #e2e8f0; margin: 0.2rem 0;"></div>
-        <button class="menu-item" onclick="WebRTC.togglePin('remoteTile_${remoteUserId}')">
-          <i class="fas ${isPinned ? 'fa-compress' : 'fa-expand'}" style="color: #0ea5e9;"></i> ${isPinned ? 'Odaklamayı Kaldır' : 'Odakla / Büyüt'}
-        </button>
-        <button class="menu-item" onclick="WebRTC.toggleFullscreen('remoteTile_${remoteUserId}')">
-          <i class="fas fa-expand-arrows-alt" style="color: #8b5cf6;"></i> Tam Ekran
-        </button>
-      </div>
-
       <!-- TRANSLUCENT DARK OVERLAY PILL WITH WHITE TEXT AT BOTTOM-LEFT -->
       <div class="tile-overlay-pill">
-        <i class="fas fa-thumbtack" style="font-size: 0.72rem; color: #ffffff; opacity: 0.85;"></i>
         <strong style="color: #ffffff; font-weight: 700;">${name}</strong>
         <i class="fas ${info.isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${info.isMicMuted ? '#f87171' : '#ffffff'}; font-size: 0.8rem;"></i>
       </div>
@@ -1405,6 +1454,12 @@ const WebRTC = {
 
     this.reflowTopCarouselBar();
 
+    // Video metadata'sı bu noktada zaten hazır olabilir (loadedmetadata bir
+    // daha tetiklenmeyebilir) — kart boyutunu hemen ve bir sonraki frame'de
+    // (konteyner gerçek boyutuna oturduktan sonra) tekrar hesapla.
+    this._fitScreenShareFrame();
+    requestAnimationFrame(() => this._fitScreenShareFrame());
+
     const presenterEl = document.getElementById('screenSharePresenterName');
     if (presenterEl) presenterEl.textContent = `${presenterName} ekranını paylaşıyor`;
 
@@ -1440,22 +1495,117 @@ const WebRTC = {
 
   toggleScreenShareAudio() {
     const shareVid = document.getElementById('screenShareVideo');
-    const icon = document.getElementById('iconShareAudio');
     if (shareVid) {
       shareVid.muted = !shareVid.muted;
-      if (icon) {
-        icon.className = shareVid.muted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
-        icon.style.color = shareVid.muted ? '#f87171' : '#ffffff';
-      }
+      if (!shareVid.muted && shareVid.volume === 0) shareVid.volume = 1;
+      this._syncScreenShareAudioUI();
     }
   },
 
-  showShareSettingsModal() {
-    if (typeof showToast === 'function') {
-      showToast('Ekran Paylaşım Ayarları: Yayın yüksek kalitede (1080p 60fps) iletiliyor.', 'info');
-    } else {
-      alert('Ekran Paylaşım Ayarları: Yayın yüksek kalitede (1080p 60fps) iletiliyor.');
+  setScreenShareVolume(value) {
+    const vol = parseFloat(value) / 100;
+    const shareVid = document.getElementById('screenShareVideo');
+    if (shareVid) {
+      shareVid.volume = vol;
+      shareVid.muted = (vol === 0);
     }
+    this._syncScreenShareAudioUI();
+  },
+
+  // Ekran paylaşımı üç-nokta menüsündeki (ve varsa üstteki eski göstergedeki)
+  // ses simgesi/etiketini gerçek <video> durumuna göre günceller.
+  _syncScreenShareAudioUI() {
+    const shareVid = document.getElementById('screenShareVideo');
+    if (!shareVid) return;
+    const icon = document.getElementById('iconShareAudio');
+    if (icon) {
+      icon.className = shareVid.muted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+      icon.style.color = shareVid.muted ? '#f87171' : '#ffffff';
+    }
+    const label = document.getElementById('screenShareVolumeLabel');
+    if (label) label.textContent = `${Math.round((shareVid.muted ? 0 : shareVid.volume) * 100)}%`;
+  },
+
+  // Ekran paylaşımı kartının üç-nokta menüsü: ses seviyesi/sessize alma +
+  // tam ekran — eskiden her zaman açık duran hover ikon satırının yerini
+  // aldı, diğer video kartlarıyla (openTileMenu) tutarlı hale getirildi.
+  openScreenShareMenu(event) {
+    const shareVid = document.getElementById('screenShareVideo');
+    const isMuted = shareVid ? shareVid.muted : false;
+    const volPercent = shareVid ? Math.round((isMuted ? 0 : shareVid.volume) * 100) : 100;
+
+    const html = `
+      <div class="wrtc-menu-label">EKRAN PAYLAŞIMI SESİ</div>
+      <div class="wrtc-menu-volume-row">
+        <input type="range" min="0" max="100" value="${volPercent}" oninput="WebRTC.setScreenShareVolume(this.value)">
+        <span id="screenShareVolumeLabel">${volPercent}%</span>
+      </div>
+      <button class="menu-item" onclick="WebRTC.toggleScreenShareAudio(); WebRTC.closeFloatingMenu();">
+        <i class="fas ${isMuted ? 'fa-volume-up' : 'fa-volume-mute'}" style="color:#f43f5e;"></i> ${isMuted ? 'Sesi Aç' : 'Sessize Al'}
+      </button>
+      <div class="wrtc-menu-divider"></div>
+      <button class="menu-item" onclick="WebRTC.toggleFullscreen('screenShareArea'); WebRTC.closeFloatingMenu();">
+        <i class="fas fa-expand-arrows-alt" style="color:#8b5cf6;"></i> Tam Ekran
+      </button>
+    `;
+
+    this.openFloatingMenu(event, html, { anchorEl: event?.currentTarget });
+  },
+
+  // BUG FIX: Ekran paylaşımı kartının çerçevesi (`#screenShareCardFrame`)
+  // sabit 16:9 oranla konteynerin TAMAMINI dolduruyordu (bkz. style.css'teki
+  // eski `!important` width/height:100% kuralı, artık kaldırıldı). Paylaşılan
+  // ekran/pencere 16:9 olmadığında, video `object-fit:contain` ile küçülüp
+  // ortalanıyor ama kartın kendi (neredeyse siyah) arka planı geniş "boşluk"
+  // olarak görünüyordu. Artık video meta verisi (gerçek videoWidth/Height)
+  // geldiğinde, konteynerin gerçek boyutu içinde "contain" mantığıyla TAM
+  // OTURAN piksel genişlik/yükseklik hesaplanıp karta doğrudan uygulanıyor —
+  // kartın kendisi artık gerçek içerikle birebir aynı orana sahip, gereksiz
+  // siyah alan kalmıyor, video hiçbir şekilde kırpılmıyor (taşma da yok).
+  _fitScreenShareFrame() {
+    const video = document.getElementById('screenShareVideo');
+    const frame = document.getElementById('screenShareCardFrame');
+    const container = document.getElementById('screenShareTile_1');
+    if (!video || !frame || !container) return;
+    if (!video.videoWidth || !video.videoHeight) return;
+
+    const rect = container.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const containerRatio = rect.width / rect.height;
+    const videoRatio = video.videoWidth / video.videoHeight;
+
+    let finalWidth, finalHeight;
+    if (videoRatio > containerRatio) {
+      // Video konteynerden daha "geniş" oranlı -> genişlik konteynere tam otursun
+      finalWidth = rect.width;
+      finalHeight = rect.width / videoRatio;
+    } else {
+      // Video konteynerden daha "dar/uzun" oranlı -> yükseklik konteynere tam otursun
+      finalHeight = rect.height;
+      finalWidth = rect.height * videoRatio;
+    }
+
+    frame.style.setProperty('width', `${Math.floor(finalWidth)}px`, 'important');
+    frame.style.setProperty('height', `${Math.floor(finalHeight)}px`, 'important');
+  },
+
+  _setupScreenShareAspectRatioSync() {
+    const video = document.getElementById('screenShareVideo');
+    if (!video || video._aspectSyncBound) return;
+    video._aspectSyncBound = true;
+
+    const apply = () => this._fitScreenShareFrame();
+    video.addEventListener('loadedmetadata', apply);
+    // Bazı tarayıcılar paylaşılan pencere yeniden boyutlandırıldığında bu
+    // olayı tetikler (nadir ama zararsız bir ek güvence).
+    video.addEventListener('resize', apply);
+
+    let resizeDebounce = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeDebounce);
+      resizeDebounce = setTimeout(apply, 120);
+    });
   },
 
   disableScreenShareLayout(preservePresenterId = false) {
@@ -1514,6 +1664,13 @@ const WebRTC = {
   },
 
   reflowTopCarouselBar() {
+    // BUG FIX: Bu fonksiyon önceden 6'dan fazla katılımcıda geri kalanları
+    // GİZLEYİP yerine tıklanabilir bir "+N Daha fazla" yer tutucu kartı
+    // koyuyordu — yani ekran paylaşımı sırasında 6'dan fazla kişi olduğunda
+    // bazı katılımcılar üst şeritte HİÇ görünmüyordu. Artık şerit alçaltılmış
+    // yüksekliğiyle ve yatay kaydırma çubuğuyla (bkz. style.css
+    // .top-carousel-bar `overflow-x: auto`) TÜM katılımcı kartlarını gösteriyor;
+    // kimse gizlenmiyor, gerekirse kaydırılarak herkese ulaşılabiliyor.
     const topBar = document.getElementById('topCarouselBar');
     if (!topBar || topBar.style.display === 'none') return;
 
@@ -1521,38 +1678,18 @@ const WebRTC = {
     if (existingOverflow) existingOverflow.remove();
 
     const tiles = Array.from(topBar.querySelectorAll('.participant-tile:not(.overflow-tile)'));
-    const count = tiles.length;
-
     tiles.forEach(tile => tile.style.display = 'flex');
 
-    const maxVisibleInBar = 6;
-
-    if (count > maxVisibleInBar) {
-      const overflowCount = count - (maxVisibleInBar - 1);
-      tiles.forEach((tile, index) => {
-        if (index < (maxVisibleInBar - 1)) {
-          tile.style.display = 'flex';
-        } else {
-          tile.style.display = 'none';
-        }
-      });
-
-      const overflowTile = document.createElement('div');
-      overflowTile.className = 'participant-tile overflow-tile';
-      overflowTile.style.cssText = 'height: 100%; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; background: #f1f5f9; border: 2px dashed #cbd5e1; border-radius: 12px; cursor: pointer; flex-shrink: 0;';
-      overflowTile.onclick = () => {
-        if (typeof toggleSidebarTab === 'function') {
-          toggleSidebarTab('participants');
-        }
-      };
-      overflowTile.innerHTML = `
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem; text-align: center;">
-          <div style="font-size: 1.3rem; font-weight: 800; color: #5b5fc7;">+${overflowCount}</div>
-          <div style="font-size: 0.75rem; font-weight: 700; color: #475569;">Daha fazla</div>
-        </div>
-      `;
-      topBar.appendChild(overflowTile);
-    }
+    // Kartlar konteynere sığdığı sürece ORTALI dizilsin (bkz. style.css
+    // .top-carousel-bar); ancak taşıp yatay kaydırma gerektiğinde SOLA
+    // dayalı dizilime geçilsin — aksi halde kullanıcı ilk kartlara ulaşmak
+    // için hem sağa hem sola kaydırmak zorunda kalırdı. Genişlik ölçümü,
+    // tarayıcı yeni eklenen/gösterilen kartların layout'unu oturttuktan
+    // sonra (bir sonraki frame'de) doğru sonuç verir.
+    requestAnimationFrame(() => {
+      const isOverflowing = topBar.scrollWidth > topBar.clientWidth + 1;
+      topBar.classList.toggle('carousel-overflowing', isOverflowing);
+    });
   },
 
   // ==========================================================================
@@ -1714,6 +1851,17 @@ const WebRTC = {
   reflowVideoGrid() {
     const grid = document.getElementById('videoGrid');
     if (!grid) return;
+
+    // GERÇEK KÖK NEDEN (tam ekran çalışmıyordu): Bir kart fullscreen'e
+    // alındığında toggleFullscreen() genişlik/yüksekliğini %100'e zorluyordu,
+    // AMA #videoGrid'i izleyen ResizeObserver (bkz. setupResponsiveGridObserver)
+    // fullscreen'e geçişin tetiklediği boyut değişikliğini "gerçek" bir
+    // yeniden boyutlandırma sanıp ~80ms sonra reflowVideoGrid()'i tekrar
+    // çağırıyor, bu da fullscreen'deki kartın boyutunu ESKİ küçük ızgara
+    // boyutuna GERİ YAZIYORDU (neredeyse anında, göze "çalışmıyor" gibi
+    // görünüyordu). Fullscreen aktifken ızgarayı hiç yeniden düzenleme —
+    // çıkışta (fullscreenchange dinleyicisi) zaten açıkça yeniden çağrılıyor.
+    if (document.fullscreenElement) return;
 
     // Eski sabit "grid-1..grid-16" sınıf/CSS sistemi kaldırıldı (bkz.
     // style.css) — iki farklı, birbiriyle çakışan katmanlama seti aynı
@@ -1903,7 +2051,42 @@ const WebRTC = {
     this.renderChatMessage({ ...msgPayload, sender_id: this.currentUser?.id });
   },
 
-  renderChatMessage(data) {
+  // BUG FIX: Sohbet mesajları sadece bellekte (DOM'da) tutuluyordu — sayfa F5
+  // ile yenilendiğinde tamamen kayboluyordu (kullanıcının kendi ekranında;
+  // diğer katılımcılarınki etkilenmiyordu ama kafa karıştırıcıydı). Backend'de
+  // notlar gibi kalıcı bir sohbet geçmişi tablosu yok; bu yüzden istemci
+  // tarafında `sessionStorage`'a (oda koduna özel, sekme kapanınca zaten
+  // temizlenir) yazılıyor ve sayfa her açıldığında geri oynatılıyor. Kullanıcı
+  // "Ayrıl"a bastığında (bkz. leaveMeeting/endMeeting) BİLİNÇLİ olarak
+  // temizleniyor — istenen davranış tam olarak bu: yenilemede kalıcı,
+  // ayrılmada sıfır.
+  _chatHistoryKey() {
+    return `meeting_chat_history_${this.meetingCode}`;
+  },
+
+  _saveChatMessageToHistory(data) {
+    try {
+      const key = this._chatHistoryKey();
+      const list = JSON.parse(sessionStorage.getItem(key) || '[]');
+      list.push(data);
+      // Sınırsız büyümeyi önlemek için son 200 mesajla sınırla
+      const trimmed = list.slice(-200);
+      sessionStorage.setItem(key, JSON.stringify(trimmed));
+    } catch (e) { /* sessionStorage dolu/erişilemez olsa bile sohbeti bozma */ }
+  },
+
+  clearChatHistory() {
+    try { sessionStorage.removeItem(this._chatHistoryKey()); } catch (e) { }
+  },
+
+  restoreChatHistory() {
+    let list = [];
+    try { list = JSON.parse(sessionStorage.getItem(this._chatHistoryKey()) || '[]'); } catch (e) { list = []; }
+    if (!Array.isArray(list) || list.length === 0) return;
+    list.forEach(msg => this.renderChatMessage(msg, { skipPersist: true, skipUnread: true }));
+  },
+
+  renderChatMessage(data, opts = {}) {
     const container = document.getElementById('chatMessagesContainer');
     if (!container) return;
 
@@ -1922,7 +2105,11 @@ const WebRTC = {
     container.appendChild(bubble);
     container.scrollTop = container.scrollHeight;
 
-    if (!isSelf && typeof activeTab !== 'undefined' && activeTab !== 'chat') {
+    if (!opts.skipPersist) {
+      this._saveChatMessageToHistory(data);
+    }
+
+    if (!opts.skipUnread && !isSelf && typeof activeTab !== 'undefined' && activeTab !== 'chat') {
       if (typeof unreadChatCount !== 'undefined') {
         unreadChatCount++;
         if (typeof updateUnreadBadge === 'function') updateUnreadBadge();
@@ -1930,14 +2117,19 @@ const WebRTC = {
     }
   },
 
-  broadcastNote(content) {
+  broadcastNote(content, noteId = null) {
     if (!content || !content.trim()) return;
     const authorName = `${this.currentUser?.first_name || ''} ${this.currentUser?.last_name || ''}`.trim() || 'Yönetici';
     const notePayload = {
       type: 'new-note',
       content: content.trim(),
       author: authorName,
-      created_at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      created_at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      // BUG FIX: `note_id`/`sender_id` eskiden hiç iletilmiyordu — bu yüzden
+      // kişisel notlardaki gibi bir "sil" (X) butonu genel notlara asla
+      // eklenemiyordu (hangi notun silineceğini belirtecek kimlik yoktu).
+      note_id: noteId,
+      sender_id: this.currentUser?.id || null
     };
     this.sendSignal(notePayload);
     this.renderLiveNote(notePayload);
@@ -1945,10 +2137,21 @@ const WebRTC = {
   },
 
   renderLiveNote(data) {
+    // Genel notlar önbelleğe de eklenir (bkz. generalNotesCache) — sidebar'da
+    // Kişisel Notlar'a geçilip geri dönüldüğünde room.html buradan yeniden
+    // çizer (kart DOM'dan silinmiş olsa bile veri kaybolmaz).
+    this.generalNotesCache.unshift(data);
+
     const containers = [
       document.getElementById('notesFeedContainer'),
       document.getElementById('sidebarNotesFeedContainer')
     ];
+
+    // Sadece notu YAZAN kişi silebilir (backend de aynısını doğruluyor, bkz.
+    // routes/meeting_notes.py delete_meeting_note) — id yoksa (ör. eski
+    // kayıtlar veya kayıt anında bir hata oluştuysa) silme butonu hiç
+    // gösterilmez, kırık bir buton olmasın diye.
+    const isOwnNote = data.note_id && data.sender_id && String(data.sender_id) === String(this.currentUser?.id);
 
     containers.forEach(container => {
       if (!container) return;
@@ -1958,6 +2161,7 @@ const WebRTC = {
 
       const card = document.createElement('div');
       card.className = 'note-card';
+      if (data.note_id) card.dataset.noteId = data.note_id;
       card.style.background = '#ffffff';
       card.style.border = '1px solid #cbd5e1';
       card.style.borderRadius = '10px';
@@ -1965,14 +2169,49 @@ const WebRTC = {
       card.style.marginBottom = '0.65rem';
       card.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)';
       card.innerHTML = `
-        <div style="font-size: 0.75rem; font-weight: 700; color: #4f46e5; margin-bottom: 0.3rem;">
-          <i class="fas fa-bullhorn"></i> ${data.author || 'Toplantı Kararı'} • ${data.created_at || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.3rem;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: #4f46e5;">
+            <i class="fas fa-bullhorn"></i> ${data.author || 'Toplantı Kararı'} • ${data.created_at || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </div>
+          ${isOwnNote ? `
+            <button onclick="WebRTC.deleteGeneralNote('${data.note_id}', this)" style="background: none; border: none; color: #ef4444; font-size: 0.85rem; cursor: pointer; flex-shrink: 0;" title="Notu Sil">&times;</button>
+          ` : ''}
         </div>
         <div class="note-card-body" style="font-size: 0.88rem; color: #0f172a; line-height: 1.5; white-space: pre-wrap;">${data.content}</div>
       `;
 
       container.prepend(card);
     });
+  },
+
+  // Genel (resmi) notu siler — sadece notu yazan kişi için (backend de aynı
+  // kısıtlamayı doğruluyor). Silinince diğer katılımcıların ekranından da
+  // kaybolması için bir 'note-deleted' sinyali de yayınlanıyor.
+  async deleteGeneralNote(noteId, buttonEl) {
+    if (!noteId) return;
+    if (!confirm('Bu notu silmek istediğinize emin misiniz?')) return;
+    try {
+      const res = await fetch(`/api/v1/notes/${noteId}`, {
+        method: 'DELETE',
+        headers: (typeof Auth !== 'undefined' && Auth.getAuthHeaders) ? Auth.getAuthHeaders() : {}
+      });
+      if (!res.ok && res.status !== 204) {
+        Notifications.show('Not silinemedi — yetkiniz olmayabilir.', 'danger', 'Hata');
+        return;
+      }
+    } catch (e) {
+      console.error('Genel not silinirken hata:', e);
+      Notifications.show('Not silinirken bir hata oluştu.', 'danger', 'Hata');
+      return;
+    }
+
+    this._removeGeneralNoteFromUI(noteId);
+    this.sendSignal({ type: 'note-deleted', note_id: noteId });
+  },
+
+  _removeGeneralNoteFromUI(noteId) {
+    this.generalNotesCache = this.generalNotesCache.filter(n => String(n.note_id) !== String(noteId));
+    document.querySelectorAll(`.note-card[data-note-id="${noteId}"]`).forEach(card => card.remove());
   },
 
   removePeer(remoteUserId) {
@@ -2289,13 +2528,245 @@ const WebRTC = {
     this.updateCameraUI();
   },
 
-  toggleCardContextMenu(event, id) {
-    if (event) event.stopPropagation();
-    const menu = document.getElementById(`cardContextMenu_${id}`);
-    if (!menu) return;
-    const isShown = (menu.style.display === 'flex');
-    document.querySelectorAll('.card-context-menu').forEach(m => m.style.display = 'none');
-    menu.style.display = isShown ? 'none' : 'flex';
+  // ==========================================================================
+  // ORTAK "FLOATING" BAĞLAM MENÜSÜ MOTORU (video kartı üç-nokta + katılımcı
+  // satırı üç-nokta menüleri buradan besleniyor)
+  //
+  // BUG FIX: Menüler eskiden ilgili video kartının/satırın İÇİNE (position:
+  // absolute, aynı `overflow: hidden` konteynerin çocuğu olarak — bkz.
+  // `.participant-tile { overflow: hidden }`) gömülüydü. Kart küçüldüğünde
+  // (çok katılımcılı ızgara) menü kısmen/tamamen KIRPILIP erişilemez hale
+  // geliyordu. Artık TEK bir motor, `document.body`'ye eklenmiş, `position:
+  // fixed`, ekran sınırlarını asla taşmayan bağımsız bir katman açıyor —
+  // hiçbir kartın/satırın clipping'inden etkilenmiyor, kart boyutundan
+  // bağımsız her koşulda erişilebilir.
+  // ==========================================================================
+  closeFloatingMenu() {
+    const existing = document.getElementById('wrtcFloatingMenu');
+    if (existing) existing.remove();
+    if (this._floatingMenuOutsideHandler) {
+      document.removeEventListener('click', this._floatingMenuOutsideHandler, true);
+      document.removeEventListener('keydown', this._floatingMenuEscHandler, true);
+      this._floatingMenuOutsideHandler = null;
+      this._floatingMenuEscHandler = null;
+    }
+  },
+
+  openFloatingMenu(anchorEvent, bodyHtml, options = {}) {
+    this.closeFloatingMenu();
+    if (!anchorEvent) return;
+    if (anchorEvent.stopPropagation) anchorEvent.stopPropagation();
+
+    const menu = document.createElement('div');
+    menu.id = 'wrtcFloatingMenu';
+    menu.className = 'wrtc-floating-menu';
+    menu.innerHTML = bodyHtml;
+    // BUG FIX: Menü her zaman document.body'ye ekleniyordu — ama bir kart
+    // tarayıcının native Fullscreen API'siyle "top layer"a alındığında, bu
+    // katmanın DIŞINDAKİ hiçbir şey (z-index ne olursa olsun, document.body
+    // dahil) o kartın ÜSTÜNDE görünemez; top-layer, normal CSS z-index
+    // yığılımından tamamen ayrı bir mekanizmadır. Bu yüzden fullscreen
+    // sırasında üç-nokta menüsü kartın ARKASINDA kalıyordu. Fullscreen
+    // aktifken menüyü document.body yerine BİZZAT fullscreen elementinin
+    // İÇİNE (onun bir alt öğesi olarak) ekliyoruz — bu durumda menü de
+    // top-layer'ın bir parçası olup kartın üstünde görünür.
+    const appendTarget = document.fullscreenElement || document.body;
+    appendTarget.appendChild(menu);
+
+    // Konum kaynağı: "usePointerPosition" ile TAM tıklanan nokta (katılımcı
+    // satırındaki üç-nokta için istenen davranış), aksi halde tetikleyen
+    // butonun/elementin sınırları (video kartındaki üç-nokta için).
+    const anchorEl = options.anchorEl || anchorEvent.currentTarget || anchorEvent.target;
+    const anchorRect = anchorEl?.getBoundingClientRect ? anchorEl.getBoundingClientRect() : null;
+
+    let x = options.usePointerPosition && typeof anchorEvent.clientX === 'number'
+      ? anchorEvent.clientX
+      : (anchorRect ? anchorRect.left : (anchorEvent.clientX || 0));
+    let y = options.usePointerPosition && typeof anchorEvent.clientY === 'number'
+      ? anchorEvent.clientY + 8
+      : (anchorRect ? anchorRect.bottom + 8 : (anchorEvent.clientY || 0));
+
+    const margin = 10;
+    const menuRect = menu.getBoundingClientRect();
+
+    // Sağ/alt kenardan taşmayı engelle
+    if (x + menuRect.width + margin > window.innerWidth) {
+      x = window.innerWidth - menuRect.width - margin;
+    }
+    if (x < margin) x = margin;
+
+    if (y + menuRect.height + margin > window.innerHeight) {
+      // Aşağıda yer yoksa tetikleyicinin ÜSTÜNE aç
+      const flippedY = (anchorRect ? anchorRect.top - menuRect.height - 8 : y - menuRect.height - 16);
+      y = flippedY > margin ? flippedY : (window.innerHeight - menuRect.height - margin);
+    }
+    if (y < margin) y = margin;
+
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    requestAnimationFrame(() => menu.classList.add('open'));
+
+    this._floatingMenuOutsideHandler = (e) => {
+      if (!menu.contains(e.target)) this.closeFloatingMenu();
+    };
+    this._floatingMenuEscHandler = (e) => {
+      if (e.key === 'Escape') this.closeFloatingMenu();
+    };
+    // Aynı tık olayının hemen kendisiyle menüyü kapatmaması için sonraki tick'te bağla
+    setTimeout(() => {
+      document.addEventListener('click', this._floatingMenuOutsideHandler, true);
+      document.addEventListener('keydown', this._floatingMenuEscHandler, true);
+    }, 0);
+  },
+
+  // Video kartı (yerel veya uzak katılımcı) üç-nokta menüsü
+  openTileMenu(event, id) {
+    const isLocal = (id === 'local');
+    const tileId = isLocal ? 'localParticipantTile' : `remoteTile_${id}`;
+    let html = '';
+
+    if (isLocal) {
+      html += `
+        <button class="menu-item" onclick="WebRTC.toggleCamera(); WebRTC.closeFloatingMenu();">
+          <i class="fas ${this.isCameraOff ? 'fa-video' : 'fa-video-slash'}" style="color:#5b5fc7;"></i> ${this.isCameraOff ? 'Kamerayı Aç' : 'Kamerayı Kapat'}
+        </button>
+        <button class="menu-item" onclick="WebRTC.toggleMic(); WebRTC.closeFloatingMenu();">
+          <i class="fas ${this.isMicMuted ? 'fa-microphone' : 'fa-microphone-slash'}" style="color:#10b981;"></i> ${this.isMicMuted ? 'Mikrofonu Aç' : 'Mikrofonu Kapat'}
+        </button>
+      `;
+    } else {
+      html += this._buildRemoteControlsMenuHtml(id);
+    }
+
+    // NOT: "Odakla / Büyüt" (pin) seçeneği kullanıcı isteğiyle kaldırıldı;
+    // togglePin() fonksiyonu başka bir yerden çağrılmıyorsa artık ölü koddur
+    // ama olası başka bir tetikleyici (ör. çift tıklama) bozulmasın diye
+    // dokunulmadı.
+    html += `
+      <div class="wrtc-menu-divider"></div>
+      <button class="menu-item" onclick="WebRTC.toggleFullscreen('${tileId}'); WebRTC.closeFloatingMenu();">
+        <i class="fas fa-expand-arrows-alt" style="color:#8b5cf6;"></i> Tam Ekran
+      </button>
+    `;
+
+    this.openFloatingMenu(event, html, { anchorEl: event?.currentTarget });
+  },
+
+  // Kişiler (sağ bar) satırındaki üç-nokta menüsü — BUG FIX: eskiden video
+  // kartının içindeki menüyü açmaya çalışıyordu (yanlış/bağlantısız konum);
+  // artık tıklanan NOKTANIN üzerinde, hangi kullanıcıya ait olduğunu net
+  // gösteren bir başlıkla açılıyor.
+  openParticipantMenu(event, id) {
+    const p = this.participantsMap[id] || {};
+    const isSelf = (String(id) === String(this.currentUser?.id));
+    const name = p.name || 'Katılımcı';
+
+    let html = `<div class="wrtc-menu-header">${name}${isSelf ? ' <span class="wrtc-menu-self-tag">(Siz)</span>' : ''}</div>`;
+
+    // NOT: Kullanıcı isteğiyle, kişinin KENDİ üç-noktasına basmasında ekstra
+    // açıklama metni gösterilmiyor — sadece başlıktaki kendi adı yeterli.
+    if (!isSelf) {
+      html += this._buildRemoteControlsMenuHtml(id);
+
+      if (this.isUserHost()) {
+        html += `
+          <div class="wrtc-menu-divider"></div>
+          <button class="menu-item danger-item" onclick="WebRTC.kickParticipant('${id}'); WebRTC.closeFloatingMenu();">
+            <i class="fas fa-user-minus"></i> Toplantıdan Çıkar
+          </button>
+        `;
+      }
+    }
+
+    this.openFloatingMenu(event, html, { usePointerPosition: true });
+  },
+
+  // Kart/satır üç-nokta menülerinde ORTAK olan "uzak katılımcı" bölümünü üretir:
+  // ses seviyesi/yerel sessize alma (sadece SİZDE değişir) + GÜVENLİK KRİTİK
+  // yönetici kontrolleri (mikrofon/kamerayı SADECE kapatabilir, asla açamaz —
+  // açma yönü kasıtlı olarak hiç var edilmedi; kamera/mikrofon her koşulda
+  // yalnızca kullanıcının kendi eylemiyle açılabilir).
+  _buildRemoteControlsMenuHtml(id) {
+    const p = this.participantsMap[id] || {};
+    const currentVol = Math.round((this.remoteVolumes[id] ?? 1.0) * 100);
+    const isLocalMuted = !!this.remoteMuted[id];
+
+    let html = `
+      <div class="wrtc-menu-label">SES AYARI (SADECE SİZDE DEĞİŞİR)</div>
+      <div class="wrtc-menu-volume-row">
+        <input type="range" min="0" max="100" value="${currentVol}" oninput="WebRTC.setRemoteVolume('${id}', this.value)">
+        <span id="cardVolumeLabel_${id}">${currentVol}%</span>
+      </div>
+      <button class="menu-item" onclick="WebRTC.toggleRemoteMute('${id}'); WebRTC.closeFloatingMenu();">
+        <i class="fas ${isLocalMuted ? 'fa-volume-up' : 'fa-volume-mute'}" style="color:#f43f5e;"></i> ${isLocalMuted ? 'Sesi Aç' : 'Sessize Al'}
+      </button>
+    `;
+
+    if (this.isUserHost()) {
+      html += `<div class="wrtc-menu-divider"></div><div class="wrtc-menu-label">YÖNETİCİ KONTROLÜ</div>`;
+      if (!p.isMicMuted) {
+        html += `
+          <button class="menu-item danger-item" onclick="WebRTC.requestMuteParticipant('${id}'); WebRTC.closeFloatingMenu();">
+            <i class="fas fa-microphone-slash"></i> Mikrofonunu Kapat
+          </button>`;
+      } else {
+        html += `<div class="wrtc-menu-note"><i class="fas fa-microphone-slash"></i> Mikrofonu zaten kapalı</div>`;
+      }
+      if (!p.isCameraOff) {
+        html += `
+          <button class="menu-item danger-item" onclick="WebRTC.requestCameraOffParticipant('${id}'); WebRTC.closeFloatingMenu();">
+            <i class="fas fa-video-slash"></i> Kamerasını Kapat
+          </button>`;
+      } else {
+        html += `<div class="wrtc-menu-note"><i class="fas fa-video-slash"></i> Kamerası zaten kapalı</div>`;
+      }
+    }
+
+    return html;
+  },
+
+  // GÜVENLİK KRİTİK: Yönetici/editör tarafında — komutu sunucuya gönderir.
+  // Sunucu (routes/signaling.py) gönderenin GERÇEKTEN ayrıcalıklı olduğunu
+  // yeniden doğrular; bu istemci kontrolü tek başına yeterli değildir.
+  requestMuteParticipant(targetId) {
+    if (!this.isUserHost() || !targetId) return;
+    this.sendSignal({ type: 'host-force-mic-mute', target_id: targetId });
+    if (typeof Notifications !== 'undefined') {
+      Notifications.show("Katılımcının mikrofonu kapatılıyor.", "info", "Yönetici Kontrolü");
+    }
+  },
+
+  requestCameraOffParticipant(targetId) {
+    if (!this.isUserHost() || !targetId) return;
+    this.sendSignal({ type: 'host-force-camera-off', target_id: targetId });
+    if (typeof Notifications !== 'undefined') {
+      Notifications.show("Katılımcının kamerası kapatılıyor.", "info", "Yönetici Kontrolü");
+    }
+  },
+
+  // GÜVENLİK KRİTİK: Alıcı (hedeflenen kullanıcı) tarafında — SADECE kapatabilir.
+  // Bilhassa: burada "açma" yönünde hiçbir kod yolu YOK ve asla eklenmemeli;
+  // kamera/mikrofonu açmak her koşulda yalnızca kullanıcının kendi eylemiyle
+  // (toggleMic/toggleCamera üzerinden, tarayıcının kendi izin diyaloğuyla)
+  // mümkün olmalıdır.
+  forceMuteMicRemote() {
+    if (this.isMicMuted) return; // zaten kapalı, tekrar işlem yok
+    this.isMicMuted = true;
+    if (this.localStream) this.localStream.getAudioTracks().forEach(t => t.enabled = false);
+    this.updateMicUI();
+    if (typeof Notifications !== 'undefined') {
+      Notifications.show("Mikrofonunuz toplantı yöneticisi tarafından kapatıldı.", "warning", "Mikrofon Kapatıldı");
+    }
+  },
+
+  forceCameraOffRemote() {
+    if (this.isCameraOff) return; // zaten kapalı, tekrar işlem yok
+    this.isCameraOff = true;
+    if (this.localStream) this.localStream.getVideoTracks().forEach(t => t.enabled = false);
+    this.updateCameraUI();
+    if (typeof Notifications !== 'undefined') {
+      Notifications.show("Kameranız toplantı yöneticisi tarafından kapatıldı.", "warning", "Kamera Kapatıldı");
+    }
   },
 
   toggleCardAudioPopover(remoteUserId) {
@@ -2377,6 +2848,32 @@ const WebRTC = {
     }
   },
 
+  // Kişiler barında gösterilecek 4 kademeli rol etiketi: Toplantı Sahibi >
+  // Misafir > Yönetici > Katılımcı. "Toplantı Sahibi" artık odanın o anki
+  // TEK "editörüne" (bkz. currentEditorId — sunucudan editor-changed/
+  // editor-assigned ile güncellenir) bağlı: gerçek toplantı sahibi çıkıp
+  // yerine bir yönetici geçtiğinde etiket OTOMATİK ona taşınır; sahip geri
+  // dönerse ünvanı geri alır. currentEditorId henüz gelmediyse (ör. oda
+  // durumu daha yeni yükleniyor) meetingInfo.created_by'a düşülür.
+  getParticipantRoleInfo(p) {
+    const pid = String(p.id || '');
+    const isOwner = this.currentEditorId
+      ? (pid === String(this.currentEditorId))
+      : Boolean(this.meetingInfo?.created_by && pid === String(this.meetingInfo.created_by));
+
+    if (isOwner) {
+      return { label: 'Toplantı Sahibi', color: '#5b5fc7' };
+    }
+    const role = String(p.role || '').toLowerCase();
+    if (role === 'guest') {
+      return { label: 'Misafir', color: '#d97706' };
+    }
+    if (['admin', 'manager', 'host', 'moderator', 'yönetici', 'yonetici', 'müdür', 'mudur'].includes(role)) {
+      return { label: 'Yönetici', color: '#0ea5e9' };
+    }
+    return { label: 'Katılımcı', color: '#616161' };
+  },
+
   renderParticipantsList(searchQuery = '') {
     const container = document.getElementById('participantsListContainer');
     if (!container) return;
@@ -2397,7 +2894,7 @@ const WebRTC = {
 
     container.innerHTML = filtered.map(p => {
       const isSelf = (String(p.id) === String(this.currentUser?.id));
-      const isHostUser = Boolean((this.meetingInfo?.created_by && p.id && String(p.id) === String(this.meetingInfo.created_by)) || p.role === 'host' || p.role === 'admin' || p.role === 'moderator');
+      const roleInfo = this.getParticipantRoleInfo(p);
       const isSpeaking = !!p.isSpeaking;
       const initials = (p.name?.[0] || 'K').toUpperCase();
       const isMicMuted = !!p.isMicMuted;
@@ -2413,14 +2910,16 @@ const WebRTC = {
             <div style="display: flex; flex-direction: column;">
               <span style="font-size: 0.85rem; font-weight: 800; color: #242424;">${p.name || 'Katılımcı'} ${isSelf ? '<small style="color: #616161;">(Siz)</small>' : ''}</span>
               ${isSpeaking ? `<span style="font-size: 0.7rem; font-weight: 700; color: #10b981;">Konuşuyor</span>` : `
-                <span style="font-size: 0.7rem; font-weight: 700; color: ${isHostUser ? '#5b5fc7' : '#616161'};">${isHostUser ? 'Toplantı Sahibi' : 'Katılımcı'}</span>
+                <span style="font-size: 0.7rem; font-weight: 700; color: ${roleInfo.color};">${roleInfo.label}</span>
               `}
             </div>
           </div>
           <div style="display: flex; align-items: center; gap: 0.65rem; font-size: 0.85rem;">
             <i class="fas ${isMicMuted ? 'fa-microphone-slash' : 'fa-microphone'}" style="color: ${isMicMuted ? '#f43f5e' : '#10b981'};"></i>
             <i class="fas ${isCameraOff ? 'fa-video-slash' : 'fa-video'}" style="color: ${isCameraOff ? '#f43f5e' : '#10b981'};"></i>
-            <i class="fas fa-ellipsis-v" onclick="WebRTC.toggleCardContextMenu(event, '${p.id}')" style="color: #94a3b8; cursor: pointer;" title="Seçenekler"></i>
+            <button type="button" onclick="WebRTC.openParticipantMenu(event, '${p.id}')" title="${p.name || 'Katılımcı'} için seçenekler" style="background: none; border: none; padding: 0.35rem; margin: -0.35rem; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #94a3b8; font-size: 0.85rem;">
+              <i class="fas fa-ellipsis-v"></i>
+            </button>
           </div>
         </div>
       `;
@@ -2445,14 +2944,69 @@ const WebRTC = {
     this.renderAllParticipantTiles();
   },
 
+  // BUG FIX: Video kartları, ızgara yerleşimi için `!important` bayraklı
+  // INLINE genişlik/yükseklik taşıyor (bkz. reflowVideoGrid ->
+  // `style.setProperty('width', ..., 'important')`). CSS kaskadında inline
+  // `!important` HER ZAMAN herhangi bir stylesheet kuralını (kendisi
+  // `!important` olsa bile) yener. Sonuç: tarayıcı Fullscreen API'siyle kart
+  // teknik olarak `document.fullscreenElement` oluyor (siyah "top layer"
+  // arka planı beliriyor) ama kartın kendi eski ızgara boyutu (ör. 320x180px)
+  // hâlâ geçerli olduğundan, ekranı kaplamak yerine karartılmış arka planın
+  // ortasında küçük/bozuk görünüyor — kullanıcıya "tam ekran çalışmıyor"
+  // gibi geliyor. Artık fullscreen'e girerken/çıkarken bu inline boyut
+  // JS'ten açıkça yönetiliyor.
   toggleFullscreen(elementId) {
     const el = document.getElementById(elementId);
     if (!el) return;
+
+    if (!this._fullscreenChangeBound) {
+      this._fullscreenChangeBound = true;
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement && this._lastFullscreenTileId) {
+          const prevTile = document.getElementById(this._lastFullscreenTileId);
+          if (prevTile) {
+            prevTile.style.removeProperty('width');
+            prevTile.style.removeProperty('height');
+          }
+          const wasScreenShare = (this._lastFullscreenTileId === 'screenShareArea');
+          this._lastFullscreenTileId = null;
+          // Esc tuşuyla veya tarayıcı UI'ından çıkılmış olabilir — ızgarayı
+          // gerçek hesaplanan boyutuna geri döndür.
+          this.reflowActiveLayout();
+          // Ekran paylaşımı kartıysa, çerçeveyi normal sahne boyutuna göre
+          // yeniden "contain" hesabıyla oturt (fullscreen'de tamamen farklı
+          // bir konteyner boyutu vardı).
+          if (wasScreenShare) this._fitScreenShareFrame();
+        }
+      });
+    }
+
     if (!document.fullscreenElement) {
+      this._lastFullscreenTileId = elementId;
+      const isScreenShare = (elementId === 'screenShareArea');
+      const applyFullscreenSize = () => {
+        el.style.setProperty('width', '100%', 'important');
+        el.style.setProperty('height', '100%', 'important');
+        // Ekran paylaşımı fullscreen'e girdiğinde konteyner artık tüm
+        // viewport — çerçeveyi bu YENİ boyuta göre yeniden "contain" hesabıyla
+        // oturt, aksi halde eski (küçük sahne) boyutunda kalıp fullscreen'de
+        // de gereksiz siyah alan bırakır.
+        if (isScreenShare) {
+          requestAnimationFrame(() => this._fitScreenShareFrame());
+        }
+      };
+      let request = null;
       if (el.requestFullscreen) {
-        el.requestFullscreen();
+        request = el.requestFullscreen();
       } else if (el.webkitRequestFullscreen) {
         el.webkitRequestFullscreen();
+      }
+      if (request && typeof request.then === 'function') {
+        request.then(applyFullscreenSize).catch(() => {
+          this._lastFullscreenTileId = null;
+        });
+      } else {
+        applyFullscreenSize();
       }
     } else {
       if (document.exitFullscreen) {
@@ -2993,6 +3547,7 @@ const WebRTC = {
     if (confirm("Toplantıyı herkes için sonlandırmak istediğinize emin misiniz?")) {
       this.sendSignal({ type: 'meeting-ended' });
       if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
+      this.clearChatHistory();
       const isGuestUser = this.currentUser?.role === 'guest';
       window.location.href = isGuestUser ? `/guest/${this.meetingCode}` : `/reports/${this.meetingInfo?.id || ''}`;
     }
@@ -3013,6 +3568,7 @@ const WebRTC = {
     this.sendSignal({ type: 'user-left', explicit: true });
     if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
     if (this.socket) { try { this.socket.close(); } catch (e) { } }
+    this.clearChatHistory();
     const isGuestUser = this.currentUser?.role === 'guest';
     window.location.href = isGuestUser ? `/guest/${this.meetingCode}` : '/';
   },

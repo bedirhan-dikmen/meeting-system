@@ -6,6 +6,7 @@ from typing import List
 from app.core.database import get_db
 from app.core.security import get_current_user, verify_meeting_access
 from app.models.user import User
+from app.models.meeting import Meeting
 from app.schemas.meeting_notes import MeetingNoteOut, MeetingNoteCreate
 from app.services import meeting_notes as notes_service
 
@@ -17,8 +18,28 @@ def create_meeting_note(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Toplantıya anlık not ekler."""
-    # Yetki kontrolü: Kullanıcı veya misafir bu toplantıya erişebilir mi?
+    """Toplantıya anlık not ekler.
+
+    BUG FIX: 'general' (genel/resmi karar) tipi notlar eskiden HERHANGİ bir
+    katılımcı tarafından oluşturulabiliyordu — sadece arayüzde (room.html)
+    gizli olan bir form vardı ama API'ye doğrudan istek atan biri yine de
+    genel not yayınlayabiliyordu. Artık sadece toplantıyı oluşturan (editör)
+    veya admin/manager rolündeki kullanıcılar genel not oluşturabilir;
+    diğerleri sadece görüntüleyebilir. 'personal' notlar (herkesin kendine
+    özel) bu kısıtlamadan etkilenmez.
+    """
+    if (payload.note_type or "general") == "general":
+        meeting = db.query(Meeting).filter(Meeting.id == payload.meeting_id).first()
+        if not meeting:
+            raise HTTPException(status_code=404, detail="Toplantı bulunamadı.")
+        is_creator = meeting.created_by == current_user.id
+        is_privileged_role = str(getattr(current_user, "role", "")).lower() in ("admin", "manager")
+        if not (is_creator or is_privileged_role):
+            raise HTTPException(
+                status_code=403,
+                detail="Genel not/karar yalnızca toplantı editörü veya yöneticiler tarafından oluşturulabilir."
+            )
+
     author_id = current_user.id
     return notes_service.create_note(db, note_data=payload, author_id=author_id)
 
