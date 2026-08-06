@@ -11,6 +11,13 @@ class SignalingManager:
         self.active_screen_shares: Dict[str, dict] = {}
         # Grace Period: F5 yenilemede kopma bildirimlerini geciktiren tasks: { "meeting_code:user_id": Task }
         self.pending_disconnects: Dict[str, asyncio.Task] = {}
+        # Ekran Paylaşımı Grace Period: Sunucu paylaşımı yapan kişinin bağlantısı
+        # koptuğunda (ör. F5) "screen-share-stop"u ANINDA yayınlamak yerine bu
+        # süre kadar bekler — kişi (aynı grace-period içinde) geri bağlanırsa
+        # paylaşım diğer katılımcıların ekranında hiç kesilmeden "aktif" kalır.
+        # { meeting_code: Task }
+        self.pending_screen_share_stops: Dict[str, asyncio.Task] = {}
+        self.SCREEN_SHARE_GRACE_SECONDS = 8.0
         # Lobi Onayı Almış Kullanıcılar: { meeting_code: set(user_id_str) }
         self.approved_lobby_users: Dict[str, set] = {}
         # Bekleyen Lobi İstençleri: { meeting_code: { user_id_str: user_info } }
@@ -197,6 +204,7 @@ class SignalingManager:
         if meeting_code not in self.active_rooms:
             self.active_rooms[meeting_code] = {}
 
+        old_entry = self.active_rooms[meeting_code].get(user_id)
         if user_id in self.active_rooms[meeting_code]:
             is_reconnect = True
 
@@ -213,18 +221,37 @@ class SignalingManager:
             "role": "user"
         }
 
+        # KRİTİK BUG FIX (yeni katılımcı kartı F5 olmadan görünmüyordu): Lobi
+        # akışında (prejoin.js/guest.html) kullanıcı ÖNCE in_lobby=true ile ayrı
+        # bir soket açıyor, onaylanınca o soketi kapatıp /room/{code}'a GERÇEK
+        # in_lobby=false soketiyle yeniden bağlanıyor. Bu ikinci bağlantı, aynı
+        # user_id hâlâ active_rooms'ta (eski lobi kaydı grace-period içinde
+        # henüz temizlenmediği için) bulunduğundan yukarıdaki genel kontrolce
+        # YANLIŞLIKLA "F5 yeniden bağlanması" sayılıyor ve bu yüzden aşağıdaki
+        # 'user-joined' yayını sessizce atlanıyordu — odadaki HERKES yeni
+        # katılımcıyı ancak kendi sayfalarını F5'leyip taze bir room-state
+        # çekince görebiliyordu. Eski kayıt LOBİDEYken yeni bağlantı GERÇEK
+        # odaya giriyorsa bu bir yeniden bağlanma DEĞİL, kullanıcının odaya
+        # İLK GERÇEK GİRİŞİdir — is_reconnect'i burada kesin olarak geçersiz kılıyoruz.
+        if isinstance(old_entry, dict):
+            old_info = old_entry.get("info") or {}
+            if old_info.get("in_lobby") and not participant_data.get("in_lobby"):
+                is_reconnect = False
+
         self.active_rooms[meeting_code][user_id] = {
             "websocket": websocket,
             "info": participant_data
         }
 
-        # Ekran paylaşımı yapan sunucu yeniden bağlanırsa (F5) veya koptuysa ekran paylaşımını kesin olarak sonlandır
-        if meeting_code in self.active_screen_shares and self.active_screen_shares[meeting_code].get("presenter_id") == user_id:
-            self.active_screen_shares.pop(meeting_code, None)
-            await self.broadcast_to_room(
-                meeting_code=meeting_code,
-                message={"type": "screen-share-stop"}
-            )
+        # Ekran paylaşımı yapan sunucu yeniden bağlandıysa (F5), askıda bekleyen
+        # paylaşım sonlandırma görevini iptal et. active_screen_shares KASITLI
+        # OLARAK silinMEZ — böylece diğer katılımcılara "screen-share-stop" hiç
+        # gitmez, oda hâlâ bu kişiyi sunucu olarak bilir. İstemci (webrtc.js) bunu
+        # room-state ile görüp kullanıcıya "devam etmek için ekranını tekrar seç"
+        # istemi gösterir — tarayıcı güvenliği yüzünden video akışının kendisi F5'te
+        # teknik olarak kaybolur, ama diğer katılımcıların ekranı ANİDEN KESİLMEZ.
+        if meeting_code in self.active_screen_shares and str(self.active_screen_shares[meeting_code].get("presenter_id")) == user_id:
+            self._cancel_pending_screen_share_stop(meeting_code)
 
         # EDİTÖR DEVRİ: Yeni katılımcı odaya eklendikten sonra tek editörü yeniden
         # hesapla — toplantı sahibi geri döndüyse ünvanını geri alır; hiç editör
@@ -272,18 +299,30 @@ class SignalingManager:
                     clean_update.update(nested)
                 self.active_rooms[meeting_code][user_id]["info"].update(clean_update)
 
-    async def disconnect(self, meeting_code: str, user_id: str, grace_period_seconds: float = 4.0):
+    async def disconnect(self, meeting_code: str, user_id: str, websocket: Optional[WebSocket] = None, grace_period_seconds: float = 4.0):
         """
         Kullanıcının bağlantısı koptuğunda Grace Period (4s) başlatır.
-        Eğer ekran paylaşan sunucu ise ekran paylaşımı anında sonlandırılır.
+        Eğer ekran paylaşan sunucu ise ekran paylaşımı kendi Grace Period'unu
+        (bkz. _schedule_screen_share_stop) başlatır — ANINDA kesilmez.
         """
-        # Ekran paylaşımı yapan kişi koptuysa/yenilediyse ekran paylaşımını anında temizle
+        # BUG FIX (hayalet kopma / sahte "user-left"): Bu websocket artık
+        # active_rooms'ta bu user_id için KAYITLI OLAN güncel bağlantı değilse
+        # (kullanıcı bu soket kapanmadan ÖNCE zaten yeni bir bağlantıyla —
+        # lobi->oda geçişi veya art arda hızlı F5 — yeniden bağlanmış demektir),
+        # burada hiçbir şey yapmadan çık. Aksi halde hâlâ bağlı olan kullanıcı
+        # için gereksiz bir grace-period/ekran-paylaşım-durdurma görevi
+        # planlanır ve bu görev süresi dolduğunda kullanıcıyı yanlışlıkla
+        # "ayrıldı" sayıp herkese sahte bir 'user-left' yayınlar.
+        if websocket is not None:
+            current_entry = self.active_rooms.get(meeting_code, {}).get(user_id)
+            if isinstance(current_entry, dict) and current_entry.get("websocket") is not websocket:
+                return
+
+        # Ekran paylaşımı yapan kişi koptuysa/yenilediyse (F5) paylaşımı ANINDA
+        # kesmek yerine kendi Grace Period'unu başlat — kısa süre içinde geri
+        # dönerse diğer katılımcılar hiçbir kesinti görmez.
         if meeting_code in self.active_screen_shares and str(self.active_screen_shares[meeting_code].get("presenter_id")) == user_id:
-            self.active_screen_shares.pop(meeting_code, None)
-            await self.broadcast_to_room(
-                meeting_code=meeting_code,
-                message={"type": "screen-share-stop"}
-            )
+            self._schedule_screen_share_stop(meeting_code, user_id)
 
         disc_key = f"{meeting_code}:{user_id}"
         if disc_key in self.pending_disconnects:
@@ -299,6 +338,36 @@ class SignalingManager:
             await self._finalize_disconnect(meeting_code, user_id)
 
         self.pending_disconnects[disc_key] = asyncio.create_task(_delayed_disconnect())
+
+    def _schedule_screen_share_stop(self, meeting_code: str, presenter_id: str):
+        """SCREEN_SHARE_GRACE_SECONDS kadar bekler; süre dolana kadar kimse
+        `_cancel_pending_screen_share_stop` çağırmazsa (ör. sunucu geri
+        bağlanıp paylaşımı sürdürmezse) paylaşımı kesin olarak sonlandırır."""
+        existing = self.pending_screen_share_stops.pop(meeting_code, None)
+        if existing:
+            existing.cancel()
+
+        async def _delayed_stop():
+            try:
+                await asyncio.sleep(self.SCREEN_SHARE_GRACE_SECONDS)
+            except asyncio.CancelledError:
+                return  # Sunucu geri bağlandı / paylaşım sürüyor
+
+            self.pending_screen_share_stops.pop(meeting_code, None)
+            current = self.active_screen_shares.get(meeting_code)
+            if current and str(current.get("presenter_id")) == str(presenter_id):
+                self.active_screen_shares.pop(meeting_code, None)
+                await self.broadcast_to_room(
+                    meeting_code=meeting_code,
+                    message={"type": "screen-share-stop"}
+                )
+
+        self.pending_screen_share_stops[meeting_code] = asyncio.create_task(_delayed_stop())
+
+    def _cancel_pending_screen_share_stop(self, meeting_code: str):
+        task = self.pending_screen_share_stops.pop(meeting_code, None)
+        if task:
+            task.cancel()
 
     async def _finalize_disconnect(self, meeting_code: str, user_id: str, explicit: bool = False):
         """Gerçekleşen kopmayı kesinleştirir ve odadakilere duyurur.
@@ -318,14 +387,30 @@ class SignalingManager:
                 popped = self.active_rooms[meeting_code].pop(user_id, None)
                 was_present = popped is not None
 
-                if meeting_code in self.active_screen_shares and self.active_screen_shares[meeting_code].get("presenter_id") == user_id:
+                # BUG FIX: Ekran paylaşımı burada eskiden HER çağrıda (doğal
+                # grace-period sonu DAHİL) sessizce (yayın yapmadan) siliniyordu.
+                # Bu, F5 sırasında disconnect()'in kendi başlattığı ekran paylaşımı
+                # Grace Period'unu (bkz. _schedule_screen_share_stop) es geçip
+                # active_screen_shares kaydını erken/sessizce yok ediyor, sonucunda
+                # "screen-share-stop" HİÇ yayınlanmıyor ve diğer katılımcıların
+                # ekranı kalıcı biçimde donuk/tutarsız kalıyordu. Artık SADECE
+                # bilinçli ayrılma/kick (explicit=True) durumunda burada ANINDA
+                # sonlandırılıp duyurulur; doğal (F5/ağ) kopmalarda bu tamamen
+                # bağımsız ekran-paylaşımı Grace Period'una bırakılır.
+                if explicit and meeting_code in self.active_screen_shares and str(self.active_screen_shares[meeting_code].get("presenter_id")) == user_id:
+                    self._cancel_pending_screen_share_stop(meeting_code)
                     self.active_screen_shares.pop(meeting_code, None)
+                    await self.broadcast_to_room(
+                        meeting_code=meeting_code,
+                        message={"type": "screen-share-stop"}
+                    )
         finally:
             if meeting_code in self.active_rooms:
                 if not self.active_rooms[meeting_code]:
                     self.active_rooms.pop(meeting_code, None)
                     self.active_screen_shares.pop(meeting_code, None)
                     self.room_editors.pop(meeting_code, None)
+                    self._cancel_pending_screen_share_stop(meeting_code)
                 elif was_present:
                     message: Dict[str, Any] = {
                         "type": "user-left",
@@ -366,7 +451,10 @@ class SignalingManager:
                     await ws.close(code=4003, reason=reason)
                 except Exception:
                     pass
-        await self._finalize_disconnect(meeting_code, target_id)
+        # explicit=True: kick edilen kişi kesinlikle geri dönmeyecek — hem
+        # "ayrıldı" bildirimi hem (varsa) ekran paylaşımı kesme anında ve
+        # duyurularak yapılmalı, 4-8sn'lik grace period'lar beklenmemeli.
+        await self._finalize_disconnect(meeting_code, target_id, explicit=True)
 
     async def send_personal_message(self, message: dict, websocket: WebSocket):
         """Sadece belirli bir bağlantıya doğrudan mesaj gönderir."""

@@ -678,13 +678,26 @@ const WebRTC = {
           // stream_id'yi kaydet ki ontrack'te isScreenStreamIdMatch çalışsın
           this.activeScreenStreamId = data.active_screen_share.stream_id || null;
           this.screenSharePresenterId = presenterId;
-          const presenterStream = this.peerStreams[presenterId] || (document.getElementById(`remoteVideo_${presenterId}`)?.srcObject) || null;
-          if (presenterStream) {
-            this.enableScreenShareLayout(data.active_screen_share.presenter_name || 'Katılımcı', presenterStream);
+
+          if (presenterId === String(this.currentUser?.id)) {
+            // BEN kendim (sayfa yenilemeden ÖNCE) ekran paylaşıyordum. Sunucu
+            // F5'te paylaşımı ANINDA kesmiyor (grace period), o yüzden odanın
+            // durumu hâlâ beni sunucu olarak gösteriyor — ama tarayıcı güvenliği
+            // yüzünden gerçek ekran akışı (kullanıcı jesti gerektirir) sayfa
+            // yenilemesi ile teknik olarak kayboldu ve otomatik geri getirilemez.
+            // Kendime bir peer bağlantısı da olmayacağından ontrack asla
+            // gelmeyecek — o yüzden burada beklemek yerine tek tıkla "sürdür"
+            // istemi gösteriyoruz.
+            this.promptResumeScreenShare();
           } else {
-            // Stream henüz hazır değil — UI'ı gizle ama presenter ID'yi koru
-            // ontrack gelince isScreenStreamIdMatch ile layout tekrar açılacak
-            this.disableScreenShareLayout(true); // preservePresenterId=true
+            const presenterStream = this.peerStreams[presenterId] || (document.getElementById(`remoteVideo_${presenterId}`)?.srcObject) || null;
+            if (presenterStream) {
+              this.enableScreenShareLayout(data.active_screen_share.presenter_name || 'Katılımcı', presenterStream);
+            } else {
+              // Stream henüz hazır değil — UI'ı gizle ama presenter ID'yi koru
+              // ontrack gelince isScreenStreamIdMatch ile layout tekrar açılacak
+              this.disableScreenShareLayout(true); // preservePresenterId=true
+            }
           }
         } else {
           this.activeScreenStreamId = null;
@@ -811,6 +824,22 @@ const WebRTC = {
             target_id: senderId,
             sdp: optAnswer
           });
+
+          // KÖK NEDEN DÜZELTMESİ (yeni katılımcı/az önce yenilemiş kullanıcı
+          // devam eden ekran paylaşımını göremiyor): Bu bağlantı YENİ kurulduysa
+          // (ör. az önce createPeerConnection'da isScreenSharing aktifken
+          // pc.addTrack(this.screenTrack) çağrıldıysa) ve gelen offer'da bu
+          // track için karşılık gelen bir m-line YOKTUysa (JSEP: answer,
+          // offer'daki m-line sayısını AŞAMAZ), o gönderici (sender) hâlâ hiçbir
+          // m-line'a eşlenmemiş (transceiver.mid === null) kalır ve ontrack asla
+          // tetiklenmez. Burada bunu tespit edip HEMEN bir takip (renegotiation)
+          // offer'ı göndeririz — ekstra track(ler) böylece ikinci bir O/A turuyla
+          // karşı tarafa ulaşır. (Daha önce bu senaryoyu ele alan hiçbir
+          // onnegotiationneeded/takip mekanizması yoktu.)
+          const hasUnnegotiatedTrack = pc.getTransceivers().some(t => t.sender && t.sender.track && !t.mid);
+          if (hasUnnegotiatedTrack) {
+            await this.renegotiatePeer(senderId);
+          }
         }
         break;
 
@@ -3391,6 +3420,63 @@ const WebRTC = {
       }, 250);
     }
     this.startScreenShareFlow();
+  },
+
+  // F5/sayfa yenilemesi öncesi ekran paylaşımı yapıyordum ve odaya geri
+  // döndüğümde sunucu paylaşımımı hâlâ "aktif" sayıyor (bkz. room-state
+  // handler) — ama gerçek video akışı tarayıcı güvenliği yüzünden kayboldu.
+  // Diğer katılımcılara paylaşımın kesildiğini GÖRMEDEN, tek tıkla sürdürmemi
+  // (ya da bilerek sonlandırmamı) sağlayan istem.
+  promptResumeScreenShare() {
+    if (this._resumeSharePromptShown) return;
+    this._resumeSharePromptShown = true;
+
+    let dialog = document.getElementById('resumeScreenShareToast');
+    if (!dialog) {
+      dialog = document.createElement('div');
+      dialog.id = 'resumeScreenShareToast';
+      dialog.className = 'host-approval-toast';
+      document.body.appendChild(dialog);
+    }
+    dialog.style.display = 'flex';
+    dialog.innerHTML = `
+      <div class="approval-icon">
+        <i class="fas fa-desktop"></i>
+      </div>
+      <div class="approval-body">
+        <strong>Ekran Paylaşımınız Sürüyor Görünüyor</strong>
+        <span>Sayfa yenilendiği için akış kesildi. Diğer katılımcılar hâlâ paylaşımınızı bekliyor — sürdürmek için ekranınızı tekrar seçin.</span>
+      </div>
+      <div class="approval-actions">
+        <button class="btn-approve" onclick="WebRTC.resumeScreenShareAfterReload()">
+          <i class="fas fa-desktop"></i> Paylaşımı Sürdür
+        </button>
+        <button class="btn-reject" onclick="WebRTC.dismissResumeScreenSharePrompt()">
+          <i class="fas fa-times"></i> Paylaşımı Sonlandır
+        </button>
+      </div>
+    `;
+  },
+
+  resumeScreenShareAfterReload() {
+    const dialog = document.getElementById('resumeScreenShareToast');
+    if (dialog) dialog.remove();
+    this._resumeSharePromptShown = false;
+    this.startScreenShareFlow();
+  },
+
+  dismissResumeScreenSharePrompt() {
+    const dialog = document.getElementById('resumeScreenShareToast');
+    if (dialog) dialog.remove();
+    this._resumeSharePromptShown = false;
+
+    if (this.screenSharePresenterId === String(this.currentUser?.id)) {
+      this.sendSignal({ type: 'screen-share-stop' });
+      this.screenSharePresenterId = null;
+      this.activeScreenStreamId = null;
+      this.disableScreenShareLayout();
+    }
+    sessionStorage.removeItem('meeting_screen_sharing');
   },
 
   showGuestApprovalDialog(guestId, guestName) {

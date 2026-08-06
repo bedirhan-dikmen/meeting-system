@@ -261,6 +261,9 @@ async def websocket_endpoint(
                     await signaling_manager.update_user_info(meeting_code, user_id_str, state_info_val)
 
             if data.get("type") == "screen-share-start":
+                # Askıda kalmış bir "F5 grace period" durdurma görevi varsa
+                # (ör. sunucu tam bu sırada geri dönüp paylaşımı sürdürdü) iptal et.
+                signaling_manager._cancel_pending_screen_share_stop(meeting_code)
                 signaling_manager.active_screen_shares[meeting_code] = {
                     "presenter_id": user_id_str,
                     "presenter_name": data.get("presenter_name", "Katılımcı"),
@@ -268,6 +271,7 @@ async def websocket_endpoint(
                 }
 
             if data.get("type") == "screen-share-stop":
+                signaling_manager._cancel_pending_screen_share_stop(meeting_code)
                 if meeting_code in signaling_manager.active_screen_shares:
                     del signaling_manager.active_screen_shares[meeting_code]
 
@@ -367,7 +371,7 @@ async def websocket_endpoint(
                 )
 
     except (WebSocketDisconnect, Exception):
-        await signaling_manager.disconnect(meeting_code=meeting_code, user_id=user_id_str)
+        await signaling_manager.disconnect(meeting_code=meeting_code, user_id=user_id_str, websocket=websocket)
         # Katılımcı Oturum Bitiş Logu
         if session_id:
             db_disc = SessionLocal()
