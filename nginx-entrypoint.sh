@@ -1,6 +1,6 @@
 #!/bin/sh
 
-CERT_DIR="/etc/letsencrypt/live/meeting.yebsoft.com"
+CERT_DIR="/etc/letsencrypt/live/meeting.bodor.com.tr"
 FALLBACK_DIR="/etc/nginx/ssl"
 
 mkdir -p "$CERT_DIR" "$FALLBACK_DIR" 2>/dev/null || true
@@ -12,7 +12,7 @@ if [ ! -f "$CERT_DIR/fullchain.pem" ] || [ ! -f "$CERT_DIR/privkey.pem" ]; then
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
         -keyout "$CERT_DIR/privkey.pem" \
         -out "$CERT_DIR/fullchain.pem" \
-        -subj "/CN=meeting.yebsoft.com" 2>/dev/null || true
+        -subj "/CN=meeting.bodor.com.tr" 2>/dev/null || true
         
     if [ ! -f "$CERT_DIR/fullchain.pem" ]; then
         openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
