@@ -188,6 +188,40 @@ class SignalingManager:
         })
         await self.kick_user(meeting_code, target_id, reason="Rejected")
 
+    def build_room_state_payload(self, meeting_code: str, for_user_id: Optional[str] = None) -> dict:
+        """Odanın o anki "authoritative" anlık görüntüsünü döner. connect()'in
+        ilk 'room-state' mesajı ile periyodik 'sync-request'in 'room-sync'
+        yanıtı AYNI kaynaktan beslensin diye tek yerde toplanmıştır.
+
+        `for_user_id`, bu görüntünün KİMİN için hazırlandığını belirtir:
+        kişi kendi "users" listesinde görünmez (connect()'in eski davranışıyla
+        birebir aynı — bir kullanıcı kendi kendine peer-connection kurmaya
+        çalışmasın) ve bekleyen lobi talepleri SADECE o an editör oysa dahil
+        edilir.
+
+        NOT: SADECE OKUR — _recompute_editor() burada ÇAĞRILMAZ. Editör
+        ataması join/leave olaylarına bağlı bir mutasyon işlemidir; salt-okunur
+        bir senkron isteğiyle (sync-request) tetiklenmemeli, sadece o an
+        geçerli olan değer okunmalıdır."""
+        room = self.active_rooms.get(meeting_code, {})
+        users = [
+            data["info"] for uid, data in room.items()
+            if isinstance(data, dict) and data.get("info")
+            and not data["info"].get("in_lobby")
+            and uid != for_user_id
+        ]
+        editor_id = self.get_editor(meeting_code)
+        pending_requests = (
+            list(self.pending_lobby_requests.get(meeting_code, {}).values())
+            if (for_user_id and for_user_id == editor_id) else []
+        )
+        return {
+            "users": users,
+            "pending_lobby_requests": pending_requests,
+            "active_screen_share": self.active_screen_shares.get(meeting_code),
+            "editor_id": editor_id,
+        }
+
     async def connect(self, meeting_code: str, user_id: str, websocket: WebSocket, user_info: Optional[dict] = None):
         """Kullaniciyi ilgili toplanti odasina baglar ve F5 yenilemelerini Grace Period ile sessizce yonetir."""
         await websocket.accept()
@@ -207,13 +241,6 @@ class SignalingManager:
         old_entry = self.active_rooms[meeting_code].get(user_id)
         if user_id in self.active_rooms[meeting_code]:
             is_reconnect = True
-
-        # Odadaki mevcut tum katilimcilarin detayli verisini topla
-        existing_participants = []
-        for uid, data in self.active_rooms[meeting_code].items():
-            if isinstance(data, dict) and data.get("info"):
-                if not data["info"].get("in_lobby"):
-                    existing_participants.append(data["info"])
 
         participant_data = user_info or {
             "id": user_id,
@@ -259,18 +286,11 @@ class SignalingManager:
         old_editor = self.room_editors.get(meeting_code)
         new_editor = self._recompute_editor(meeting_code)
 
-        # Bekleyen lobi talepleri artık SADECE o an editör olan kişiye gönderilir;
-        # diğer ayrıcalıklı kullanıcılar ekran kalabalığı yaşamasın diye boş görür.
-        pending_requests = list(self.pending_lobby_requests.get(meeting_code, {}).values()) if user_id == new_editor else []
-
-        # İstemciye odanın durumunu ilet
-        await websocket.send_text(json.dumps({
-            "type": "room-state",
-            "users": existing_participants,
-            "pending_lobby_requests": pending_requests,
-            "active_screen_share": self.active_screen_shares.get(meeting_code),
-            "editor_id": new_editor
-        }))
+        # İstemciye odanın durumunu ilet — connect()'in ilk 'room-state'i ile
+        # periyodik 'sync-request'in 'room-sync' yanıtı AYNI kaynaktan
+        # (build_room_state_payload) beslensin diye ortak bir metoda taşındı.
+        payload = self.build_room_state_payload(meeting_code, for_user_id=user_id)
+        await websocket.send_text(json.dumps({"type": "room-state", **payload}))
 
         await self._handle_editor_change(meeting_code, old_editor, new_editor, already_notified_user=user_id)
 

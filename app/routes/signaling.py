@@ -30,7 +30,19 @@ async def websocket_endpoint(
     meeting_code: str,
     token: Optional[str] = Query(None, description="Kayıtlı kullanıcı JWT token'ı"),
     guest_token: Optional[str] = Query(None, description="Misafir erişim token'ı"),
-    in_lobby: Optional[bool] = Query(False, description="Bekleme odası bayrağı")
+    in_lobby: Optional[bool] = Query(False, description="Bekleme odası bayrağı"),
+    # KRİTİK BUG FIX (kamerası açık gelen yeni katılımcı görünmüyordu): Bu iki
+    # alan eskiden yoktu, isMicMuted/isCameraOff aşağıda GERÇEK durumdan
+    # bağımsız olarak hep True ile sabitleniyordu. connect() bu yanlış değeri
+    # odaya İLK 'user-joined' yayınında gönderiyor, istemcinin az sonra
+    # gönderdiği düzeltme mesajı ise (bkz. aşağıdaki 'user-joined' bloğu)
+    # bilinçli olarak yeniden yayınlanmıyordu — düzeltme hiç ulaşmıyordu.
+    # Artık istemci (webrtc.js connectWebSocket) gerçek durumu bağlantı anında
+    # in_lobby ile aynı desende query param olarak taşıyor; İLK yayın baştan
+    # doğru oluyor. Varsayılan True: eski/cache'li bir istemci bu paramları
+    # hiç göndermezse en güvenli (mevcut) davranışa düşülür.
+    is_camera_off: Optional[bool] = Query(True, description="İstemcinin bağlanma anındaki gerçek kamera durumu"),
+    is_mic_muted: Optional[bool] = Query(True, description="İstemcinin bağlanma anındaki gerçek mikrofon durumu")
 ):
     # ── Auth: JWT veya guest_token ───────────────────────────────────────────
     is_guest = False
@@ -59,8 +71,8 @@ async def websocket_endpoint(
             "email": "",
             "role": "guest",
             "avatar_url": None,
-            "isMicMuted": True,
-            "isCameraOff": True,
+            "isMicMuted": bool(is_mic_muted),
+            "isCameraOff": bool(is_camera_off),
             "is_guest": True,
             "in_lobby": bool(in_lobby)
         }
@@ -87,8 +99,8 @@ async def websocket_endpoint(
             "email": current_user.email,
             "role": current_user.role,
             "avatar_url": getattr(current_user, 'avatar_url', None),
-            "isMicMuted": True,
-            "isCameraOff": True,
+            "isMicMuted": bool(is_mic_muted),
+            "isCameraOff": bool(is_camera_off),
             "in_lobby": bool(in_lobby)
         }
     else:
@@ -230,6 +242,20 @@ async def websocket_endpoint(
 
             target_id = data.get("target_id")
             data["sender_id"] = user_id_str
+
+            if data.get("type") == "sync-request":
+                # PERİYODİK KENDİ-KENDİNİ-ONARAN SENKRON: İstemci ~3sn'de bir bunu
+                # gönderir; sunucu SADECE bu soket üzerinden (broadcast değil,
+                # ping/pong ile aynı 1:1 desen) o anki "authoritative" oda
+                # durumunu geri döner. İstemci bunu yerel durumla KIYASLAYIP
+                # sadece gerçek farkları düzeltir — kaçırılan/az bulunur
+                # gerçek-zamanlı olayların (ör. ağ dalgalanması yüzünden
+                # kaçırılmış bir broadcast) kendiliğinden telafi edilmesini
+                # sağlar. connect()'in ilk 'room-state'i ile aynı kaynaktan
+                # (build_room_state_payload) beslenir.
+                payload = signaling_manager.build_room_state_payload(meeting_code, for_user_id=user_id_str)
+                await websocket.send_text(json.dumps({"type": "room-sync", **payload}))
+                continue
 
             if data.get("type") == "user-joined":
                 # BUG FIX: signaling_manager.connect() zaten katılımcı ilk bağlandığında

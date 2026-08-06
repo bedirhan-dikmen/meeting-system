@@ -221,12 +221,15 @@ const WebRTC = {
       });
     });
 
-    // Sayfa yenilendiğinde/kapatıldığında aktif ekran paylaşımını oda üyeleri için temizle
-    window.addEventListener('beforeunload', () => {
-      if (this.isScreenSharing) {
-        this.sendSignal({ type: 'screen-share-stop' });
-      }
-    });
+    // BUG FIX: Burada eskiden bir 'beforeunload' listener'ı vardı ve F5/sayfa
+    // yenilemesinde soket henüz açıkken senkron olarak 'screen-share-stop'
+    // gönderiyordu — bu, sunucu tarafındaki Grace Period mekanizmasını
+    // (bkz. SignalingManager._schedule_screen_share_stop) tamamen by-pass
+    // edip paylaşımı gereksiz yere anında kesiyordu. Artık F5/kopma/kapatma
+    // senaryolarının TÜMÜ, "geri döndü mü" ayrımını doğru yapan tek mekanizma
+    // olan sunucu tarafı Grace Period'a bırakılıyor. Bilinçli "Paylaşımı
+    // Durdur" tıklaması zaten stopScreenShare() üzerinden ayrı bir sinyal
+    // gönderdiği için bundan etkilenmiyor.
   },
 
   // Sidebar'daki "Genel Notlar" sub-tab'i, Kişisel Notlar'a geçilip geri
@@ -492,10 +495,19 @@ const WebRTC = {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     let wsUrl = '';
 
+    // KRİTİK BUG FIX (kamerası açık gelen yeni katılımcı görünmüyordu): Sunucu
+    // eskiden isCameraOff/isMicMuted'ı bağlantı anında hep True sabitliyordu;
+    // gerçek durum sadece daha sonra (sessizce yayınlanmayan) bir düzeltme
+    // mesajıyla geliyordu. Artık gerçek durum, in_lobby ile aynı yöntemle,
+    // bağlantı ANINDA query param olarak taşınıyor — joinRoom() bu noktaya
+    // gelene kadar (satır ~110-181) this.isCameraOff/this.isMicMuted zaten
+    // kesinleşmiş (gerçek getUserMedia track varlığına göre düzeltilmiş) durumda.
+    const camMicParams = `&is_camera_off=${this.isCameraOff}&is_mic_muted=${this.isMicMuted}`;
+
     if (guestToken) {
-      wsUrl = `${protocol}//${window.location.host}/api/v1/signaling/ws/${this.meetingCode}?guest_token=${encodeURIComponent(guestToken)}`;
+      wsUrl = `${protocol}//${window.location.host}/api/v1/signaling/ws/${this.meetingCode}?guest_token=${encodeURIComponent(guestToken)}${camMicParams}`;
     } else {
-      wsUrl = `${protocol}//${window.location.host}/api/v1/signaling/ws/${this.meetingCode}?token=${token}`;
+      wsUrl = `${protocol}//${window.location.host}/api/v1/signaling/ws/${this.meetingCode}?token=${token}${camMicParams}`;
     }
 
     this.socket = new WebSocket(wsUrl);
@@ -505,6 +517,7 @@ const WebRTC = {
       this.updateConnectionBadge('online', 'Bağlı');
       this.signalingReconnectAttempts = 0;
       this.startSignalingHeartbeat();
+      this.startRoomSync();
 
       const myName = `${this.currentUser?.first_name || ''} ${this.currentUser?.last_name || ''}`.trim() || 'Kullanıcı';
       const myRole = (this.isHost || this.isUserHost()) ? 'admin' : (this.currentUser?.role || 'user');
@@ -557,6 +570,7 @@ const WebRTC = {
     this.socket.onclose = (event) => {
       this.updateConnectionBadge('offline', 'Bağlantı Kesildi');
       this.stopSignalingHeartbeat();
+      this.stopRoomSync();
 
       if (event && (event.code === 1008 || event.code === 4001)) {
         if (window.Notifications) {
@@ -616,6 +630,31 @@ const WebRTC = {
     if (this.signalingHeartbeatTimer) {
       clearInterval(this.signalingHeartbeatTimer);
       this.signalingHeartbeatTimer = null;
+    }
+  },
+
+  // PERİYODİK KENDİ-KENDİNİ-ONARAN SENKRON: WebSocket gerçek-zamanlı olay
+  // sisteminin YERİNE değil, ÜZERİNE eklenen bir güvenlik ağı. Ağ
+  // dalgalanması/kaçırılan tek bir mesaj yüzünden bir katılımcının kartı,
+  // mikrofon/kamera durumu ya da ekran paylaşımı görünümü kalıcı olarak
+  // yanlış kalmasın diye sunucudaki "authoritative" durumu ~3sn'de bir
+  // sessizce sorar (bkz. handleSignal 'room-sync'). Sadece GERÇEK bir fark
+  // varsa DOM'a dokunulur — aksi halde hiçbir şey yapılmaz (titreme yok).
+  ROOM_SYNC_INTERVAL_MS: 3000,
+
+  startRoomSync() {
+    this.stopRoomSync();
+    this.roomSyncTimer = setInterval(() => {
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        this.sendSignal({ type: 'sync-request' });
+      }
+    }, this.ROOM_SYNC_INTERVAL_MS);
+  },
+
+  stopRoomSync() {
+    if (this.roomSyncTimer) {
+      clearInterval(this.roomSyncTimer);
+      this.roomSyncTimer = null;
     }
   },
 
@@ -704,6 +743,101 @@ const WebRTC = {
           this.disableScreenShareLayout();
         }
         break;
+
+      case 'room-sync': {
+        // PERİYODİK KENDİ-KENDİNİ-ONARAN SENKRON: Sunucunun ~3sn'de bir
+        // gönderdiği "authoritative" anlık görüntü. SADECE gerçek bir fark
+        // varsa DOM'a dokunulur — aksi halde hiçbir şey yapılmaz (normal
+        // akışta bu case'in DOM üzerinde hiçbir etkisi olmamalı).
+        if (!Array.isArray(data.users)) break;
+        const myId = String(this.currentUser?.id || '');
+
+        const authoritative = {};
+        data.users.forEach(u => { if (u && u.id) authoritative[String(u.id)] = u; });
+
+        // 1) Yerelde eksik olan katılımcıları ekle (bkz. 'user-joined' yukarıda)
+        for (const uid of Object.keys(authoritative)) {
+          if (uid === myId || this.participantsMap[uid]) continue;
+          const u = authoritative[uid];
+          this.participantsMap[uid] = {
+            id: uid,
+            name: u.name || 'Katılımcı',
+            avatar_url: u.avatar_url,
+            role: u.role || 'user',
+            isMicMuted: u.isMicMuted !== undefined ? Boolean(u.isMicMuted) : false,
+            isCameraOff: u.isCameraOff !== undefined ? Boolean(u.isCameraOff) : false
+          };
+          this.renderParticipantsList();
+          this.renderRemoteTile(uid);
+          this.reflowVideoGrid();
+          const isInitiator = Boolean(this.currentUser?.id && myId < uid);
+          await this.createPeerConnection(uid, isInitiator);
+          Notifications.show(`${u.name || 'Bir katılımcı'} odaya katıldı.`, 'info', 'Toplantı Katılımı');
+        }
+
+        // 2) Sunucunun artık bilmediği ama yerelde duran katılımcıları temizle
+        //    — hâlâ 4sn'lik ayrılma Grace Period'unda (pendingDepartures) olanları ATLA,
+        //    çift işlem/çift "ayrıldı" bildirimi olmasın.
+        for (const uid of Object.keys(this.participantsMap)) {
+          if (uid === myId || authoritative[uid] || this.pendingDepartures[uid]) continue;
+          const leftName = this.participantsMap[uid]?.name || 'Bir katılımcı';
+          delete this.participantsMap[uid];
+          delete this.peerStreams[uid];
+          this.removePeer(uid);
+          this.renderParticipantsList();
+          this.reflowVideoGrid();
+          Notifications.show(`${leftName} toplantıdan ayrıldı.`, 'info', 'Ayrıldı');
+        }
+
+        // 3) Ortak katılımcılarda mikrofon/kamera uyuşmazlığı varsa yamala
+        for (const uid of Object.keys(authoritative)) {
+          if (uid === myId) continue;
+          const local = this.participantsMap[uid];
+          if (!local) continue;
+          const u = authoritative[uid];
+          const nextMic = u.isMicMuted !== undefined ? Boolean(u.isMicMuted) : false;
+          const nextCam = u.isCameraOff !== undefined ? Boolean(u.isCameraOff) : false;
+          if (local.isMicMuted !== nextMic || local.isCameraOff !== nextCam) {
+            local.isMicMuted = nextMic;
+            local.isCameraOff = nextCam;
+            this.renderParticipantsList();
+            this.renderRemoteTile(uid);
+          }
+        }
+
+        // 4) Editör farkı
+        if (data.editor_id !== undefined && data.editor_id !== this.currentEditorId) {
+          this.currentEditorId = data.editor_id || null;
+          this.renderParticipantsList();
+        }
+
+        // 5) Ekran paylaşımı farkı — SADECE gerçek fark varsa dokun; aksi halde
+        //    enableScreenShareLayout gibi pahalı/yeniden-boyutlandıran
+        //    fonksiyonları her 3sn'de bir tetiklemekten kaçın.
+        const authPresenterId = data.active_screen_share?.presenter_id ? String(data.active_screen_share.presenter_id) : null;
+        const localPresenterId = this.screenSharePresenterId ? String(this.screenSharePresenterId) : null;
+        if (authPresenterId !== localPresenterId) {
+          if (authPresenterId) {
+            this.activeScreenStreamId = data.active_screen_share.stream_id || null;
+            this.screenSharePresenterId = authPresenterId;
+            if (authPresenterId === myId) {
+              this.promptResumeScreenShare();
+            } else {
+              const presenterStream = this.peerStreams[authPresenterId] || (document.getElementById(`remoteVideo_${authPresenterId}`)?.srcObject) || null;
+              if (presenterStream) {
+                this.enableScreenShareLayout(data.active_screen_share.presenter_name || 'Katılımcı', presenterStream);
+              } else {
+                this.disableScreenShareLayout(true);
+              }
+            }
+          } else {
+            this.activeScreenStreamId = null;
+            this.screenSharePresenterId = null;
+            this.disableScreenShareLayout();
+          }
+        }
+        break;
+      }
 
       case 'user-joined':
         if (data.user_info) {
