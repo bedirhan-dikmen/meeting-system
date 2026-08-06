@@ -1150,6 +1150,12 @@ const WebRTC = {
           Notifications.show("Toplantı yönetici tarafından sonlandırıldı.", "info", "Toplantı Sona Erdi");
         }
         this.clearChatHistory();
+        // BUG FIX: Misafirin geçmiş (artık geçersiz) guest_token'ı sessionStorage'da
+        // kalmaya devam ediyordu — aynı sekmede aynı toplantı linkine tekrar
+        // gelinirse eski/süresi dolmuş jetonla karışık bir duruma yol açabiliyordu.
+        // kicked/guest-rejected akışı zaten bunu temizliyordu, burada da tutarlı
+        // olsun diye ekleniyor.
+        if (isGuestUser) sessionStorage.removeItem('guest_token');
         setTimeout(() => {
           window.location.href = isGuestUser ? `/guest/${this.meetingCode}` : `/reports/${this.meetingInfo?.id || ''}`;
         }, 1200);
@@ -1656,10 +1662,19 @@ const WebRTC = {
     const presenterEl = document.getElementById('screenSharePresenterName');
     if (presenterEl) presenterEl.textContent = `${presenterName} ekranını paylaşıyor`;
 
+    const isPresenterView = String(this.screenSharePresenterId) === String(this.currentUser?.id);
+
     const stopBtn = document.getElementById('btnStopMyShareOverlay');
     if (stopBtn) {
-      stopBtn.style.display = (this.screenSharePresenterId === this.currentUser?.id) ? 'inline-block' : 'none';
+      stopBtn.style.display = isPresenterView ? 'inline-block' : 'none';
     }
+
+    // BUG FIX: Paylaşımı yapan kişi kendi ekranının (yerel önizlemesinin) sesini
+    // kontrol eden üç-nokta menüsünü hiç görmemeli — bu ANLAMSIZ (kendi sesini
+    // kendine sessize almak) ve karışıklığa yol açıyordu. İzleyen diğer
+    // katılımcılar için menü olduğu gibi (ses seviyesi/sessize alma) kalır.
+    const menuBtn = document.getElementById('btnScreenShareMenu');
+    if (menuBtn) menuBtn.style.display = isPresenterView ? 'none' : 'flex';
 
     const tile2 = document.getElementById('screenShareTile_2');
     if (secondStream && tile2) {
@@ -3822,6 +3837,9 @@ const WebRTC = {
     if (this.socket) { try { this.socket.close(); } catch (e) { } }
     this.clearChatHistory();
     const isGuestUser = this.currentUser?.role === 'guest';
+    // BUG FIX: kicked/guest-rejected/meeting-ended akışlarıyla tutarlı olsun diye
+    // — misafirin artık geçersiz guest_token'ı sistemde/sekmede açık kalmasın.
+    if (isGuestUser) sessionStorage.removeItem('guest_token');
     window.location.href = isGuestUser ? `/guest/${this.meetingCode}` : '/';
   },
 

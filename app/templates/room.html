@@ -273,10 +273,23 @@
                     <!-- TOP-RIGHT 3-DOTS CONTEXT MENU BUTTON: diğer video kartlarıyla
                          tutarlı olacak şekilde, eskiden her zaman açık duran hover
                          ikon satırı yerine tek bir üç-nokta butonu (bkz.
-                         WebRTC.openScreenShareMenu) — ses seviyesi/sessize alma ve
-                         tam ekran buradan yönetiliyor. -->
-                    <button class="tile-more-btn" onclick="WebRTC.openScreenShareMenu(event)" title="Ekran Paylaşımı Seçenekleri" style="position: absolute; top: 0.75rem; right: 0.75rem; z-index: 40;">
+                         WebRTC.openScreenShareMenu) — ses seviyesi/sessize alma
+                         buradan yönetiliyor.
+                         BUG FIX: Paylaşımı yapan kişi KENDİ ekranının sesini
+                         sessize alıp/seviyesini değiştirebiliyordu — bu onun
+                         KENDİ yerel önizleme videosu olduğundan hem anlamsız hem
+                         de karışıklığa yol açıyordu (bkz. WebRTC.enableScreenShareLayout
+                         — bu buton artık SADECE izleyicilere gösteriliyor,
+                         paylaşımı yapan kişide gizli). -->
+                    <button id="btnScreenShareMenu" class="tile-more-btn" onclick="WebRTC.openScreenShareMenu(event)" title="Ekran Paylaşımı Sesi" style="position: absolute; top: 0.75rem; right: 0.75rem; z-index: 40;">
                       <i class="fas fa-ellipsis-v" style="font-size: 0.8rem;"></i>
+                    </button>
+
+                    <!-- BOTTOM-RIGHT FULLSCREEN BUTTON: üç-nokta menüsünden bağımsız,
+                         herkese (paylaşımı yapan dahil) her zaman açık — hover'da
+                         belirir, tek tıkla ekranı tam ekrana alır. -->
+                    <button class="tile-more-btn" onclick="WebRTC.toggleFullscreen('screenShareArea')" title="Tam Ekran" style="position: absolute; bottom: 0.75rem; right: 0.75rem; z-index: 40;">
+                      <i class="fas fa-expand-arrows-alt" style="font-size: 0.8rem;"></i>
                     </button>
                   </div>
 
@@ -869,7 +882,7 @@
 
     <script src="/static/js/auth.js?v=1.0.7"></script>
     <script src="/static/js/notifications.js?v=1.0.7"></script>
-    <script src="/static/js/webrtc.js?v=1.0.10"></script>
+    <script src="/static/js/webrtc.js?v=1.0.11"></script>
     <script>
       const MEETING_CODE = "{{ meeting_code }}";
       let activeMainView = 'stage';
@@ -879,16 +892,24 @@
         renderPersonalNotesList();
         populateDevicePopovers();
 
+        // BUG FIX: Misafirin hiç JWT'si olmadığından bu istek onun için HER ZAMAN
+        // 401 ile başarısız oluyordu (konsolda gereksiz hata + boşa giden ağ
+        // isteği) — misafirin meeting bilgisi zaten WebRTC.joinRoom() içindeki
+        // guest-uyumlu /api/v1/guest/meeting/{code} çağrısıyla ayrıca alınıyor,
+        // burada tekrar (ve yanlış endpoint'le) denemeye hiç gerek yok.
+        const guestTokenParamEarly = new URLSearchParams(window.location.search).get('guest_token') || sessionStorage.getItem('guest_token');
         const user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
         let meetingInfo = null;
-        try {
-          const meetingRes = await Auth.fetchWithAuth(`/api/v1/meetings/code/${MEETING_CODE}`);
-          if (meetingRes.ok) {
-            meetingInfo = await meetingRes.json();
-            window.currentMeetingInfo = meetingInfo;
-            if (typeof WebRTC !== 'undefined') WebRTC.meetingInfo = meetingInfo;
-          }
-        } catch (e) { }
+        if (!guestTokenParamEarly) {
+          try {
+            const meetingRes = await Auth.fetchWithAuth(`/api/v1/meetings/code/${MEETING_CODE}`);
+            if (meetingRes.ok) {
+              meetingInfo = await meetingRes.json();
+              window.currentMeetingInfo = meetingInfo;
+              if (typeof WebRTC !== 'undefined') WebRTC.meetingInfo = meetingInfo;
+            }
+          } catch (e) { }
+        }
 
         // BUG FIX: Burada sadece 'admin' rolü kontrol ediliyordu; prejoin.js'teki
         // Katıl butonu 'manager' rolünü de doğrudan odaya (isAdmin=true) yönlendirdiği
@@ -905,7 +926,21 @@
         ));
         const isLobbyApproved = sessionStorage.getItem('meeting_lobby_approved_' + MEETING_CODE) === '1';
 
-        if (!isAdmin && !isHost && !isLobbyApproved) {
+        // KRİTİK BUG FIX: Misafirler hiç JWT'ye sahip olmadığından (Auth.getUser()
+        // her zaman null döner) bu kontrol onları her koşulda "onaysız" sayıp
+        // /prejoin/'e atıyordu. Ama /prejoin/ sayfası (prejoin.js) da JWT
+        // gerektirdiğinden, misafir orada Auth.requireAuth() tarafından /login'e
+        // sürükleniyordu — yani "toplantı sahibi onay verdi" dedikten HEMEN sonra
+        // misafir login ekranına düşüyordu, toplantıya asla giremiyordu. Misafirin
+        // varlığı guest_token sorgu parametresinden/sessionStorage'dan kesin olarak
+        // anlaşılır (guest.html, onay sonrası TAM OLARAK bu parametreyle buraya
+        // yönlendiriyor) — geçerliliği zaten WebRTC.joinRoom() içindeki
+        // fetchMeetingInfo()'nun /api/v1/guest/validate çağrısı ile ayrıca
+        // doğrulanıyor, burada sadece "bu bir misafir girişi, /prejoin'e atma" diye
+        // işaretlemek yeterli.
+        const isGuestEntry = Boolean(guestTokenParamEarly);
+
+        if (!isAdmin && !isHost && !isLobbyApproved && !isGuestEntry) {
           window.location.href = `/prejoin/${MEETING_CODE}`;
           return;
         }
