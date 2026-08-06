@@ -1676,6 +1676,10 @@ const WebRTC = {
     const menuBtn = document.getElementById('btnScreenShareMenu');
     if (menuBtn) menuBtn.style.display = isPresenterView ? 'none' : 'flex';
 
+    // Kartın hızlı ses aç/kapa butonu da aynı nedenle sadece izleyicilere gösterilir.
+    const audioToggleBtn = document.getElementById('btnScreenShareAudioToggle');
+    if (audioToggleBtn) audioToggleBtn.style.display = isPresenterView ? 'none' : 'flex';
+
     const tile2 = document.getElementById('screenShareTile_2');
     if (secondStream && tile2) {
       tile2.style.display = 'block';
@@ -1695,10 +1699,23 @@ const WebRTC = {
 
     const shareVid = document.getElementById('screenShareVideo');
     if (shareVid && stream) {
-      shareVid.muted = (this.screenSharePresenterId === this.currentUser?.id);
-      shareVid.srcObject = stream;
+      // BUG FIX: enableScreenShareLayout() paylaşım süresince (ör. periyodik
+      // senkron/yeniden render, kart yeniden boyutlandırma) birden çok kez
+      // tetiklenebiliyor. Öncesinde her çağrıda .muted KOŞULSUZ sıfırlanıyordu
+      // — izleyici karttaki yeni ses butonuyla veya menüden sessize alsa bile,
+      // bir sonraki tetiklemede sessiz durumu SESSİZCE geri açılıyordu (kullanıcı
+      // tercihini kaybettiği, "bug" gibi hissettiren bir davranış). Artık
+      // varsayılan sessiz/açık durumu SADECE gerçekten YENİ bir stream
+      // bağlandığında uygulanır; aynı stream için tekrar çağrılırsa izleyicinin
+      // az önce seçtiği ses tercihi olduğu gibi korunur.
+      const isNewStream = shareVid.srcObject !== stream;
+      if (isNewStream) {
+        shareVid.muted = (this.screenSharePresenterId === this.currentUser?.id);
+        shareVid.srcObject = stream;
+      }
       shareVid.play().catch(e => console.warn(e));
     }
+    this._syncScreenShareAudioUI();
   },
 
   toggleScreenShareAudio() {
@@ -1732,6 +1749,14 @@ const WebRTC = {
     }
     const label = document.getElementById('screenShareVolumeLabel');
     if (label) label.textContent = `${Math.round((shareVid.muted ? 0 : shareVid.volume) * 100)}%`;
+
+    // Karttaki hızlı ses aç/kapa butonunun ikonu da aynı gerçek duruma göre senkron kalsın.
+    const quickIcon = document.getElementById('btnScreenShareAudioToggleIcon');
+    if (quickIcon) {
+      quickIcon.className = shareVid.muted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+    }
+    const quickBtn = document.getElementById('btnScreenShareAudioToggle');
+    if (quickBtn) quickBtn.title = shareVid.muted ? 'Ekran Paylaşımı Sesini Aç' : 'Ekran Paylaşımı Sesini Kapat';
   },
 
   // Ekran paylaşımı kartının üç-nokta menüsü: ses seviyesi/sessize alma +

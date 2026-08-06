@@ -285,6 +285,16 @@
                       <i class="fas fa-ellipsis-v" style="font-size: 0.8rem;"></i>
                     </button>
 
+                    <!-- BOTTOM-RIGHT, TAM EKRANIN SOLUNDA HIZLI SES AÇ/KAPA BUTONU:
+                         üç-nokta menüsünü açmadan tek tıkla ekran paylaşımı sesini
+                         sessize alır/açar (ince ayar — ses seviyesi — hâlâ üç-nokta
+                         menüsünde). Paylaşımı yapan kişi kendi sesini kontrol
+                         edemeyeceğinden (bkz. yukarıdaki üç-nokta notu) bu da SADECE
+                         izleyicilere gösterilir (bkz. WebRTC.enableScreenShareLayout). -->
+                    <button id="btnScreenShareAudioToggle" class="tile-more-btn" onclick="WebRTC.toggleScreenShareAudio()" title="Ekran Paylaşımı Sesini Kapat/Aç" style="position: absolute; bottom: 0.75rem; right: 3.5rem; z-index: 40;">
+                      <i id="btnScreenShareAudioToggleIcon" class="fas fa-volume-up" style="font-size: 0.8rem;"></i>
+                    </button>
+
                     <!-- BOTTOM-RIGHT FULLSCREEN BUTTON: üç-nokta menüsünden bağımsız,
                          herkese (paylaşımı yapan dahil) her zaman açık — hover'da
                          belirir, tek tıkla ekranı tam ekrana alır. -->
@@ -882,7 +892,7 @@
 
     <script src="/static/js/auth.js?v=1.0.7"></script>
     <script src="/static/js/notifications.js?v=1.0.7"></script>
-    <script src="/static/js/webrtc.js?v=1.0.11"></script>
+    <script src="/static/js/webrtc.js?v=1.0.12"></script>
     <script>
       const MEETING_CODE = "{{ meeting_code }}";
       let activeMainView = 'stage';
