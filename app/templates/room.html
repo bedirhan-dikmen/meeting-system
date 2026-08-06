@@ -869,7 +869,7 @@
 
     <script src="/static/js/auth.js?v=1.0.7"></script>
     <script src="/static/js/notifications.js?v=1.0.7"></script>
-    <script src="/static/js/webrtc.js?v=1.0.9"></script>
+    <script src="/static/js/webrtc.js?v=1.0.10"></script>
     <script>
       const MEETING_CODE = "{{ meeting_code }}";
       let activeMainView = 'stage';
@@ -924,7 +924,8 @@
         );
 
         if (typeof WebRTC !== 'undefined' && WebRTC.isUserHost()) {
-          document.getElementById('btnEndMeetingHostPopover').style.display = 'flex';
+          const btnEndHost = document.getElementById('btnEndMeetingHostPopover');
+          if (btnEndHost) btnEndHost.style.display = 'flex';
         }
 
         // Close popovers on outside click

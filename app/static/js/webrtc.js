@@ -113,6 +113,7 @@ const WebRTC = {
     // Reset stale screen share state on join/refresh
     this.screenSharePresenterId = null;
     this.isScreenSharing = false;
+    this.screenStream = null;
     sessionStorage.removeItem('meeting_screen_sharing');
     this.disableScreenShareLayout();
 
@@ -931,7 +932,7 @@ const WebRTC = {
 
       case 'video-offer':
         if (senderId) {
-          const pc = await this.createPeerConnection(senderId, false);
+          let pc = await this.createPeerConnection(senderId, false);
 
           if (pc.signalingState !== 'stable') {
             const isPolite = Boolean(this.currentUser?.id && senderId && this.currentUser.id > senderId);
@@ -944,7 +945,26 @@ const WebRTC = {
             }
           }
 
-          await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+          } catch (sdpErr) {
+            // BUG FIX (2-kullanıcılı canlı testte yakalandı): Karşı taraf (sender)
+            // F5 yaptıysa/yeniden bağlandıysa, KENDİ RTCPeerConnection'ı sıfırdan
+            // kuruluyor (hiçbir eski müzakere geçmişi yok) — ama BİZİM tarafımızdaki
+            // eski peer bağlantısı henüz 'failed'/'disconnected' durumuna düşmediği
+            // için (ICE/DTLS kopma tespiti saniyeler sürebilir) createPeerConnection
+            // onu hâlâ canlı sanıp yeniden kullanıyordu. Karşı tarafın YENİ
+            // oturumunun offer'ı, eski oturumun m-line sırasıyla (ör. ekran
+            // paylaşımı ekleyen ara müzakereden dolayı) uyuşmadığından tarayıcı
+            // setRemoteDescription'ı "m-line sırası uyuşmuyor" hatasıyla reddediyor
+            // ve o kişiyle görüntü/ses KALICI olarak kopuk kalıyordu. Burada bunu
+            // doğrudan yakalayıp eski bağlantıyı zorla kapatıp SIFIRDAN kuruyoruz.
+            console.warn(`[WebRTC] Eski peer bağlantısı (${senderId}) yeni offer ile uyuşmadı, sıfırdan kuruluyor:`, sdpErr);
+            try { pc.close(); } catch (e) { }
+            delete this.peers[senderId];
+            pc = await this.createPeerConnection(senderId, false);
+            await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+          }
           await this.processPendingCandidates(senderId);
           const answer = await pc.createAnswer();
           const optAnswer = new RTCSessionDescription({
@@ -1319,7 +1339,14 @@ const WebRTC = {
     this.attachLocalTracksToPeer(pc);
 
     if (this.isScreenSharing && this.screenTrack) {
-      pc.addTrack(this.screenTrack);
+      if (this.screenStream) {
+        pc.addTrack(this.screenTrack, this.screenStream);
+      } else {
+        pc.addTrack(this.screenTrack);
+      }
+      if (this.screenAudioTrack && this.screenStream) {
+        try { pc.addTrack(this.screenAudioTrack, this.screenStream); } catch (e) { }
+      }
     }
 
     // Kamera kapalı veya medyası olmayan istemci için video transceiver ekle
@@ -1353,17 +1380,20 @@ const WebRTC = {
         const trackLabel = (event.track?.label || '').toLowerCase();
         const contentHint = (event.track?.contentHint || '').toLowerCase();
 
-        // Ekran paylaşımı tespiti — yalnızca kesin stream_id eşleşmesi veya label/streamId bazlı
-        // NOT: contentHint==='motion' ve (isPresenter && hasExistingWebcam) heuristikleri kaldırıldı;
-        // bunlar kamera akışlarını yanlışlıkla ekran paylaşımı olarak tanımlayabiliyordu.
+        // Ekran paylaşımı tespiti — yalnızca kesin stream_id eşleşmesi, label veya presenter stream uyuşması
         const isExplicitScreen = streamIdLower.includes('screen') || streamIdLower.includes('display') ||
           trackLabel.includes('screen') || trackLabel.includes('display') ||
           trackLabel.includes('window') || trackLabel.includes('monitor') ||
           trackLabel.includes('desktop') || trackLabel.includes('entire');
 
         const isScreenStreamIdMatch = Boolean(this.activeScreenStreamId && streamId === this.activeScreenStreamId);
+        const isPresenterScreen = Boolean(
+          this.screenSharePresenterId &&
+          String(remoteUserId) === String(this.screenSharePresenterId) &&
+          (isScreenStreamIdMatch || isExplicitScreen || (this.peerStreams[remoteUserId] && incomingStream !== this.peerStreams[remoteUserId]))
+        );
 
-        if (isScreenStreamIdMatch || isExplicitScreen) {
+        if (isPresenterScreen || isScreenStreamIdMatch || isExplicitScreen) {
           console.log(`[WebRTC] Doğrulanmış EKRAN PAYLAŞIM akışı bağlandı (${remoteUserId})`);
           this.peerScreenStreams[remoteUserId] = incomingStream;
 
@@ -3061,7 +3091,7 @@ const WebRTC = {
       const isSpeaking = !!p.isSpeaking;
       const initials = (p.name?.[0] || 'K').toUpperCase();
       const isMicMuted = !!p.isMicMuted;
-      const isCameraOff = (p.isCameraOff !== false);
+      const isCameraOff = Boolean(p.isCameraOff);
 
       return `
         <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.4rem; border-bottom: 1px solid #f3f2f8; transition: background 0.15s ease; border-radius: 8px;">
@@ -3388,6 +3418,7 @@ const WebRTC = {
 
       this.screenTrack = screenStream.getVideoTracks()[0];
       this.screenAudioTrack = screenStream.getAudioTracks()[0] || null;
+      this.screenStream = screenStream;
       if (!this.screenTrack) {
         throw new Error("Ekran video kanalı bulunamadı.");
       }
@@ -3676,6 +3707,7 @@ const WebRTC = {
       oldScreenAudioTrack.stop();
       this.screenAudioTrack = null;
     }
+    this.screenStream = null;
 
     for (const [remoteUserId, pc] of Object.entries(this.peers)) {
       const senders = pc.getSenders();
