@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.abspath('.'))
 
 from app.core.database import SessionLocal, engine, Base
+from app.core.config import settings
 from app.core.security import get_password_hash
 from app.models.department import Department
 from app.models.user import User
@@ -14,12 +15,18 @@ def seed_hierarchy():
     print("==================================================")
     print("   SEEDING HIERARCHICAL DATABASE (20 USERS)       ")
     print("==================================================")
-    
+
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
-    
+
     try:
-        default_hash = get_password_hash("1")
+        # GÜVENLİK FIX: Demo hesapların (admin@yebsoft.net dahil) şifresi eskiden
+        # sabit kodlanmış "1" idi -- her ortamda (canlı dahil) aynı ve canlıda
+        # doğrulanan çalışan bir admin giriş yolu haline geliyordu. Artık .env
+        # dosyasındaki SEED_DEFAULT_PASSWORD ile değiştirilebilir; hâlâ
+        # varsayılanda kalınmışsa (yalnızca yeni hesap oluştururken) uyarı basılır.
+        seed_password = settings.SEED_DEFAULT_PASSWORD
+        default_hash = get_password_hash(seed_password)
 
         # 1. DEPARTMANLARI OLUŞTUR / GÜNCELLE
         departments_data = [
@@ -251,7 +258,9 @@ def seed_hierarchy():
         db.commit()
         print(f"\n[+] BAŞARILI: {added_count} Yeni Kullanıcı Eklendi, {updated_count} Kullanıcı Güncellendi (şifreler korundu).")
         if added_count:
-            print(f"[+] Yeni Oluşturulan Kullanıcılar İçin Varsayılan Giriş Şifresi: '1'")
+            print(f"[+] Yeni Oluşturulan Kullanıcılar İçin Varsayılan Giriş Şifresi: '{seed_password}'")
+            if seed_password == "1":
+                print("[!] UYARI: SEED_DEFAULT_PASSWORD .env'de hâlâ varsayılan ('1'). CANLIYA ÇIKMADAN ÖNCE DEĞİŞTİRİN!")
         print("==================================================")
 
     except Exception as e:

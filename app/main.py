@@ -50,13 +50,12 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # CORS Ayarları
-origins = [
-    "http://localhost", 
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "http://localhost:3000",
-    "*"
-]
+# GÜVENLİK FIX: "*" ile allow_credentials=True birlikte kullanılıyordu; sunucu
+# canlıda test edildiğinde herhangi bir origin'i (ör. https://evil.example)
+# `Access-Control-Allow-Credentials: true` ile birebir yansıttığı doğrulandı.
+# Artık yalnızca settings.ALLOWED_ORIGINS (.env → ALLOWED_ORIGINS) içinde
+# tanımlı domainlere izin verilir.
+origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -142,11 +141,19 @@ def page_profile(request: Request):
 
 @app.get("/calendar", tags=["Frontend Sayfaları"])
 def page_calendar(request: Request):
-    return templates.TemplateResponse("calendar.html", {"request": request})
+    # V1 NOT: Takvim v1 kapsamı dışı bırakıldı (bkz. base.html navbar).
+    # Sadece linki gizlemek yetmez -- doğrudan URL ile erişimi de engelliyoruz.
+    # v2'de bu satırı kaldırıp templates.TemplateResponse çağrısına dönün.
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/")
 
 @app.get("/contacts", tags=["Frontend Sayfaları"])
 def page_contacts(request: Request):
-    return templates.TemplateResponse("contacts.html", {"request": request})
+    # V1 NOT: Kişiler v1 kapsamı dışı bırakıldı (bkz. base.html navbar).
+    # Sadece linki gizlemek yetmez -- doğrudan URL ile erişimi de engelliyoruz.
+    # v2'de bu satırı kaldırıp templates.TemplateResponse çağrısına dönün.
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/")
 
 @app.get("/api-status", tags=["Health Check"])
 def read_root():

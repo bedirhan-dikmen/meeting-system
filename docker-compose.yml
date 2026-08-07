@@ -45,6 +45,9 @@ services:
       - SECRET_KEY=yebsoft_super_secure_crypto_secret_key_2026_jwt
       - ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=1440
+      # GÜVENLİK: Canlıya çıkmadan önce bu ikisini MUTLAKA değiştirin.
+      - SEED_DEFAULT_PASSWORD=ChangeThisBeforeGoingLive_2026!
+      - ALLOWED_ORIGINS=https://meeting.bodor.com.tr
       - AVATAR_UPLOAD_DIR=app/static/avatars
       - DB_MAX_OVERFLOW=10
       - DB_POOL_RECYCLE=3600

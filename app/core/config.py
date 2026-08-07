@@ -24,6 +24,17 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 Gün (1440 Dakika)
 
+    # GÜVENLİK FIX: seed_hierarchy.py'nin başlangıçta oluşturduğu demo hesapların
+    # (admin@yebsoft.net dahil) hepsi eskiden sabit kodlanmış "1" şifresini
+    # kullanıyordu -- bu şifre her ortamda (canlı dahil) aynı kalıyordu. Artık
+    # .env üzerinden özelleştirilebilir; canlıya çıkmadan önce mutlaka değiştirin.
+    SEED_DEFAULT_PASSWORD: str = "1"
+
+    # GÜVENLİK FIX: CORS'ta "*" ile allow_credentials=True birlikte kullanılıyordu
+    # (herhangi bir origin'in kimlik bilgili istek atmasına izin veriyordu).
+    # Artık sadece burada (virgülle ayrılmış) tanımlı domainlere izin verilir.
+    ALLOWED_ORIGINS: str = "http://localhost:8000,http://127.0.0.1:8000,http://localhost:8001,http://127.0.0.1:8001"
+
     model_config = SettingsConfigDict(
         env_file=".env",            # Proje kök dizinindeki .env dosyasını okur
         env_file_encoding="utf-8",

@@ -139,7 +139,21 @@ async def websocket_endpoint(
     # kayıtlı kullanıcı, istemcinin ne gönderdiğinden bağımsız olarak sunucu
     # tarafında lobiye zorlanır — gerçek onay artık `approve_lobby_user()`
     # üzerinden editör/yönetici tarafından verilmeden odaya erişim yoktur.
-    if not is_guest and not user_info["is_privileged"]:
+    #
+    # GÜVENLİK FIX (Misafir Lobi Atlaması): Yukarıdaki zorunluluk `if not
+    # is_guest` koşuluyla SADECE kayıtlı kullanıcılara uygulanıyordu -- misafirler
+    # bu kontrolden tamamen muaftı. Teknik bilgisi olan bir misafir `in_lobby`
+    # sorgu parametresini silip/false göndererek, lobi AÇIK olan bir toplantıda
+    # dahi editör onayı beklemeden doğrudan odaya girebiliyordu. Artık misafirler
+    # için de aynı sunucu-taraflı zorunluluk uygulanıyor -- ama SADECE toplantının
+    # `lobby_enabled` ayarı açıksa (kapalıysa misafirler zaten onaysız serbest
+    # girebilmeli, bu mevcut ürün davranışı -- bkz. guest.html/schemas.py).
+    if user_info["is_privileged"]:
+        pass
+    elif is_guest:
+        if meeting.lobby_enabled and not signaling_manager.is_user_approved(meeting_code, user_id_str):
+            user_info["in_lobby"] = True
+    else:
         if not signaling_manager.is_user_approved(meeting_code, user_id_str):
             user_info["in_lobby"] = True
 
@@ -210,7 +224,14 @@ async def websocket_endpoint(
     # mesajı hiç göndermeyeceğinden, hiçbir editöre/yöneticiye görünmeden
     # sonsuza dek bağlı ama odaya alınmamış kalabiliyordu. Sunucu bu durumu
     # kendisi tespit ettiğinde isteği burada kendisi de kaydedip yayınlar.
-    if user_info.get("in_lobby") and not is_guest:
+    #
+    # GÜVENLİK FIX: `not is_guest` istisnası kaldırıldı -- artık yukarıdaki
+    # lobi zorunluluğu misafirlere de uygulandığından (lobby_enabled açıkken),
+    # normal guest.html akışını (adım 3'teki 'lobby-join-request') atlayıp
+    # guest_token ile doğrudan /room/'a bağlanan bir misafir de aynı şekilde
+    # editörün onay kuyruğuna düşer -- hem sessizce içeri sızamaz hem de
+    # sonsuza dek görünmez biçimde askıda kalmaz.
+    if user_info.get("in_lobby"):
         await signaling_manager.add_pending_lobby_request(
             meeting_code=meeting_code,
             user_id=user_id_str,
@@ -370,7 +391,21 @@ async def websocket_endpoint(
                 continue
 
             # Host toplantıyı bitirdiğinde DB güncellemesi
+            #
+            # GÜVENLİK FIX (Yetkisiz Toplantı Sonlandırma): Bu blok, host-kick/
+            # host-force-mic-mute gibi diğer yönetimsel komutların aksine hiç
+            # `is_privileged` kontrolünden geçmiyordu. Arayüzde misafirin/sıradan
+            # katılımcının "Toplantıyı Sonlandır" butonu olmasa da, WebSocket'e
+            # doğrudan {"type": "meeting-ended"} göndermek yeterliydi -- sunucu
+            # gönderenin kimliğine bakmadan toplantıyı DB'de "tamamlandı" yapıp
+            # (aşağıdaki genel broadcast_to_room'a düşerek) odadaki HERKESİ anında
+            # atıyordu. Artık host-kick ile birebir aynı desende, gönderenin o
+            # odada GERÇEKTEN ayrıcalıklı (editör/admin/manager) olduğu sunucu
+            # tarafında (istemcinin iddiasına değil, active_rooms kaydına
+            # bakılarak) doğrulanmadan bu komut hiçbir şekilde işlenmez.
             if data.get("type") == "meeting-ended":
+                if not signaling_manager.is_privileged(meeting_code, user_id_str):
+                    continue
                 db_end = SessionLocal()
                 try:
                     m_end = db_end.query(Meeting).filter(Meeting.meeting_code == meeting_code).first()
