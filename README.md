@@ -1,127 +1,122 @@
-# Yebsoft Kurumsal Görüntülü ve Sesli Toplantı Yönetim Sistemi 🚀
+# Kurumsal Görüntülü ve Sesli Toplantı Yönetim Sistemi
 
-Bu proje; **Python (FastAPI)**, **SQLAlchemy**, **WebRTC / LiveKit**, **Chart.js** ve modern **Jinja2 + Vanilla JS/CSS** teknolojileri kullanılarak geliştirilmiş, uçtan uca modern bir kurumsal görüntülü ve sesli toplantı yönetim platformudur.
+FastAPI + Jinja2/Vanilla JS + kendi WebRTC sinyalleşme katmanı ile geliştirilmiş, uçtan uca bir kurumsal toplantı platformu: planlı/anlık toplantılar, canlı görüntülü/sesli görüşme + ekran paylaşımı, misafir katılımı, toplantı notları/aksiyon kararları, resmi katılım raporları ve yönetici arşivi.
 
----
-
-## 📌 Proje Genel Bakış ve Projenin Gelişim Süreci
-
-Proje başlangıç seviyesindeki şablon yapısından alınıp; **gelişmiş kullanıcı arayüzü (UI/UX)**, **canlı WebRTC toplantı odası**, **katılımcı ve cihaz kontrolü (Pre-join)**, **interaktif gösterge paneli (Dashboard)**, **not ve aksiyon yönetimi** ile **detaylı analiz ve raporlama** modülleriyle eksiksiz bir kurumsal platforma dönüştürülmüştür.
+> **v1 — ilk teslim sürümü.** Bu sürüm etiketi: `v1.0.0`.
 
 ---
 
-## 🛠️ Yapılan Adımlar ve Değişiklikler (Adım Adım)
+## Mimari ve Teknoloji Yığını
 
-### 1. ⚙️ Bağımlılık ve Çevre Sorunlarının Çözülmesi
-- **Pydantic Uyumluluk Hatası Giderildi:** Python ortamındaki `pydantic` ve `pydantic-core` kütüphaneleri arasındaki `ImportError: cannot import name 'validate_core_schema' from 'pydantic_core'` uyumsuzluğu tespit edildi. Kütüphaneler en güncel stabil sürümlerine yükseltilerek FastAPI ile %100 uyumlu hale getirildi.
-- **Port ve Ağ Erişimi Optimizasyonu:** Windows ortamında port 8000 üzerindeki yetki ve kullanım çakışmaları tespit edilerek uygulama `http://127.0.0.1:8001` portuna yönlendirildi.
-- **Veritabanı Fallback Mekanizması:** `app/core/database.py` içerisinde PostgreSQL bağlantısı kurulamadığında sistemin kesintisiz çalışması için yerel SQLite (`meeting_system.db`) veritabanına otomatik ve güvenli geçiş mekanizması doğrulandı.
-- **Veritabanı Tohumlama (Seeding):** `seed.py` ve `user_seed.py` çalıştırılarak varsayılan **"Yönetim"** departmanı ve varsayılan **Yönetici (Admin)** hesabı veritabanına işlendi.
+| Katman | Teknoloji |
+|---|---|
+| Backend | FastAPI (Python), SQLAlchemy ORM, Pydantic Settings |
+| Veritabanı | PostgreSQL (Docker Compose ile) — bağlantı kurulamazsa yerel SQLite'a otomatik düşer |
+| Kimlik Doğrulama | JWT (kendi kullanıcı/parola tablosu, `localStorage` + cookie) |
+| Görüntülü/Sesli Görüşme | Tarayıcı native WebRTC API'leri + kendi WebSocket sinyalleşme sunucusu (`app/routes/signaling.py`) + **coturn** (STUN/TURN, medya geçişi için) |
+| Frontend | Sunucu taraflı Jinja2 şablonları + Vanilla JS/CSS (build adımı yok, framework yok) |
+| Reverse Proxy / SSL | nginx (HTTP→HTTPS, kendinden imzalı sertifika otomatik üretir; gerçek sertifika için certbot volume'ları hazır) |
 
----
-
-### 2. 🎨 Ön Yüz (Frontend) ve UI/UX Mimarisinin İhyası
-Tüm arayüzler modern dark mode/light mode estetiği, glassmorphism efektleri, yumuşak geçiş animasyonları ve responsive mobil uyumlu tasarımla baştan inşa edildi:
-
-* **Ana Düzen (`app/templates/base.html`):**
-  - Tüm sayfalar için ortak sidebar, üst bar, bildirim menüsü ve dinamik kullanıcı profil bilgisi entegre edildi.
-  - JWT token kontrolü ve yetkisiz erişimlerde otomatik oturum kapatma/yönlendirme yapısı eklendi.
-
-* **Giriş Sayfası (`app/templates/login.html` & `app/static/js/auth.js`):**
-  - Şık giriş formu, şifre görünürlüğü değiştirme (toggle), hata bildirim kartları ve `localStorage` JWT token saklama mantığı kuruldu.
-
-* **Gösterge Paneli - Dashboard (`app/templates/index.html` & `app/static/js/dashboard.js`):**
-  - **Özet Kartlar:** Toplam toplantı, aktif toplantı, yaklaşan toplantı ve toplam süre istatistikleri.
-  - **Grafik Entegrasyonu:** Chart.js kullanılarak haftalık ve aylık toplantı katılım/süre trendleri görselleştirildi.
-  - **Son Toplantılar Tablosu:** Yaklaşan ve tamamlanan toplantıların anlık durum kartları ve tek tıkla katılım butonları eklendi.
-
-* **Toplantı Yönetimi (`app/templates/meetings.html` & `app/static/js/meetings.js`):**
-  - Toplantı planlama modalı (Tarih, saat, süre, departman seçimi, katılımcı davetleri).
-  - Anlık toplantı başlatma (Instant meeting).
-  - Toplantı arama, filtreleme, bağlantı kopyalama ve paylaşma özellikleri.
-
-* **Canlı WebRTC / LiveKit Toplantı Odası (`app/templates/room.html` & `app/static/js/webrtc.js` & `prejoin.js`):**
-  - **Pre-join (Ön Katılım) Önizleme:** Oditoryuma girmeden önce kamera, mikrofon seçimi, ses seviyesi göstergesi (Audio meter) ve canlı video önizleme ekranı.
-  - **Canlı Video Grid Layout:** Aktif konuşmacı vurgulama (Active speaker detection indicator).
-  - **Medya Kontrolleri:** Mikrofon aç/kapat, kamera aç/kapat, ekran paylaşımı (`getDisplayMedia`), toplantıyı sonlandır.
-  - **Yan Paneller:** Canlı sohbet (Chat), Katılımcı listesi, Toplantı esnasında not alma ve aksiyon maddesi ekleme modalı.
-  - **Canlı Süre Sayacı ve Kayıt Durumu.**
-
-* **Detaylı Raporlama Sayfası (`app/templates/report.html` & `app/static/js/report.js`):**
-  - Toplantı katılım analitiği, katılımcı giriş/çıkış zaman çizelgesi.
-  - Toplantı esnasında alınan notlar ve tanımlanan aksiyon maddeleri listesi.
-  - Rapor dışa aktarma (PDF/Print) desteği.
+**Not:** Önceki bir sürümde LiveKit entegrasyonu planlanmıştı; mevcut kod tabanında kullanılmıyor (WebRTC sinyalleşmesi tamamen kendi altyapımızda). `requirements.txt`'te LiveKit bağımlılığı yok.
 
 ---
 
-### 3. ⚙️ Arka Yüz (Backend) ve API Katmanı
-- **`app/main.py`:** FastAPI yönlendirmeleri, CORS politikaları, statik dosya ve Jinja2 şablon sunumu yapılandırıldı.
-- **REST API Rotası Entegrasyonları (`app/routes/`):**
-  - `auth.py`: Giriş doğrulaması ve JWT token üretimi.
-  - `users.py`: Kullanıcı yönetimi ve profil sorguları.
-  - `meetings.py`: Toplantı oluşturma, güncelleme, silme ve listeleme.
-  - `dashboard.py`: Dashboard kartları ve grafikler için analitik veri uçları.
-  - `participants.py` & `participant_sessions.py`: Katılımcı durumları ve oturum sürelerinin takibi.
-  - `meeting_notes.py` & `meeting_actions.py`: Not ve aksiyon maddeleri yönetimi.
-  - `signaling.py`: WebRTC sinyalleşme ve LiveKit erişim token üretimi.
+## Hızlı Başlangıç (Docker Compose — önerilen/gerçek deploy yolu)
+
+```bash
+# 1) Ortam dosyanızı oluşturun ve KENDİ değerlerinizle doldurun
+cp .env.example .env
+# .env içindeki DOMAIN, POSTGRES_*, SECRET_KEY, ALLOWED_ORIGINS değerlerini
+# mutlaka kendi ortamınıza göre düzenleyin (aşağıdaki "Kendi Sunucunuzda
+# Devreye Alma" bölümüne bakın).
+
+# 2) Servisleri ayağa kaldırın (Postgres + API + coturn + nginx)
+docker compose up -d --build
+
+# 3) İlk admin hesabınızı oluşturun (veritabanı taze/boş başlar — bkz. aşağı)
+docker compose exec web python scripts/create_admin.py \
+  --email admin@sirketiniz.com --password GucluBirSifre123! \
+  --first-name Ad --last-name Soyad
+```
+
+Tarayıcıda:
+- Uygulama: `http://localhost:8090` (veya nginx'i 443'e bağladıysanız `https://DOMAIN`)
+- API dokümantasyonu (Swagger): `http://localhost:8090/docs`
+
+Servisler: `db` (Postgres), `web` (FastAPI, canlı reload açık), `coturn` (WebRTC medya geçişi), `nginx` (reverse proxy + SSL). CasaOS gibi bir panelden tanınabilmesi için `docker-compose.yml`'de bir `x-casaos:` bloğu da var (düz `docker compose` kullanımını etkilemez).
+
+### Kod değişikliği yaptıktan sonra (statik dosyalar/şablonlar)
+
+`web` servisi `--reload` ile çalıştığı ve `./app` klasörü canlı mount edildiği için Python değişiklikleri otomatik yansır. JS/CSS/HTML şablon değişiklikleri için de aynı mount sayesinde yeniden başlatmaya bile gerek yoktur; emin olmak isterseniz:
+
+```bash
+docker compose restart web
+```
+
+Dockerfile'ı değiştirdiyseniz veya `requirements.txt`'e bağımlılık eklediyseniz image'ı yeniden build edin: `docker compose up -d --build web`.
 
 ---
 
-## 📦 Kullanılan Kütüphaneler ve Teknolojiler
+## Kendi Sunucunuzda Devreye Alma (proje müdürü / farklı bir ortam için)
 
-### Backend (Python):
-* **FastAPI (v0.111.0):** Yüksek performanslı asenkron REST API sunucusu.
-* **Uvicorn (v0.30.1):** ASGI sunucusu.
-* **SQLAlchemy (v2.0.31):** ORM veritabanı yönetim katmanı.
-* **Pydantic (v2.13.4) & Pydantic-Settings:** Veri doğrulama ve çevre değişkenleri yönetimi.
-* **PyJWT & Passlib / Bcrypt:** Güvenli parola hashleme ve JWT token kimlik doğrulama.
-* **Jinja2 (v3.1.6):** Sunucu taraflı HTML şablon motoru.
-* **LiveKit API (v1.2.0):** Görüntülü ve sesli WebRTC medyası için sinyalleşme entegrasyonu.
+Bu repo'yu klonlayıp **hiçbir kod dosyasını değiştirmeden**, sadece `.env` dosyanızı doldurarak kendi sunucunuza deploy edebilirsiniz:
 
-### Frontend:
-* **HTML5 / CSS3 (Vanilla CSS + Modern Design Tokens):** Dark mode, Glassmorphism.
-* **JavaScript (ES6 Modules):** WebRTC API (`getUserMedia`, `getDisplayMedia`), Fetch API, LocalStorage.
-* **Chart.js:** İnteraktif gösterge paneli grafikleri.
-* **FontAwesome / Lucide Icons:** Modern ikon setleri.
+1. `cp .env.example .env` — dosyanın içindeki her satırı (özellikle aşağıdakileri) kendi bilgilerinizle doldurun:
+   - `DOMAIN` — kendi domain'iniz (yoksa `localhost` bırakabilirsiniz).
+   - `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` — kendi veritabanı kimlik bilgileriniz.
+   - `SECRET_KEY` — rastgele, güçlü, kimseyle paylaşmadığınız bir değer (`python -c "import secrets; print(secrets.token_urlsafe(48))"`).
+   - `ALLOWED_ORIGINS` — sadece gerçek domain'iniz (asla `*` kullanmayın).
+   - `SEED_DEMO_DATA` — **`false` bırakın** (varsayılan). `true` yaparsanız sistem 20 sahte demo kullanıcı ekler; gerçek kullanıcılarınızı bağlayacaksanız buna gerek yok.
+2. `docker compose up -d --build`
+3. İlk admin hesabınızı oluşturun (yukarıdaki komut) — bundan sonra diğer tüm kullanıcıları **uygulama içinden** (admin panelinden / `POST /api/v1/users/`) admin hesabınızla ekleyebilirsiniz. Genel/herkese açık bir "kayıt ol" ekranı yok — kullanıcılar bir admin tarafından eklenir.
+4. WebRTC (görüntülü görüşme) için `coturn` konteynerinin TURN kimlik bilgisi (`TURN_USERNAME`/`TURN_CREDENTIAL`) ile `app/static/js/webrtc.js` içindeki `getIceServers()` fonksiyonunda sabit kodlanmış aynı iki değer **birebir eşleşmeli** (istemci tarafı statik JS dosyaları `.env`'i okuyamaz). Varsayılan değerleri değiştirmediyseniz bir şey yapmanıza gerek yok; değiştirdiyseniz o dosyadaki iki satırı da güncelleyin.
+5. Gerçek bir SSL sertifikanız varsa `certbot_certs/` volume'üne yerleştirin (yoksa nginx kendinden imzalı bir sertifika üretip HTTPS'i yine çalıştırır, tarayıcı sadece uyarı gösterir).
 
----
+### Şema/migration hakkında
 
-## 🚀 Projeyi Çalıştırma Adımları
-
-1. **Bağımlılıkların Yüklenmesi:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Veritabanının Tohumlanması (Seed):**
-   ```bash
-   python seed.py
-   python user_seed.py
-   ```
-
-3. **Uygulama Sunucusunun Başlatılması:**
-   ```bash
-   python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
-   ```
-
-4. **Tarayıcıda Erişilmesi:**
-   - **Giriş Sayfası:** `http://127.0.0.1:8001/login`
-   - **Gösterge Paneli:** `http://127.0.0.1:8001/`
-   - **API Dokümantasyonu (Swagger):** `http://127.0.0.1:8001/docs`
+Uygulama açılışta tabloları kendisi oluşturur (`Base.metadata.create_all`) ve modele sonradan eklenen sütunları da otomatik olarak mevcut tablolara ekler (`app/core/init_db.py` → `auto_migrate_missing_columns`) — **elle bir migration komutu çalıştırmanız gerekmez.** `alembic/` dizini erken dönemden kalma migration dosyaları içerir ama şu an deploy akışının bir parçası değildir (referans amaçlı arşiv).
 
 ---
 
-## 📊 Aktif ve Pasif Yapılan Özellik Özeti
+## Proje Yapısı
 
-| Özellik | Durum | Açıklama |
-| :--- | :---: | :--- |
-| **JWT Kimlik Doğrulama** | ✅ Aktif | Oturum yönetimi `localStorage` ile güvenli şekilde yapılıyor. |
-| **SQLite Veritabanı Fallback** | ✅ Aktif | PostgreSQL yoksa otomatik olarak `meeting_system.db` kullanılıyor. |
-| **Pre-join Cihaz Testi** | ✅ Aktif | Kamera/Mikrofon seçimi ve canlı ses seviyesi ölçümü yapılıyor. |
-| **WebRTC Media & Screen Share** | ✅ Aktif | Ekran paylaşımı, mikrofon ve kamera geçişleri aktif. |
-| **Canlı Sohbet & Not Alma** | ✅ Aktif | Odada anlık mesajlaşma ve not/aksiyon kaydı aktif. |
-| **Chart.js İstatistikler** | ✅ Aktif | Dashboard üzerinde canlı metrik grafikleri sunuluyor. |
-| **PostgreSQL Veritabanı** | ⏸️ Opsiyonel (Pasif) | Canlı ortama geçildiğinde `.env` dosyasından aktifleştirilebilir. |
+```
+app/
+  core/       # Ayarlar (.env okuma), veritabanı bağlantısı, güvenlik/JWT, ilk kurulum
+  models/     # SQLAlchemy modelleri
+  schemas/    # Pydantic şemaları (istek/yanıt doğrulama)
+  routes/     # API uç noktaları (/api/v1/...)
+  services/   # İş mantığı katmanı
+  templates/  # Jinja2 sayfaları (dashboard, toplantılar, oda, misafir girişi, rapor...)
+  static/     # CSS/JS (framework yok, doğrudan tarayıcıya sunulur)
+scripts/      # Uygulamanın çalışma zamanıyla ilgisi olmayan tek seferlik/yönetici araçları (bkz. scripts/README.md)
+seed_hierarchy.py   # SEED_DEMO_DATA=true ise açılışta çalışan demo veri seed'i
+docker-compose.yml  # db + web + coturn + nginx
+nginx.conf.template  # DOMAIN'e göre açılışta işlenir (bkz. nginx-entrypoint.sh)
+```
 
 ---
-*Yebsoft Görüntülü ve Sesli Toplantı Yönetim Sistemi - 2026*
+
+## Ana Özellikler
+
+- Planlı / anlık toplantı oluşturma, düzenleme, iptal, kalıcı silme; günlük "Tamamlanan"/"İptal Edilenler" görünümleri
+- Canlı toplantı odası: video ızgarası, mikrofon/kamera kontrolü, ekran paylaşımı (izleyiciye özel ses seviyesi kontrolü dahil), sohbet, katılımcı listesi, bekleme odası (lobi) onayı
+- Misafir (hesapsız) katılım akışı — davet linki + oda anahtarı
+- Toplantı içi not alma (genel karar + kişisel özel not) ve aksiyon kararı takibi
+- Sona ermiş/iptal edilmiş bir toplantıya geri dönüp düzenleme yapılamaz (sunucu tarafında kilitli)
+- Resmi katılım & tutanak raporu (yazdırma/PDF, kişisel notlar isteğe bağlı dahil edilir)
+- Rol tabanlı yetkilendirme (admin/manager/host/kullanıcı), bildirim sistemi
+- Tüm sayfalar mobil uyumlu (responsive)
+
+---
+
+## Geliştirme (Docker'sız, yerel)
+
+```bash
+pip install -r requirements.txt
+# .env dosyanızda DATABASE_URL'in yerel bir Postgres'e (ya da SQLite fallback'e) işaret ettiğinden emin olun
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
+```
+
+---
+*Kurumsal Toplantı Yönetim Sistemi*

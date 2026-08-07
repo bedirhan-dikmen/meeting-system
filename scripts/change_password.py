@@ -1,3 +1,8 @@
+# DURUM: Manuel yönetici aracı, hâlâ kullanışlı (bir kullanıcının şifresini
+# API/UI olmadan doğrudan DB'de sıfırlamak için). DİKKAT: PG_URL aşağıda bu
+# geliştirme makinesine özel bağlantı bilgileriyle sabit kodlanmış — başka bir
+# ortamda kullanmadan önce mutlaka kendi DATABASE_URL'inizle güncelleyin
+# (bkz. .env / docker-compose.yml'deki POSTGRES_* değerleri).
 import sys
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

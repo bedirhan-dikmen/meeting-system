@@ -1,3 +1,9 @@
+# DURUM: Tek seferlik geçiş aracı. Bu projenin geliştirme sürecinde yerel
+# SQLite'tan (meeting_system.db) Postgres'e geçerken bir kez kullanıldı. Yeni
+# bir kurulumda (boş/taze bir Postgres ile başlıyorsanız) buna GEREK YOK —
+# uygulama zaten ilk açılışta tabloları kendisi oluşturuyor (bkz.
+# app/main.py → Base.metadata.create_all). Sadece elinizde gerçekten taşınması
+# gereken eski bir SQLite veritabanı varsa referans olarak kullanın.
 import sys
 import logging
 import uuid

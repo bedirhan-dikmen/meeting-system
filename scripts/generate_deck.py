@@ -1,3 +1,7 @@
+# DURUM: Uygulamayla hiçbir çalışma zamanı ilişkisi yok — sunum/tanıtım
+# amaçlı bir PowerPoint dosyası üreten yardımcı script (python-pptx
+# gerektirir, requirements.txt'te DEĞİL, elle `pip install python-pptx`
+# gerekir). Deploy/kurulum için gerekli değildir.
 import os
 import sys
 from pptx import Presentation

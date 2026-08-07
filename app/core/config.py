@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     # .env üzerinden özelleştirilebilir; canlıya çıkmadan önce mutlaka değiştirin.
     SEED_DEFAULT_PASSWORD: str = "1"
 
+    # V1 TESLİM FIX: init_db() eskiden HER başlangıçta koşulsuz olarak 20 sahte
+    # demo kullanıcı (Yebsoft marka/departman isimleriyle) oluşturuyordu — bu,
+    # bu kod tabanını devralıp KENDİ gerçek kullanıcılarını bağlayacak bir
+    # kurulum (ör. başka bir sunucuda, başka bir şirket için) için istenmeyen
+    # bir davranış. Artık varsayılan KAPALI; sadece demo/deneme ortamlarında
+    # bilinçli olarak .env'den "true" yapılırsa devreye girer.
+    SEED_DEMO_DATA: bool = False
+
     # GÜVENLİK FIX: CORS'ta "*" ile allow_credentials=True birlikte kullanılıyordu
     # (herhangi bir origin'in kimlik bilgili istek atmasına izin veriyordu).
     # Artık sadece burada (virgülle ayrılmış) tanımlı domainlere izin verilir.

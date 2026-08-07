@@ -24,13 +24,13 @@ services:
     ports:
       - "5443:5432"
     environment:
-      POSTGRES_USER: yebsoft_user
-      POSTGRES_PASSWORD: YebsoftSecretPassword2026!
-      POSTGRES_DB: meeting_system_prod
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U yebsoft_user -d meeting_system_prod" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -40,14 +40,23 @@ services:
     image: meeting_system_api:latest
     container_name: meeting_system_api
     restart: always
+    # V1 TESLİM FIX: Tüm değerler eskiden burada DÜZ METİN olarak sabit
+    # kodluydu (sır/domain fark etmeksizin) — bu dosya git'e commitlendiğinden
+    # her deploy eden kişi aynı sırları ve BU projeye özel domain'i miras
+    # alıyordu, kendi ortamı için değiştirmek istediğinde de bu VERSİYON
+    # KONTROLLÜ dosyayı elden geçirmek zorunda kalıyordu (→ gelecekteki
+    # git pull'larla çakışma riski). Artık her şey .env'den okunuyor
+    # (bkz. .env.example) — kendi ortamınız için sadece .env'i doldurun,
+    # bu dosyaya hiç dokunmanız gerekmiyor.
     environment:
-      - DATABASE_URL=postgresql://yebsoft_user:YebsoftSecretPassword2026!@db:5432/meeting_system_prod
-      - SECRET_KEY=yebsoft_super_secure_crypto_secret_key_2026_jwt
-      - ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
-      # GÜVENLİK: Canlıya çıkmadan önce bu ikisini MUTLAKA değiştirin.
-      - SEED_DEFAULT_PASSWORD=ChangeThisBeforeGoingLive_2026!
-      - ALLOWED_ORIGINS=https://meeting.bodor.com.tr
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=${ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      # GÜVENLİK: Canlıya çıkmadan önce .env'de bu ikisini MUTLAKA değiştirin.
+      - SEED_DEFAULT_PASSWORD=${SEED_DEFAULT_PASSWORD}
+      - SEED_DEMO_DATA=${SEED_DEMO_DATA:-false}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - AVATAR_UPLOAD_DIR=app/static/avatars
       - DB_MAX_OVERFLOW=10
       - DB_POOL_RECYCLE=3600
@@ -72,7 +81,11 @@ services:
       - "5349:5349/tcp"
       - "5349:5349/udp"
       - "49152-49200:49152-49200/udp"
-    command: ["turnserver", "-n", "--log-file=stdout", "--lt-cred-mech", "--fingerprint", "--realm=turn.bodor.com.tr", "--user=yebsoft_turn_user:yebsoft_turn_password_2026"]
+    # DİKKAT: --user buradaki kullanıcı adı/şifre, app/static/js/webrtc.js
+    # içindeki getIceServers()'da HARD-CODE edilmiş TURN_USERNAME/TURN_CREDENTIAL
+    # ile birebir aynı olmalı (istemci tarafı statik JS, .env'i okuyamaz).
+    # Burayı değiştirirseniz webrtc.js'teki o iki satırı da güncelleyin.
+    command: ["turnserver", "-n", "--log-file=stdout", "--lt-cred-mech", "--fingerprint", "--realm=${DOMAIN:-localhost}", "--user=${TURN_USERNAME}:${TURN_CREDENTIAL}"]
 
   nginx:
     image: nginx:alpine
@@ -82,8 +95,10 @@ services:
       - "8090:80"
       - "443:443"
     entrypoint: [ "/bin/sh", "/etc/nginx/nginx-entrypoint.sh" ]
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.conf.template:/etc/nginx/nginx.conf.template:ro
       - ./nginx-entrypoint.sh:/etc/nginx/nginx-entrypoint.sh:ro
       - ./certbot_certs:/etc/letsencrypt
       - ./certbot_www:/var/www/certbot

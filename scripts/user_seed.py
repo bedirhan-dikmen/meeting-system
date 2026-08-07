@@ -1,3 +1,7 @@
+# DURUM: KULLANILMIYOR / ARŞİV. seed_hierarchy.py'den önceki, sabit "1"
+# şifreli birkaç demo kullanıcı ekleyen ilk deneme script'i. GÜVENSİZ (şifre
+# hardcoded) — canlı hiçbir ortamda çalıştırmayın. Sadece referans için
+# burada bırakıldı.
 from app.core.database import SessionLocal, engine, Base
 from app.core.security import get_password_hash
 from app.models import User

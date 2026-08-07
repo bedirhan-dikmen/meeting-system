@@ -82,9 +82,25 @@ def auto_migrate_missing_columns(db: Session) -> None:
 
 
 def init_db(db: Session) -> None:
-    """Veritabanı başlangıç kullanıcılarını ve hiyerarşiyi otomatik tohumlar."""
+    """Şema senkronizasyonunu (eksik sütunlar) her zaman, demo kullanıcı
+    tohumlamasını ise SADECE settings.SEED_DEMO_DATA açıksa çalıştırır.
+
+    V1 TESLİM FIX: seed_hierarchy() eskiden koşulsuz her başlangıçta 20 sahte
+    demo kullanıcı oluşturuyordu — bu kod tabanını devralıp kendi gerçek
+    kullanıcılarını bağlayacak bir kurulumda istenmeyen bir yan etki.
+    """
     try:
         auto_migrate_missing_columns(db)
+    except Exception as e:
+        print(f"[INIT DB] Şema senkronizasyon hatası: {e}")
+        db.rollback()
+
+    from app.core.config import settings
+    if not settings.SEED_DEMO_DATA:
+        print("[INIT DB] SEED_DEMO_DATA=false — demo/hiyerarşi tohumlaması atlandı.")
+        return
+
+    try:
         from seed_hierarchy import seed_hierarchy
         seed_hierarchy()
     except Exception as e:

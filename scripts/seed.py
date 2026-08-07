@@ -1,3 +1,8 @@
+# DURUM: KULLANILMIYOR / ARŞİV. Uygulama artık başlangıçta seed_hierarchy.py'yi
+# (proje kökünde, SEED_DEMO_DATA=true ise) çalıştırıyor. Bu dosya o mekanizma
+# kurulmadan önceki, tek departman + birkaç kullanıcı ekleyen ilk seed script'i
+# — repo geçmişini/referansını korumak için burada bırakıldı, çalıştırmanıza
+# gerek yok. Kök dizinden `python scripts/seed.py` ile elle çalıştırılabilir.
 import sys
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal, engine, Base
