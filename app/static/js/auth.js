@@ -397,3 +397,17 @@ document.addEventListener('DOMContentLoaded', () => {
   Auth.checkActiveLiveMeeting();
   setInterval(() => Auth.checkActiveLiveMeeting(), 15000);
 });
+
+// BUG FIX: Tarayıcı "Geri/İleri" tuşuyla dönüldüğünde (bfcache restore),
+// tarayıcı DOMContentLoaded'ı TEKRAR ÇALIŞTIRMADAN sayfayı olduğu gibi
+// (eski DOM, eski localStorage anlık görüntüsü) belleğinden geri getirir.
+// Sonuç: çıkış yapmış ya da artık erişim yetkisi kalmamış bir kullanıcı/misafir
+// "geri" tuşuna bastığında yukarıdaki requireAuth() kontrolünden hiç geçmeden
+// korumalı sayfayı (dashboard, profil, geçmiş vb.) olduğu gibi görebiliyordu.
+// room.html bu deseni kendi başına zaten uyguluyordu; artık auth.js üzerinden
+// bu tabanı (base.html) kullanan TÜM sayfalarda (ve prejoin/login'de) geçerli.
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    window.location.reload();
+  }
+});

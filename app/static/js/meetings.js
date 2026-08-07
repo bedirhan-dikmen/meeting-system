@@ -144,6 +144,12 @@ const Meetings = {
   },
 
   switchView(viewName) {
+    // V1 NOT: Liste ve Takvim görünümleri henüz fix'lenmedi; butonlar
+    // meetings.html'de `disabled` ama bu fonksiyon yine de dışarıdan
+    // (konsol, eski bir onclick, vb.) çağrılabileceğinden burada da
+    // engelleniyor — v2'de bu erken dönüşü kaldırmak yeterli olacak.
+    if (viewName !== 'card') return;
+
     this.currentView = viewName;
 
     const cCard = document.getElementById('viewContainerCard');

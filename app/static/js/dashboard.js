@@ -334,7 +334,7 @@ const Dashboard = {
           </div>
           <h3 style="font-size: 0.95rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem;">Bugün toplantınız yok</h3>
           <p style="color: #64748b; font-size: 0.78rem; max-width: 230px; margin-bottom: 0.85rem; line-height: 1.35;">Gününüzü planlamak için takviminize yeni bir toplantı ekleyin.</p>
-          <button onclick="window.location.href='/calendar'" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.45rem 1.1rem; font-weight: 700; font-size: 0.78rem; cursor: pointer; transition: all 0.2s;">Takvime Git</button>
+          <button onclick="Meetings && Meetings.openCreateModal ? Meetings.openCreateModal() : window.location.href='/meetings'" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.45rem 1.1rem; font-weight: 700; font-size: 0.78rem; cursor: pointer; transition: all 0.2s;">Toplantı Planla</button>
         </div>
       `;
     } else {

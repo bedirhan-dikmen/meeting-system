@@ -50,18 +50,23 @@
     </div>
 
     <!-- 3 View Switcher Buttons (Right) -->
+    <!-- V1 NOT: Liste ve Takvim görünümleri henüz fix'lenmedi, v1 kapsamında
+         SADECE Kart görünümü aktif. Butonlar `disabled` yapılıp görsel olarak
+         soluklaştırıldı (tamamen kaldırmak yerine "yakında" gibi durup
+         v2'de geri açılması kolay olsun diye) — bkz. meetings.js switchView()
+         içindeki eşleşen güvenlik/tutarlılık bariyeri. -->
     <div style="display: flex; align-items: center; gap: 0.5rem;">
       <span style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin-right: 0.25rem;">Görünüm:</span>
-      
+
       <button id="btnViewCard" onclick="Meetings.switchView('card')" class="view-switch-btn active" title="Kart Görünümü" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid #5b5fc7; background: #ffffff; color: #5b5fc7; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.2s;">
         <i class="fas fa-th-large"></i>
       </button>
 
-      <button id="btnViewList" onclick="Meetings.switchView('list')" class="view-switch-btn" title="Liste Görünümü" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.2s;">
+      <button id="btnViewList" disabled onclick="Meetings.switchView('list')" class="view-switch-btn" title="Liste Görünümü (v2'de aktif olacak)" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; color: #cbd5e1; cursor: not-allowed; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.2s; opacity: 0.6;">
         <i class="fas fa-list"></i>
       </button>
 
-      <button id="btnViewCalendar" onclick="Meetings.switchView('calendar')" class="view-switch-btn" title="Takvim Görünümü" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.2s;">
+      <button id="btnViewCalendar" disabled onclick="Meetings.switchView('calendar')" class="view-switch-btn" title="Takvim Görünümü (v2'de aktif olacak)" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; color: #cbd5e1; cursor: not-allowed; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.2s; opacity: 0.6;">
         <i class="fas fa-calendar-alt"></i>
       </button>
     </div>

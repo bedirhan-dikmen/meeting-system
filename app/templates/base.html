@@ -50,8 +50,10 @@
           <nav class="top-nav-menu">
             <a href="/" class="top-nav-link {% if request.url.path == '/' %}active{% endif %}">Anasayfa</a>
             <a href="/meetings" class="top-nav-link {% if request.url.path == '/meetings' %}active{% endif %}">Toplantılarım</a>
-            <a href="/calendar" class="top-nav-link {% if request.url.path == '/calendar' %}active{% endif %}">Takvim</a>
-            <a href="/contacts" class="top-nav-link {% if request.url.path == '/contacts' %}active{% endif %}">Kişiler</a>
+            <!-- V1 NOT: Takvim ve Kişiler v1 kapsamı dışı bırakıldı, v2'de geri
+                 eklenecek (bkz. app/main.py page_calendar/page_contacts). Sadece
+                 navbar'dan kaldırmak yetmez diye rotalar da sunucu tarafında
+                 anasayfaya yönlendiriliyor; link doğrudan URL ile de gidilemez. -->
             <a href="/history" id="navItemHistory" class="top-nav-link {% if request.url.path == '/history' %}active{% endif %}">Kayıtlar</a>
             <a href="/profile" class="top-nav-link {% if request.url.path == '/profile' %}active{% endif %}">Profil</a>
           </nav>

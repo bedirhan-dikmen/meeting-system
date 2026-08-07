@@ -290,6 +290,19 @@
       document.getElementById('meetingEndedContainer').style.display = 'block';
     }
 
+    // BUG FIX: Misafir "geri" tuşuna bastığında tarayıcı bu sayfayı bfcache'ten
+    // (DOMContentLoaded'ı tekrar çalıştırmadan) eski/stale haliyle geri
+    // getirebiliyordu — ör. reddedilmiş/toplantısı bitmiş bir misafir eski
+    // "onay bekleniyor" veya katılım formunu tekrar görüp kullanabiliyordu.
+    // room.html'deki aynı desen burada da uygulanıyor: bfcache dönüşünde
+    // sayfa sıfırdan yüklenir, DOMContentLoaded tekrar çalışıp gerçek
+    // durumu (/api/v1/guest/meeting/{code}) sunucudan yeniden sorar.
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    });
+
     document.addEventListener('DOMContentLoaded', async () => {
       // 1. Oda halka açık bilgilerini çek
       try {
