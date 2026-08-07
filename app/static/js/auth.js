@@ -243,9 +243,12 @@ const Auth = {
     // adımını VE (ayrıcalıklı olmayan kullanıcılar için) editör onayı
     // beklenen lobi ekranını tamamen atlıyordu. Her giriş /prejoin/ üzerinden
     // geçmeli.
+    // BUG FIX: Ayrıca artık YENİ SEKMEDE açılıyor — ana panel sekmesinin
+    // tarayıcı geçmişi toplantı akışıyla karışmasın (bkz. meetings.js
+    // Meetings.openMeetingInNewTab, aynı desen).
     const badge = document.getElementById('liveMeetingBadge');
     if (badge && badge.dataset.meetingCode) {
-      window.location.href = `/prejoin/${badge.dataset.meetingCode}`;
+      window.open(`/prejoin/${badge.dataset.meetingCode}`, '_blank', 'noopener');
     }
   },
 
@@ -410,4 +413,45 @@ window.addEventListener('pageshow', (event) => {
   if (event.persisted) {
     window.location.reload();
   }
+});
+
+/**
+ * MOBİL NAVBAR: ≤768px'de gizlenen `.top-nav-menu`yü (Anasayfa/Toplantılarım/
+ * Kayıtlar/Profil) hamburger butonuyla açılır-kapanır panele çevirir (bkz.
+ * base.html #mobileNavToggle / #topNavMenu, style.css mobil bölümü). Mevcut
+ * nav linklerinin href'lerine/id'lerine dokunulmuyor — sadece görünürlük
+ * class'ı ekleniyor.
+ */
+function toggleMobileNav() {
+  const menu = document.getElementById('topNavMenu');
+  const toggleBtn = document.getElementById('mobileNavToggle');
+  if (!menu || !toggleBtn) return;
+
+  const isOpen = menu.classList.toggle('mobile-nav-open');
+  toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  toggleBtn.innerHTML = isOpen ? '<i class="fas fa-times"></i>' : '<i class="fas fa-bars"></i>';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const menu = document.getElementById('topNavMenu');
+  const toggleBtn = document.getElementById('mobileNavToggle');
+  if (!menu || !toggleBtn) return;
+
+  // Bir nav linkine tıklanınca (sayfa değişse de değişmese de) panel kapansın.
+  menu.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => {
+      menu.classList.remove('mobile-nav-open');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+      toggleBtn.innerHTML = '<i class="fas fa-bars"></i>';
+    });
+  });
+
+  // Panel dışına tıklanınca kapansın (diğer dropdown'lardaki desenle tutarlı).
+  document.addEventListener('click', (e) => {
+    if (!menu.classList.contains('mobile-nav-open')) return;
+    if (e.target.closest('#topNavMenu') || e.target.closest('#mobileNavToggle')) return;
+    menu.classList.remove('mobile-nav-open');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    toggleBtn.innerHTML = '<i class="fas fa-bars"></i>';
+  });
 });

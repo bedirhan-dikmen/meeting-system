@@ -74,10 +74,20 @@ def _ensure_meeting_member(db: Session, meeting_id: UUID, current_user: User) ->
     """Çağıranın verilen toplantının sahibi/admini/gerçek katılımcısı olduğunu doğrular."""
     from app.models.meeting import Meeting
     from app.models.meeting_participant import MeetingParticipant
+    from app.services.meetings import is_meeting_finished
 
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
     if not meeting:
         raise HTTPException(status_code=404, detail="Toplantı bulunamadı.")
+
+    # BUG FIX: Sona ermiş/iptal edilmiş bir toplantının aksiyon kararları artık
+    # (sahibi dahil) hiç kimse tarafından eklenip/durumu değiştirilemesin —
+    # bkz. meeting_notes.py'deki aynı kilit deseni.
+    if is_meeting_finished(meeting):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bu toplantı sona ermiş, artık aksiyon kararı eklenemez/güncellenemez."
+        )
 
     is_creator = meeting.created_by == current_user.id
     is_privileged_role = str(getattr(current_user, "role", "")).lower() in ("admin", "manager")

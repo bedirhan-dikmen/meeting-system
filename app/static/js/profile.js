@@ -152,13 +152,13 @@ const ProfilePage = {
             <span class="badge ${statusBadgeClass}">${statusText}</span>
           </td>
           <td style="padding: 1rem; text-align: right;">
-            <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap;">
               ${isLive ? `
-                <a href="/prejoin/${m.meeting_code}" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
+                <a href="/prejoin/${m.meeting_code}" target="_blank" rel="noopener" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
                   <i class="fas fa-door-open"></i> Canlı Odaya Katıl
                 </a>
               ` : ''}
-              <a href="/reports/${m.id}" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
+              <a href="/reports/${m.id}" target="_blank" rel="noopener" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
                 <i class="fas fa-file-invoice"></i> Resmi Raporu İncele
               </a>
             </div>

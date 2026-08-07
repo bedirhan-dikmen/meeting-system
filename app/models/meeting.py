@@ -49,4 +49,5 @@ class Meeting(Base):
     # Dynamic / Transient fields (non-database mapped, used for response schemas)
     active_participants: Optional[list[dict]] = None
     active_count: Optional[int] = None
-    time_str: Optional[str] = None
+    time_str: Optional[str] = None
+    host_name: Optional[str] = None

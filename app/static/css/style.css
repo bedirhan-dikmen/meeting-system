@@ -5022,4 +5022,209 @@ body {
 
 .participant-tile .active-speaker-badge {
   z-index: 12 !important;
+}
+
+/* ==========================================================================
+   MOBİL RESPONSIVE — KAPSAMLI GEÇİŞ
+   Sayfa sayfa organize edilmiş, gerçek class hook'ları hedefleyen (nth-child
+   veya [style*="..."] gibi kırılgan seçiciler yerine) tek merkezi bölüm.
+   Mevcut 3 eski "mobil sistem" bloğuna (satır ~3156, ~3890, ~4650) dokunulmadı;
+   burası onları tamamlıyor. Renk paleti/temaya dokunulmadı, sadece
+   yerleşim/boyut kuralları var.
+   ========================================================================== */
+
+/* ---------- A) base.html — Navbar (tüm sayfalar) ---------- */
+.mobile-nav-toggle {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: var(--text-primary, #0f172a);
+  cursor: pointer;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  line-height: 1;
+}
+
+@media (max-width: 768px) {
+  .mobile-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .top-nav-menu {
+    display: none !important;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column !important;
+    background: var(--bg-secondary, #ffffff);
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
+    padding: 0.5rem;
+    gap: 0.25rem !important;
+    z-index: 99998;
+  }
+
+  .top-nav-menu.mobile-nav-open {
+    display: flex !important;
+  }
+
+  .top-nav-menu .top-nav-link {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+  }
+
+  /* Bildirim dropdown'u ve profil menüsü dar ekranda ekran dışına taşmasın. */
+  #notifDropdownMenu {
+    width: calc(100vw - 2rem) !important;
+    max-width: 320px;
+    right: -0.5rem !important;
+  }
+
+  .header-actions {
+    gap: 0.5rem !important;
+  }
+
+  /* Global modallar (Toplantı Oluştur/Hızlı/Düzenle/Detaylar) */
+  .modal-card {
+    width: calc(100% - 2rem) !important;
+    max-height: 85vh !important;
+    padding: 1.25rem !important;
+  }
+
+  #profileModal .modal-content {
+    width: calc(100% - 2rem) !important;
+    padding: 1.25rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* profileModal Ad/Soyad + meetingDetailsModal'ın iki grid'i */
+  .grid-2col-mobile-stack {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ---------- B) index.html — Dashboard ---------- */
+@media (max-width: 1200px) {
+  .dash-row-3col,
+  .dash-row-3col-equal {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .dash-row-3col,
+  .dash-row-3col-equal {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .dash-stat-grid-2x2 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ---------- C) meetings.html — Sekme çubuğu ---------- */
+@media (max-width: 768px) {
+  .tab-filter-scroll {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 1rem !important;
+    padding-bottom: 0.2rem;
+  }
+
+  .tab-filter-scroll .tab-filter-btn {
+    flex-shrink: 0;
+    font-size: 0.85rem !important;
+    white-space: nowrap;
+  }
+}
+
+/* ---------- D) history.html / profile.html — Veri tabloları ---------- */
+.data-table-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .data-table-scroll table th,
+  .data-table-scroll table td {
+    padding: 0.6rem 0.75rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* history.js'teki İşlemler kolonu: "Rapor" yazısı gizlenip ikon-only kalır. */
+  .hist-report-link-text {
+    display: none;
+  }
+
+  .hist-actions-cell {
+    gap: 0.3rem !important;
+  }
+}
+
+/* ---------- F) report.html ---------- */
+@media (max-width: 768px) {
+  #reportDocumentCard {
+    padding: 1.25rem !important;
+  }
+
+  .report-header-side {
+    text-align: left !important;
+  }
+}
+
+/* ---------- G) guest.html — bkz. kendi <style> bloğu (sayfaya özel, orada) ---------- */
+
+/* ---------- H) room.html ---------- */
+@media (max-width: 640px) {
+  .header-right {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .teams-dropdown-popover {
+    max-width: calc(100vw - 1.5rem) !important;
+  }
+
+  .room-sidebar {
+    max-width: 100% !important;
+  }
+
+  .room-modal-shell {
+    max-height: 92vh !important;
+  }
+
+  .room-modal-header,
+  .room-modal-body {
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+
+  .room-modal-subtext {
+    padding-left: 0 !important;
+  }
+}
+
+/* Ekran paylaşımı/katılımcı kartı üç-nokta menüsü ("...") daha önce
+   BİLİNÇLİ olarak sadece :hover'da görünür yapılmıştı (bkz. yukarıdaki
+   .tile-more-btn / .screenshare-card-frame .tile-more-btn tanımları ve
+   yorumları) — bu tercihe masaüstünde/fare ile dokunulmuyor.
+   `(hover: none)` SADECE gerçek dokunmatik cihazları hedefler (fare/trackpad
+   olan hiçbir cihazı etkilemez), bu yüzden mevcut tercihi bozmadan sadece
+   mobil/tablette butonu görünür ve kullanılabilir hale getiriyor. */
+@media (hover: none) {
+  .tile-more-btn,
+  .screenshare-card-frame .tile-more-btn {
+    opacity: 0.85 !important;
+  }
 }

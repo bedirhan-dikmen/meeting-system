@@ -31,7 +31,10 @@
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.85rem; flex-wrap: wrap; gap: 1rem;">
     
     <!-- Filter Tabs (Left) -->
-    <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+    <!-- BUG FIX: Mobilde 4 sekme + rozetler yan yana sıkışıp taşabiliyordu —
+         .tab-filter-scroll class'ı ≤768px'de bu satırı yatay kaydırmalı tek
+         satıra çeviriyor (bkz. style.css mobil bölümü). -->
+    <div class="tab-filter-scroll" style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
       <button onclick="Meetings.switchTab('live')" id="tabBtnLive" class="tab-filter-btn active" style="background: none; border: none; font-size: 0.95rem; font-weight: 700; color: #5b5fc7; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.4rem; border-bottom: 2px solid #5b5fc7;">
         Canlı Toplantılar <span id="countTabLive" style="background: #dcfce7; color: #166534; font-size: 0.75rem; font-weight: 800; padding: 0.15rem 0.5rem; border-radius: 10px;">2</span>
       </button>
@@ -40,36 +43,29 @@
         Planlı Toplantılar <span id="countTabScheduled" style="background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 10px;">5</span>
       </button>
 
+      <!-- BUG FIX: "Tamamlanan Toplantılar" artık GÜNLÜK (sadece bugün
+           tamamlananlar) — tüm geçmiş zaten ayrı "Kayıtlar" arşivinde
+           tutuluyor (bkz. meetings.js applyTabFilter/getEffectiveStatus). -->
       <button onclick="Meetings.switchTab('completed')" id="tabBtnCompleted" class="tab-filter-btn" style="background: none; border: none; font-size: 0.95rem; font-weight: 600; color: #64748b; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.4rem;">
-        Tamamlanan Toplantılar <span id="countTabCompleted" style="background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 10px;">12</span>
+        Tamamlanan Toplantılar <span id="countTabCompleted" style="background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 10px;">0</span>
       </button>
 
-      <button onclick="Meetings.switchTab('all')" id="tabBtnAll" class="tab-filter-btn" style="background: none; border: none; font-size: 0.95rem; font-weight: 600; color: #64748b; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.4rem;">
-        Tümü <span id="countTabAll" style="background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 10px;">19</span>
-      </button>
-    </div>
-
-    <!-- 3 View Switcher Buttons (Right) -->
-    <!-- V1 NOT: Liste ve Takvim görünümleri henüz fix'lenmedi, v1 kapsamında
-         SADECE Kart görünümü aktif. Butonlar `disabled` yapılıp görsel olarak
-         soluklaştırıldı (tamamen kaldırmak yerine "yakında" gibi durup
-         v2'de geri açılması kolay olsun diye) — bkz. meetings.js switchView()
-         içindeki eşleşen güvenlik/tutarlılık bariyeri. -->
-    <div style="display: flex; align-items: center; gap: 0.5rem;">
-      <span style="font-size: 0.82rem; font-weight: 700; color: #64748b; margin-right: 0.25rem;">Görünüm:</span>
-
-      <button id="btnViewCard" onclick="Meetings.switchView('card')" class="view-switch-btn active" title="Kart Görünümü" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid #5b5fc7; background: #ffffff; color: #5b5fc7; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.2s;">
-        <i class="fas fa-th-large"></i>
-      </button>
-
-      <button id="btnViewList" disabled onclick="Meetings.switchView('list')" class="view-switch-btn" title="Liste Görünümü (v2'de aktif olacak)" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; color: #cbd5e1; cursor: not-allowed; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.2s; opacity: 0.6;">
-        <i class="fas fa-list"></i>
-      </button>
-
-      <button id="btnViewCalendar" disabled onclick="Meetings.switchView('calendar')" class="view-switch-btn" title="Takvim Görünümü (v2'de aktif olacak)" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; color: #cbd5e1; cursor: not-allowed; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.2s; opacity: 0.6;">
-        <i class="fas fa-calendar-alt"></i>
+      <!-- YENİ: "İptal Edilenler" — günlük. Hem kullanıcının kartındaki
+           "İptal Et"le hem de başlama saati 1 saat geçmiş, hiç başlamamış
+           planlı toplantıların otomatik "kaçırıldı" sayılmasıyla dolar
+           (bkz. meetings.js getEffectiveStatus). -->
+      <button onclick="Meetings.switchTab('cancelled')" id="tabBtnCancelled" class="tab-filter-btn" style="background: none; border: none; font-size: 0.95rem; font-weight: 600; color: #64748b; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.4rem;">
+        İptal Edilenler <span id="countTabCancelled" style="background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 10px;">0</span>
       </button>
     </div>
+
+    <!-- V1 NOT: Liste ve Takvim görünümleri henüz fix'lenmedi; kullanıcı
+         isteğiyle görünüm anahtarı UI'dan tamamen kaldırıldı, artık tek
+         (Kart) görünüm var — seçim gösteren bir switcher'a gerek kalmadı.
+         viewContainerList/viewContainerCalendar konteynerleri ve
+         meetings.js'teki renderListView()/renderCalendarView()/switchView()
+         fonksiyonları v2'de kolayca geri açılabilsin diye dokunulmadan
+         bırakıldı. -->
 
   </div>
 
@@ -91,41 +87,17 @@
 </div>
 
 
-
-<!-- EXTENDED MEETING DETAILS INFO MODAL -->
-<div id="meetingDetailsModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 1rem;">
-  <div class="modal-card" style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 550px; padding: 1.75rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem; margin-bottom: 1rem;">
-      <h3 id="infoMeetingTitle" style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 0;">Toplantı Detayları</h3>
-      <button type="button" onclick="Meetings.closeDetailsModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #64748b;">&times;</button>
-    </div>
-
-    <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.9rem;">
-      <div>
-        <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Açıklama / Gündem</span>
-        <p id="infoMeetingDescription" style="color: #0f172a; margin-top: 0.25rem; font-weight: 500;">-</p>
-      </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; background: #f8fafc; padding: 0.85rem; border-radius: 10px; border: 1px solid #f1f5f9;">
-        <div>
-          <span style="font-size: 0.72rem; font-weight: 700; color: #64748b;">DÜZENLEYEN</span>
-          <p id="infoMeetingHost" style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin: 0;">-</p>
-        </div>
-        <div>
-          <span style="font-size: 0.72rem; font-weight: 700; color: #64748b;">TARİH & SAAT</span>
-          <p id="infoMeetingTimeRange" style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin: 0;">-</p>
-        </div>
-      </div>
-
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
-        <button type="button" onclick="Meetings.closeDetailsModal()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.55rem 1.1rem; font-weight: 700; font-size: 0.85rem; cursor: pointer;">Kapat</button>
-        <a id="infoMeetingJoinBtn" href="#" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 8px; padding: 0.55rem 1.25rem; font-weight: 700; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem;">Odaya Katıl</a>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- BUG FIX: Bu sayfa daha önce base.html'deki global "meetingDetailsModal"
+     ile AYNI id'ye sahip, daha sade bir modalı burada tekrar tanımlıyordu.
+     DOM sırası gereği bu yerel (eksik: oda kodu/aktif katılımcı/gündem/
+     güvenlik/katılımcı listesi yok) kopya öne geçip base.html'deki kapsamlı
+     modalı gölgeliyordu. Artık tek modal var (base.html), dashboard ve
+     /meetings kartlarında aynı, eksiksiz detay modalı kullanılıyor. -->
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/meetings.js?v=5.0"></script>
+<!-- meetings.js zaten base.html'in "Core Scripts" bölümünde global olarak
+     yükleniyor; burada ikinci kez yüklemek gereksiz bir istek + tarayıcı
+     konsolunda sessiz bir "const Meetings zaten tanımlı" hatasına yol
+     açıyordu. -->
 {% endblock %}

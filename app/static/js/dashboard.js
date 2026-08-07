@@ -197,17 +197,7 @@ const Dashboard = {
                 <div style="display: flex; align-items: center; gap: 0.5rem; position: relative;">
                   <span style="background: #dcfce7; color: #166534; font-size: 0.72rem; font-weight: 800; padding: 0.2rem 0.6rem; border-radius: 6px;">CANLI</span>
                   <span style="background: #f1f5f9; color: #64748b; font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 6px;">${liveMeeting.meeting_type || 'Genel Toplantı'}</span>
-                  <button onclick="Meetings.toggleCardMenu(event, 'dashLive_${liveMeeting.id}')" style="background: none; border: none; font-size: 1rem; color: #64748b; cursor: pointer; padding: 0.2rem 0.35rem; border-radius: 6px;" title="Seçenekler">
-                    <i class="fas fa-ellipsis-v"></i>
-                  </button>
-                  <div id="cardMenu_dashLive_${liveMeeting.id}" class="card-dropdown-menu" style="display: none; position: absolute; top: 100%; right: 0; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); width: 210px; z-index: 1000; padding: 0.4rem 0;">
-                    <button onclick="Meetings.openEditModal('${liveMeeting.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 0.6rem;">
-                      <i class="far fa-edit" style="color: #6366f1;"></i> Toplantı Bilgilerini Düzenle
-                    </button>
-                    <button onclick="Meetings.cancelMeeting('${liveMeeting.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #ef4444; cursor: pointer; display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid #f1f5f9;">
-                      <i class="far fa-times-circle" style="color: #ef4444;"></i> Toplantıyı İptal Et
-                    </button>
-                  </div>
+                  ${Meetings.buildCardMenu(liveMeeting, `dashLive_${liveMeeting.id}`)}
                 </div>
               </div>
 
@@ -223,7 +213,7 @@ const Dashboard = {
             </div>
 
             <div style="display: flex; gap: 0.75rem;">
-              <button onclick="window.location.href='/prejoin/${liveMeeting.meeting_code}'" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 9px; padding: 0.6rem 1.3rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 10px rgba(91, 95, 199, 0.2);">
+              <button onclick="Meetings.openMeetingInNewTab('${liveMeeting.meeting_code}')" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 9px; padding: 0.6rem 1.3rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 10px rgba(91, 95, 199, 0.2);">
                 Odaya Katıl
               </button>
               <button onclick="Meetings.openDetailsModal('${liveMeeting.id}')" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 9px; padding: 0.6rem 1.15rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;">
@@ -275,17 +265,7 @@ const Dashboard = {
               </div>
               <div style="display: flex; align-items: center; gap: 0.5rem; position: relative; flex-shrink: 0;">
                 <span style="background: ${nextIsLive ? '#dcfce7' : '#e0e7ff'}; color: ${nextIsLive ? '#166534' : '#3730a3'}; font-size: 0.68rem; font-weight: 800; padding: 0.2rem 0.55rem; border-radius: 6px;">${nextMeeting.status || 'Planlandı'}</span>
-                <button onclick="Meetings.toggleCardMenu(event, 'dashNext_${nextMeeting.id}')" style="background: none; border: none; font-size: 1rem; color: #64748b; cursor: pointer; padding: 0.2rem 0.35rem; border-radius: 6px;" title="Seçenekler">
-                  <i class="fas fa-ellipsis-v"></i>
-                </button>
-                <div id="cardMenu_dashNext_${nextMeeting.id}" class="card-dropdown-menu" style="display: none; position: absolute; top: 100%; right: 0; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); width: 210px; z-index: 1000; padding: 0.4rem 0;">
-                  <button onclick="Meetings.openEditModal('${nextMeeting.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 0.6rem;">
-                    <i class="far fa-edit" style="color: #6366f1;"></i> Toplantı Bilgilerini Düzenle
-                  </button>
-                  <button onclick="Meetings.cancelMeeting('${nextMeeting.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #ef4444; cursor: pointer; display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid #f1f5f9;">
-                    <i class="far fa-times-circle" style="color: #ef4444;"></i> Toplantıyı İptal Et
-                  </button>
-                </div>
+                ${Meetings.buildCardMenu(nextMeeting, `dashNext_${nextMeeting.id}`)}
               </div>
             </div>
 
@@ -358,7 +338,7 @@ const Dashboard = {
 
           <div style="display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0;">
             <span style="background: ${m.status === 'CANLI' ? '#dcfce7' : '#eff6ff'}; color: ${m.status === 'CANLI' ? '#166534' : '#1d4ed8'}; font-size: 0.65rem; font-weight: 800; padding: 0.15rem 0.4rem; border-radius: 4px;">${m.status}</span>
-            <button onclick="window.location.href='/prejoin/${m.meeting_code}'" style="background: #eeefec; color: #5b5fc7; border: none; border-radius: 6px; padding: 0.3rem 0.65rem; font-weight: 700; font-size: 0.72rem; cursor: pointer;">Katıl</button>
+            <button onclick="Meetings.openMeetingInNewTab('${m.meeting_code}')" style="background: #eeefec; color: #5b5fc7; border: none; border-radius: 6px; padding: 0.3rem 0.65rem; font-weight: 700; font-size: 0.72rem; cursor: pointer;">Katıl</button>
           </div>
         </div>
       `).join('');
@@ -414,7 +394,7 @@ const Dashboard = {
             ${m.date_str ? `<span style="font-size: 0.65rem; color: #94a3b8; font-weight: 600; margin-top: 0.2rem; display: block;">${m.date_str}</span>` : ''}
           </div>
 
-          <button onclick="window.location.href='/prejoin/${m.meeting_code}'" style="background: #eeefec; color: #5b5fc7; border: none; border-radius: 6px; padding: 0.3rem 0.65rem; font-weight: 700; font-size: 0.72rem; cursor: pointer; flex-shrink: 0;">Katıl</button>
+          <button onclick="Meetings.openMeetingInNewTab('${m.meeting_code}')" style="background: #eeefec; color: #5b5fc7; border: none; border-radius: 6px; padding: 0.3rem 0.65rem; font-weight: 700; font-size: 0.72rem; cursor: pointer; flex-shrink: 0;">Katıl</button>
         </div>
       `).join('');
     }

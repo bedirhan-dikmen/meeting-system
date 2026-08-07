@@ -218,13 +218,16 @@ const History = {
           <td style="padding: 1rem 1.25rem;">
             ${statusBadgeHTML}
           </td>
-          <td style="padding: 1rem 1.25rem; text-align: right; white-space: nowrap;">
-            <div style="display: inline-flex; gap: 0.4rem;">
+          <!-- BUG FIX: white-space:nowrap kaldırıldı — mobilde tabloyu zorla
+               genişletip yatay taşmayı büyütüyordu. hist-actions-cell class'ı
+               ile mobilde buton metni ikon-only'e küçülüyor (bkz. style.css). -->
+          <td style="padding: 1rem 1.25rem; text-align: right;">
+            <div class="hist-actions-cell" style="display: inline-flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end;">
               <button onclick="History.showModal('${m.id}')" class="btn btn-secondary" style="padding: 0.4rem 0.75rem; font-size: 0.8rem; border-radius: 7px;" title="Özet Detay">
                 <i class="fas fa-info-circle"></i>
               </button>
-              <a href="/reports/${m.id}" class="btn btn-primary" style="padding: 0.4rem 0.85rem; font-size: 0.8rem; border-radius: 7px; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem;">
-                <i class="fas fa-file-contract"></i> Rapor
+              <a href="/reports/${m.id}" target="_blank" rel="noopener" class="btn btn-primary hist-report-link" style="padding: 0.4rem 0.85rem; font-size: 0.8rem; border-radius: 7px; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem;">
+                <i class="fas fa-file-contract"></i> <span class="hist-report-link-text">Rapor</span>
               </a>
             </div>
           </td>
@@ -257,7 +260,7 @@ const History = {
           <div style="font-size: 1.1rem; font-weight: 800; color: #6366f1; font-family: monospace;">${m.meeting_code}</div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div class="grid-2col-mobile-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
           <div>
             <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">Düzenleyici / Host</div>
             <div style="font-weight: 700; color: var(--text-primary);">${m.creator_name}</div>
@@ -268,7 +271,7 @@ const History = {
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div class="grid-2col-mobile-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
           <div>
             <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">Tarih ve Başlangıç</div>
             <div style="font-weight: 700; color: var(--text-primary);">${startStr}</div>

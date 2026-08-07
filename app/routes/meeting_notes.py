@@ -9,6 +9,7 @@ from app.models.user import User
 from app.models.meeting import Meeting
 from app.schemas.meeting_notes import MeetingNoteOut, MeetingNoteCreate
 from app.services import meeting_notes as notes_service
+from app.services.meetings import is_meeting_finished
 
 router = APIRouter(prefix="/notes", tags=["Toplantı Notları"])
 
@@ -28,10 +29,22 @@ def create_meeting_note(
     diğerleri sadece görüntüleyebilir. 'personal' notlar (herkesin kendine
     özel) bu kısıtlamadan etkilenmez.
     """
+    # BUG FIX: Toplantının bitmiş/iptal edilmiş olup olmadığı hiç kontrol
+    # edilmiyordu — kullanıcı tarayıcı geri/ileri ile sona ermiş bir toplantının
+    # odasına dönüp not ekleyerek raporu (report.html, bu notlardan besleniyor)
+    # değiştirebiliyordu. Artık not tipinden bağımsız olarak toplantı en başta
+    # çekilip kilit kontrolü yapılıyor.
+    meeting = db.query(Meeting).filter(Meeting.id == payload.meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Toplantı bulunamadı.")
+
+    if is_meeting_finished(meeting):
+        raise HTTPException(
+            status_code=403,
+            detail="Bu toplantı sona ermiş, artık not eklenemez."
+        )
+
     if (payload.note_type or "general") == "general":
-        meeting = db.query(Meeting).filter(Meeting.id == payload.meeting_id).first()
-        if not meeting:
-            raise HTTPException(status_code=404, detail="Toplantı bulunamadı.")
         is_creator = meeting.created_by == current_user.id
         is_privileged_role = str(getattr(current_user, "role", "")).lower() in ("admin", "manager")
         if not (is_creator or is_privileged_role):
@@ -61,9 +74,22 @@ def delete_meeting_note(
     current_user: User = Depends(get_current_user)
 ):
     """Yazarı olduğunuz bir toplantı notunu siler."""
+    from app.models.meeting_note import MeetingNote
+
+    # BUG FIX: create ile aynı kilit burada da uygulanıyor — sona ermiş bir
+    # toplantının notları artık silinemez (bkz. create_meeting_note).
+    db_note = db.get(MeetingNote, note_id)
+    if db_note:
+        meeting = db.query(Meeting).filter(Meeting.id == db_note.meeting_id).first()
+        if meeting and is_meeting_finished(meeting):
+            raise HTTPException(
+                status_code=403,
+                detail="Bu toplantı sona ermiş, notlar artık silinemez."
+            )
+
     success = notes_service.delete_note(db, note_id=note_id, user_id=current_user.id)
     if not success:
         raise HTTPException(
-            status_code=403, 
+            status_code=403,
             detail="Not bulunamadı ya da bu işlem için yetkiniz yok."
         )

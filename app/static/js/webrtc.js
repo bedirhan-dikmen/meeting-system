@@ -137,7 +137,13 @@ const WebRTC = {
     this.restoreChatHistory();
 
     // Fetch Meeting Details
-    await this.fetchMeetingInfo();
+    // BUG FIX: fetchMeetingInfo() artık sona ermiş bir toplantı/geçersiz jeton
+    // durumunda `false` dönüp kendi içinde zaten yönlendirme yapıyor — bu
+    // durumda joinRoom() burada durup medya izni istemeye/WS'e bağlanmaya hiç
+    // geçmemeli (aksi halde location.replace() navigasyonu tamamlanana kadar
+    // kamera izni promptu gibi istenmeyen bir an sürebilirdi).
+    const meetingInfoOk = await this.fetchMeetingInfo();
+    if (meetingInfoOk === false) return;
     await this.loadExistingNotes();
 
     // Setup Local Stream
@@ -300,7 +306,7 @@ const WebRTC = {
           setTimeout(() => {
             window.location.replace(`/guest/${this.meetingCode}`);
           }, 1000);
-          return;
+          return false;
         }
 
         const payloadData = await valRes.json();
@@ -308,7 +314,7 @@ const WebRTC = {
           console.warn("Misafir jetonu başka bir odaya ait. Yeni oda giriş portalına yönlendiriliyor.");
           sessionStorage.removeItem('guest_token');
           window.location.replace(`/guest/${this.meetingCode}`);
-          return;
+          return false;
         }
 
         sessionStorage.setItem('guest_token', guestToken);
@@ -323,13 +329,20 @@ const WebRTC = {
             role: 'guest'
           };
           this.isHost = false;
+        } else if (response.status === 410) {
+          // BUG FIX: Toplantı bu sırada sona ermişse (410) eskiden hiçbir şey
+          // olmuyordu — meetingInfo boş kalıp odaya "sessizce" devam
+          // ediliyordu. Artık guest.html'in zaten var olan "Bu Toplantı Sona
+          // Erdi" engelleyici ekranına (showMeetingEndedState) yönlendiriyor.
+          window.location.replace(`/guest/${this.meetingCode}`);
+          return false;
         }
       } else {
         const token = Auth.getToken();
         if (!token) {
           // Token veya misafir jetonu bulunmadığı için doğrudan misafir giriş sayfasına yönlendir
           window.location.replace(`/guest/${this.meetingCode}`);
-          return;
+          return false;
         }
 
         response = await Auth.fetchWithAuth(`/api/v1/meetings/code/${this.meetingCode}`);
@@ -350,8 +363,22 @@ const WebRTC = {
           this.isHost = Boolean(isCreator || isAdmin);
         } else if (response.status === 401 || response.status === 403) {
           window.location.replace('/login');
-          return;
+          return false;
         }
+      }
+
+      // KRİTİK BUG FIX: Kullanıcı tarayıcı geri/ileri (bfcache) ile sona ermiş
+      // bir toplantının /room/ sayfasına dönebiliyor, sayfa `pageshow`
+      // guard'ıyla (bkz. room.html/auth.js) reload olup buraya (fetchMeetingInfo)
+      // yeniden düşüyordu ama toplantının durumu HİÇ kontrol edilmiyordu —
+      // odaya tekrar "katılıp" not/rapor düzenleyebiliyordu. joinRoom() içindeki
+      // TEK giriş noktası burası (ilk katılım + F5 + bfcache-reload hepsi
+      // buradan geçiyor); artık medya/WS kurulumuna hiç geçmeden, sona ermiş
+      // toplantılar burada kesin olarak engelleniyor.
+      if (this._isMeetingInfoFinished()) {
+        const isGuestUser = this.currentUser?.role === 'guest';
+        window.location.replace(isGuestUser ? `/guest/${this.meetingCode}` : `/reports/${this.meetingInfo?.id || ''}`);
+        return false;
       }
 
       if (this.meetingInfo) {
@@ -416,9 +443,17 @@ const WebRTC = {
           this.startLobbyPolling();
         }
       }
+      return true;
     } catch (e) {
       console.warn("Toplantı detayları alınamadı:", e);
     }
+  },
+
+  /** m.status'ü meetings.js'teki normalizeStatus ile tutarlı şekilde
+   * "bitmiş/iptal edilmiş" sayılan değerlere karşı kontrol eder. */
+  _isMeetingInfoFinished() {
+    const s = String(this.meetingInfo?.status || '').trim().toLowerCase();
+    return ['tamamlandı', 'tamamlandi', 'completed', 'ended', 'finished', 'bitti', 'kapandı', 'kapandi', 'kaptildi', 'iptal edildi', 'iptal', 'cancelled', 'canceled'].includes(s);
   },
 
   isUserHost() {
@@ -1142,23 +1177,25 @@ const WebRTC = {
       case 'meeting-ended': {
         // BUG FIX: Herkes (misafir dahil) '/reports/{id}' resmi rapor sayfasına
         // atılıyordu — bu sayfa kayıtlı kullanıcı oturumu gerektirir, misafir
-        // orada oturum açmaya zorlanıp kilitleniyordu. Misafirler artık kendi
-        // güvenli giriş ekranına döner (toplantı bittiği için orada da tekrar
-        // giremeyeceklerdir); kayıtlı kullanıcılar resmi rapora gider.
+        // orada oturum açmaya zorlanıp kilitleniyordu. Artık host'un kendi
+        // endMeeting()'iyle BİREBİR AYNI davranış: kayıtlı kullanıcı için
+        // rapor YENİ sekmede açılıp bu toplantı sekmesi kapatılıyor; misafir
+        // için sadece kapatılıyor (rapora zaten erişimi yok).
         const isGuestUser = this.currentUser?.role === 'guest';
         if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
         if (typeof Notifications !== 'undefined') {
           Notifications.show("Toplantı yönetici tarafından sonlandırıldı.", "info", "Toplantı Sona Erdi");
         }
         this.clearChatHistory();
-        // BUG FIX: Misafirin geçmiş (artık geçersiz) guest_token'ı sessionStorage'da
-        // kalmaya devam ediyordu — aynı sekmede aynı toplantı linkine tekrar
-        // gelinirse eski/süresi dolmuş jetonla karışık bir duruma yol açabiliyordu.
-        // kicked/guest-rejected akışı zaten bunu temizliyordu, burada da tutarlı
-        // olsun diye ekleniyor.
         if (isGuestUser) sessionStorage.removeItem('guest_token');
         setTimeout(() => {
-          window.location.href = isGuestUser ? `/guest/${this.meetingCode}` : `/reports/${this.meetingInfo?.id || ''}`;
+          this._finishRoomSession({
+            deadEndTitle: 'Toplantı Sona Erdi',
+            deadEndMessage: isGuestUser
+              ? 'Bu sekmeyi güvenle kapatabilirsiniz.'
+              : 'Toplantı raporu yeni bir sekmede açıldı. Bu sekmeyi kapatabilirsiniz.',
+            openUrlInNewTab: isGuestUser ? null : `/reports/${this.meetingInfo?.id || ''}`
+          });
         }, 1200);
         break;
       }
@@ -1768,6 +1805,13 @@ const WebRTC = {
     }
     const quickBtn = document.getElementById('btnScreenShareAudioToggle');
     if (quickBtn) quickBtn.title = shareVid.muted ? 'Ekran Paylaşımı Sesini Aç' : 'Ekran Paylaşımı Sesini Kapat';
+
+    // BUG FIX: Sağ üstteki buton artık gerçek bir ses ikonu (bkz. room.html
+    // btnScreenShareMenuIcon) — bu da aynı gerçek duruma göre senkron kalsın.
+    const menuIcon = document.getElementById('btnScreenShareMenuIcon');
+    if (menuIcon) {
+      menuIcon.className = shareVid.muted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+    }
   },
 
   // Ekran paylaşımı kartının üç-nokta menüsü: ses seviyesi/sessize alma +
@@ -3965,6 +4009,45 @@ const WebRTC = {
     }
   },
 
+  /**
+   * Toplantı sekmesini basit bir "bitti, kapatabilirsiniz" ekranına çevirir.
+   * window.close() script ile açılmamış bir sekmede sessizce başarısız
+   * olabileceğinden (tarayıcı güvenliği), bu ekran ÖNCE gösteriliyor —
+   * kapatma başarılı olursa zaten görülmeden sekme kapanıyor, başarısız
+   * olursa kullanıcı ne yapması gerektiğini net biçimde görüyor.
+   */
+  _showRoomDeadEnd(title, message) {
+    try {
+      document.body.innerHTML = `
+        <div style="min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#0f172a; color:#f1f5f9; font-family:'Segoe UI',system-ui,sans-serif; text-align:center; padding:2rem; box-sizing:border-box;">
+          <div style="width:72px; height:72px; border-radius:50%; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; font-size:1.9rem; margin-bottom:1.25rem; color:#94a3b8;">
+            <i class="fas fa-door-closed"></i>
+          </div>
+          <h2 style="font-size:1.25rem; font-weight:800; margin:0 0 0.5rem 0;">${title}</h2>
+          <p style="color:#94a3b8; font-size:0.9rem; margin:0; max-width:380px; line-height:1.5;">${message}</p>
+        </div>
+      `;
+    } catch (e) { /* sekme zaten kapanıyor olabilir, önemli değil */ }
+  },
+
+  /**
+   * Toplantı oturumunu sonlandırırken (Ayrıl / Toplantıyı Sonlandır) ortak
+   * kapanış adımı: gerekiyorsa bir URL'yi YENİ sekmede açar (ör. rapor),
+   * ardından bu toplantı sekmesini kapatmayı dener. Toplantı akışı artık
+   * her zaman kendi ayrı sekmesinde açıldığından (bkz. meetings.js
+   * Meetings.openMeetingInNewTab / auth.js joinLiveMeeting), bu sekme
+   * script ile kapatılabilir olmalı — başarısız olursa dead-end ekranı
+   * zaten kullanıcıyı bilgilendiriyor. Bu sayede geri/ileri tuşuyla eski
+   * bir toplantı sekmesine dönme ihtimali tamamen ortadan kalkıyor.
+   */
+  _finishRoomSession({ deadEndTitle, deadEndMessage, openUrlInNewTab } = {}) {
+    if (openUrlInNewTab) {
+      window.open(openUrlInNewTab, '_blank', 'noopener');
+    }
+    this._showRoomDeadEnd(deadEndTitle, deadEndMessage);
+    window.close();
+  },
+
   endMeeting() {
     // Güvenlik: misafir/sıradan katılımcı bu fonksiyona UI'dan hiç erişemez
     // (bkz. room.html üç-nokta/ayrıl menüsü gizleme), ama savunma amaçlı burada
@@ -3979,7 +4062,18 @@ const WebRTC = {
       if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
       this.clearChatHistory();
       const isGuestUser = this.currentUser?.role === 'guest';
-      window.location.href = isGuestUser ? `/guest/${this.meetingCode}` : `/reports/${this.meetingInfo?.id || ''}`;
+      // BUG FIX: Artık aynı sekmede /reports/'a gitmek yerine, rapor (sadece
+      // kayıtlı kullanıcılar için — misafirin zaten /reports/ erişimi yok,
+      // JWT gerektiriyor) YENİ bir sekmede açılıyor, toplantı sekmesi
+      // kapatılıyor. Böylece bu sekmede artık ne geri ne ileri diye bir şey
+      // kalıyor.
+      this._finishRoomSession({
+        deadEndTitle: 'Toplantı Sona Erdi',
+        deadEndMessage: isGuestUser
+          ? 'Bu sekmeyi güvenle kapatabilirsiniz.'
+          : 'Toplantı raporu yeni bir sekmede açıldı. Bu sekmeyi kapatabilirsiniz.',
+        openUrlInNewTab: isGuestUser ? null : `/reports/${this.meetingInfo?.id || ''}`
+      });
     }
   },
 
@@ -3988,22 +4082,21 @@ const WebRTC = {
   },
 
   leaveMeeting() {
-    // BUG FIX: Misafir ayrıldığında herkes gibi '/' (ana sayfa/dashboard)'a
-    // atılıyordu — misafirin orada (giriş yapılmış bir hesabı olmadığından)
-    // hiçbir işi yok, /login'e sekiyordu ve "toplantı bitti" bilgisi de hiç
-    // gösterilmiyordu. Misafirler artık kendi güvenli giriş ekranına
-    // (/guest/{code}) döner: toplantı hâlâ açıksa aynı bilgilerle tekrar
-    // katılım talebi atabilir, toplantı bittiyse orada net biçimde engellenir
-    // (bkz. guest.html) — kayıtlı kullanıcılar değişmeden dashboard'a gider.
+    // BUG FIX: Eskiden '/' (kayıtlı kullanıcı) veya '/guest/{code}' (misafir)
+    // adresine YÖNLENDİRİLİYORDU; bu, toplantı sekmesinin tarayıcı geçmişine
+    // yeni bir sayfa daha ekleyip geri/ileri tuşu sorununu büyütüyordu. Artık
+    // toplantı sekmesi (window.open ile açıldığı için) doğrudan KAPATILIYOR —
+    // geri/ileri diye bir şey kalmıyor, kullanıcı zaten ana panel sekmesinde.
     this.sendSignal({ type: 'user-left', explicit: true });
     if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
     if (this.socket) { try { this.socket.close(); } catch (e) { } }
     this.clearChatHistory();
     const isGuestUser = this.currentUser?.role === 'guest';
-    // BUG FIX: kicked/guest-rejected/meeting-ended akışlarıyla tutarlı olsun diye
-    // — misafirin artık geçersiz guest_token'ı sistemde/sekmede açık kalmasın.
     if (isGuestUser) sessionStorage.removeItem('guest_token');
-    window.location.href = isGuestUser ? `/guest/${this.meetingCode}` : '/';
+    this._finishRoomSession({
+      deadEndTitle: 'Toplantıdan Ayrıldınız',
+      deadEndMessage: 'Bu sekmeyi güvenle kapatabilirsiniz.'
+    });
   },
 
   startTimer() {

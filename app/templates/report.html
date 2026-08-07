@@ -2,6 +2,13 @@
 
 {% block title %}Toplantı Katılım ve Sonuç Raporu - YebMeeting{% endblock %}
 
+<!-- BUG FIX: Rapor artık kendi ayrı sekmesinde açılıyor (bkz. webrtc.js
+     endMeeting/meeting-ended → _finishRoomSession) ve kullanıcının işi
+     bitince bu sekmeyi doğrudan kapatması bekleniyor — navbar (Anasayfa/
+     Toplantılarım/Kayıtlar/Profil linkleri) burada anlamsız/dikkat dağıtıcı,
+     bu yüzden base.html'deki header block'u boş bırakılıp kaldırılıyor. -->
+{% block header %}{% endblock %}
+
 {% block content %}
 <div class="dashboard-page-wrapper no-print" style="padding: 0.5rem 0 1.25rem 0;">
 
@@ -17,12 +24,22 @@
     </div>
 
     <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-      <a id="btnBackToMeetings" href="/meetings" class="btn-action-soft" style="background: #ffffff; color: #4f46e5; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.5rem 1.05rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.45rem; height: 38px; text-decoration: none; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
-        <i class="fas fa-arrow-left" style="color: #6366f1;"></i> Toplantılara Dön
-      </a>
+      <!-- BUG FIX: "Toplantılara Dön" kaldırıldı — rapor artık kendi ayrı
+           sekmesinde açılıyor (bkz. header block yukarıda), kullanıcının
+           tek yapması gereken işi bitince sekmeyi kapatmak; dashboard'a
+           geri dönen bir link burada anlamsız/dikkat dağıtıcı. -->
       <button id="btnGuestLogout" onclick="Report.guestExit()" style="display: none; background: #ffe4e6; color: #e11d48; border: 1px solid #fecdd3; border-radius: 10px; padding: 0.5rem 1.05rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; align-items: center; gap: 0.45rem; height: 38px;">
         <i class="fas fa-sign-out-alt"></i> Oturumu Kapat / Çıkış Yap
       </button>
+      <!-- BUG FIX: Kişisel notlar varsayılan olarak yazdırma/PDF çıktısına
+           dahil EDİLMİYOR (bkz. report.js #repPersonalNotesWrapper'a başlangıçta
+           eklenen no-print class'ı) — kullanıcı isterse bu kutuyu işaretleyip
+           dahil edebilir. Ekranda görünmeye devam ediyor, sadece çıktıdan
+           hariç tutuluyor. -->
+      <label id="repIncludeNotesLabel" style="display: none; align-items: center; gap: 0.5rem; font-size: 0.82rem; font-weight: 600; color: #475569; cursor: pointer; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.5rem 0.85rem; height: 38px; box-sizing: border-box;">
+        <input type="checkbox" id="repIncludePersonalNotesToggle" onchange="Report.togglePersonalNotesInPrint(this.checked)" style="accent-color: #5b5fc7; width: 15px; height: 15px;">
+        Notlarımı Dahil Et
+      </label>
       <button onclick="Report.printReport()" class="btn-action-purple" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 10px; padding: 0.5rem 1.15rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.55rem; height: 38px; box-shadow: 0 4px 12px rgba(91, 95, 199, 0.22); transition: all 0.2s ease;">
         <i class="fas fa-file-pdf"></i> Raporu Yazdır / PDF İndir
       </button>
@@ -54,7 +71,11 @@
   </div>
 
   <!-- OFFICIAL HEADER BAR -->
-  <div
+  <!-- BUG FIX: report-header-bar class'ı eklendi — mobilde sağ blok
+       (report-header-side) sarıldığında text-align:right yerine left'e
+       dönüyor (bkz. style.css mobil bölümü), aksi halde sarma sonrası
+       sağa yaslı kalıp asimetrik/kesik görünüyordu. -->
+  <div class="report-header-bar"
     style="border-bottom: 2px solid #0f172a; padding-bottom: 1.25rem; margin-bottom: 1.75rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
     <div>
       <div
@@ -68,7 +89,7 @@
       </div>
     </div>
 
-    <div style="text-align: right; font-size: 0.85rem; color: #475569;">
+    <div class="report-header-side" style="text-align: right; font-size: 0.85rem; color: #475569;">
       <div id="repMeetingTimeRow" style="display: none;">
         Toplantı Saati: <strong id="repMeetingTimeRange" style="color: #0f172a;">-</strong>
       </div>
@@ -108,18 +129,22 @@
       style="font-size: 1.05rem; font-weight: 700; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.5rem; margin-bottom: 1rem;">
       1. Katılımcı Oturum ve Süre Cetveli
     </h3>
-    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; color: #1e293b;">
-      <thead>
-        <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1; color: #334155;">
-          <th style="padding: 0.75rem 1rem;">Katılımcı Adı Soyadı</th>
-          <th style="padding: 0.75rem 1rem;">Sicil / Personel Kodu</th>
-          <th style="padding: 0.75rem 1rem;">Toplam Aktif Süre</th>
-        </tr>
-      </thead>
-      <tbody id="repParticipantsTable">
-        <!-- Populated by report.js -->
-      </tbody>
-    </table>
+    <!-- BUG FIX: Bu tabloda hiç overflow-x koruması yoktu — dokunmatik
+         kaydırmalı sarmalayıcı eklendi (bkz. style.css mobil bölümü). -->
+    <div class="data-table-scroll">
+      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; color: #1e293b;">
+        <thead>
+          <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1; color: #334155;">
+            <th style="padding: 0.75rem 1rem;">Katılımcı Adı Soyadı</th>
+            <th style="padding: 0.75rem 1rem;">Sicil / Personel Kodu</th>
+            <th style="padding: 0.75rem 1rem;">Toplam Aktif Süre</th>
+          </tr>
+        </thead>
+        <tbody id="repParticipantsTable">
+          <!-- Populated by report.js -->
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- SECTION 2: MEETING NOTES & DECISIONS -->
@@ -129,10 +154,14 @@
       2. Toplantı Kararları ve Notları
     </h3>
 
+    <!-- BUG FIX: Bu iki başlıktaki ikonlar ve mor/yeşil renkler kaldırıldı —
+         resmi bir tutanak belgesinde renkli/ikonlu başlıklar yerine, belgenin
+         geri kalanıyla (bkz. üstteki "1. Katılımcı..." başlığı) tutarlı, tek
+         renkli (siyah/koyu lacivert) sade bir görünüm tercih edildi. -->
     <!-- Genel Notlar -->
     <div style="margin-bottom: 1.25rem;">
-      <h4 style="font-size: 0.92rem; font-weight: 700; color: #4f46e5; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
-        <i class="fas fa-bullhorn"></i> Genel Toplantı Kararları & Duyurular
+      <h4 style="font-size: 0.92rem; font-weight: 700; color: #0f172a; margin-bottom: 0.5rem;">
+        Genel Toplantı Kararları & Duyurular
       </h4>
       <div id="repGeneralNotesList" style="display: flex; flex-direction: column; gap: 0.65rem;">
         <!-- Populated by report.js -->
@@ -141,8 +170,8 @@
 
     <!-- Kişisel Notlar -->
     <div id="repPersonalNotesWrapper" style="margin-top: 1.25rem;">
-      <h4 style="font-size: 0.92rem; font-weight: 700; color: #059669; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
-        <i class="fas fa-user-lock"></i> Sadece Bana Özel Kişisel Notlarım
+      <h4 style="font-size: 0.92rem; font-weight: 700; color: #0f172a; margin-bottom: 0.5rem;">
+        Sadece Bana Özel Kişisel Notlarım
       </h4>
       <div id="repPersonalNotesList" style="display: flex; flex-direction: column; gap: 0.65rem;">
         <!-- Populated by report.js -->
@@ -162,12 +191,12 @@
   </div>
 
   <!-- OFFICIAL FOOTER & SIGNATURE STAMP -->
-  <div
+  <div class="report-header-bar"
     style="border-top: 1px solid #e2e8f0; padding-top: 1.5rem; margin-top: 2rem; font-size: 0.78rem; color: #64748b; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
     <div>
       İşbu belge Kurumsal Toplantı Yönetim Sistemi (YebMeeting) tarafından otomatik olarak oluşturulmuştur.
     </div>
-    <div style="text-align: right; font-weight: 600; color: #334155;">
+    <div class="report-header-side" style="text-align: right; font-weight: 600; color: #334155;">
       Resmi Belge Kaydı • Onaylı Tutanak
     </div>
   </div>

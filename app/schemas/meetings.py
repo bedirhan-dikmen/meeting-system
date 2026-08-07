@@ -51,6 +51,7 @@ class MeetingOut(BaseModel):
     is_active: Optional[bool] = True
     created_at: Optional[datetime] = None
     created_by: UUID
+    host_name: Optional[str] = None
     active_count: Optional[int] = 0
     active_participants: Optional[List[dict]] = []
     time_str: Optional[str] = None

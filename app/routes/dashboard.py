@@ -1,6 +1,6 @@
 from datetime import timezone
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func, extract
 from datetime import datetime, date, timedelta
 from typing import Dict, Any, List
@@ -20,6 +20,16 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard Analitik"])
 
 _MONTHS_TR = {1: "Ocak", 2: "Şubat", 3: "Mart", 4: "Nisan", 5: "Mayıs", 6: "Haziran",
               7: "Temmuz", 8: "Ağustos", 9: "Eylül", 10: "Ekim", 11: "Kasım", 12: "Aralık"}
+
+
+def _host_display_name(meeting_obj: Meeting) -> str:
+    """Toplantıyı oluşturan kullanıcının görünen adını döner (creator ilişkisi
+    üzerinden, app/routes/meetings.py'deki enrich_meeting_active_users ile
+    aynı desen)."""
+    creator = getattr(meeting_obj, "creator", None)
+    if not creator:
+        return "Bilinmiyor"
+    return f"{creator.first_name or ''} {creator.last_name or ''}".strip() or creator.email
 
 
 def _format_day_prefix(s_date: datetime | None, now: datetime) -> str:
@@ -58,7 +68,7 @@ def get_dashboard_stats(
     )
 
     # Kullanıcının ilişkili olduğu (oluşturduğu veya davetli/katılımcı olduğu) aktif toplantı sorgusu
-    user_meetings = db.query(Meeting).filter(
+    user_meetings = db.query(Meeting).options(selectinload(Meeting.creator)).filter(
         Meeting.is_active == True,
         (Meeting.created_by == user_id) | (Meeting.id.in_(user_meeting_ids))
     )
@@ -76,12 +86,22 @@ def get_dashboard_stats(
         )
     ).count()
 
+    # BUG FIX: Anasayfadaki "Planlı Toplantılar" ve "Tamamlanan" kartları eskiden
+    # kullanıcının TÜM zamanlardaki toplantılarını sayıyordu (bugünden haftalar
+    # sonrasını veya geçen ayki tamamlananları bile içeriyordu) — artık diğer
+    # günlük kartlarla (Bugünkü Toplantılar, Toplantı Notları) ve /meetings
+    # sayfasındaki "Tamamlanan Toplantılar" sekmesiyle (bkz. meetings.js
+    # getEffectiveStatus + isToday) tutarlı şekilde SADECE bugüne ait.
     upcoming_meetings_count = user_meetings.filter(
-        func.lower(Meeting.status).in_(["planlandı", "planlandi", "scheduled", "planned", "taslak"])
+        func.lower(Meeting.status).in_(["planlandı", "planlandi", "scheduled", "planned", "taslak"]),
+        Meeting.scheduled_start >= today_start,
+        Meeting.scheduled_start < today_end
     ).count()
 
     completed_meetings_count = user_meetings.filter(
-        func.lower(Meeting.status).in_(["tamamlandı", "tamamlandi", "completed", "ended"])
+        func.lower(Meeting.status).in_(["tamamlandı", "tamamlandi", "completed", "ended"]),
+        Meeting.scheduled_start >= today_start,
+        Meeting.scheduled_start < today_end
     ).count()
 
     cancelled_meetings_count = user_meetings.filter(
@@ -120,9 +140,13 @@ def get_dashboard_stats(
     if live_meeting_obj:
         start_str = live_meeting_obj.scheduled_start.strftime("%H:%M") if live_meeting_obj.scheduled_start else ""
         end_str = live_meeting_obj.scheduled_end.strftime("%H:%M") if live_meeting_obj.scheduled_end else ""
-        
+
         # Real-time WebRTC Odasında (WebSocket) Anlık Bağlı Katılımcılar
         active_participants = signaling_manager.get_active_participants(live_meeting_obj.meeting_code)
+
+        # BUG FIX: Kart ⋮ menüsünde sahip olmayan kullanıcılara "Düzenle/İptal"
+        # yerine düzenleyenin adı gösterilebilsin diye (bkz. dashboard.js).
+        live_host_name = _host_display_name(live_meeting_obj)
 
         live_meeting = {
             "id": str(live_meeting_obj.id),
@@ -140,7 +164,8 @@ def get_dashboard_stats(
             "lobby_enabled": live_meeting_obj.lobby_enabled,
             "active_count": len(active_participants),
             "participants": active_participants,
-            "created_by": str(live_meeting_obj.created_by)
+            "created_by": str(live_meeting_obj.created_by),
+            "host_name": live_host_name
         }
 
     # 3. İlk Planlı / Yaklaşan Toplantı
@@ -181,6 +206,8 @@ def get_dashboard_stats(
             "meeting_type": next_meeting_obj.meeting_type or "Genel Toplantı",
             "status": "CANLI" if next_is_live else "Planlandı",
             "time_str": f"{time_prefix}{s_time} - {e_time}".strip(),
+            "created_by": str(next_meeting_obj.created_by),
+            "host_name": _host_display_name(next_meeting_obj)
         }
 
     # 4. Bugünkü Toplantılar Listesi (Maksimum 5 Toplantı)
@@ -231,9 +258,11 @@ def get_dashboard_stats(
             "date_str": _format_day_prefix(m.scheduled_start, now).strip()
         })
 
-    # Toplantı Notları ve Kararlar Sayısı
+    # BUG FIX: "Toplantı Notları" kartı da artık günlük — sadece BUGÜN atılan notlar.
     total_notes_count = db.query(func.count(MeetingNote.id)).filter(
-        (MeetingNote.author_id == user_id) | (MeetingNote.meeting_id.in_(user_meeting_ids))
+        (MeetingNote.author_id == user_id) | (MeetingNote.meeting_id.in_(user_meeting_ids)),
+        MeetingNote.created_at >= today_start,
+        MeetingNote.created_at < today_end
     ).scalar() or 0
 
     return {

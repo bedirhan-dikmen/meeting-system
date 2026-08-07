@@ -36,6 +36,12 @@
     <!-- Main Wrapper (Full Width) -->
     <div class="main-wrapper" style="margin-left: 0; width: 100%;">
       <!-- Top Header Navbar -->
+      <!-- BUG FIX: Bir alt şablonun (ör. report.html — artık kendi sekmesinde
+           açılan, kullanıcının işi bitince kapatması beklenen "dead-end" bir
+           sayfa) navbar'ı tamamen kaldırabilmesi için header bir Jinja
+           block'una alındı; varsayılan davranış (block boş bırakılırsa)
+           navbar'ın her zamanki gibi görünmesidir. -->
+      {% block header %}
       <header class="top-header">
         <!-- Left: Brand Logo & Navigation Links -->
         <div class="header-left">
@@ -46,15 +52,29 @@
             <span class="brand-text">YebMeeting</span>
           </a>
 
+          <!-- MOBİL: Hamburger toggle — ≤768px'de görünür (bkz. style.css mobil
+               bölümü), .top-nav-menu'yü açılır/kapanır panel olarak kontrol
+               eder (bkz. auth.js toggleMobileNav()). Masaüstünde her zaman
+               gizli, mevcut nav davranışı hiç değişmiyor. -->
+          <button type="button" id="mobileNavToggle" class="mobile-nav-toggle" onclick="toggleMobileNav()" aria-label="Menüyü aç/kapat" aria-expanded="false">
+            <i class="fas fa-bars"></i>
+          </button>
+
           <!-- Top Navigation Tabs -->
-          <nav class="top-nav-menu">
+          <nav class="top-nav-menu" id="topNavMenu">
             <a href="/" class="top-nav-link {% if request.url.path == '/' %}active{% endif %}">Anasayfa</a>
             <a href="/meetings" class="top-nav-link {% if request.url.path == '/meetings' %}active{% endif %}">Toplantılarım</a>
             <!-- V1 NOT: Takvim ve Kişiler v1 kapsamı dışı bırakıldı, v2'de geri
                  eklenecek (bkz. app/main.py page_calendar/page_contacts). Sadece
                  navbar'dan kaldırmak yetmez diye rotalar da sunucu tarafında
                  anasayfaya yönlendiriliyor; link doğrudan URL ile de gidilemez. -->
-            <a href="/history" id="navItemHistory" class="top-nav-link {% if request.url.path == '/history' %}active{% endif %}">Kayıtlar</a>
+            <!-- BUG FIX: Varsayılan olarak gizli (display:none) render ediliyor —
+                 eskiden görünür başlayıp auth.js DOMContentLoaded'da admin
+                 değilse gizliyordu, bu da normal kullanıcıda her sayfa
+                 geçişinde kısa bir "görünüp kaybolma" (flicker) yaratıyordu.
+                 updateNavigationPermissions() admin ise zaten display:flex
+                 yapıyor, değişiklik gerekmedi. -->
+            <a href="/history" id="navItemHistory" class="top-nav-link {% if request.url.path == '/history' %}active{% endif %}" style="display: none;">Kayıtlar</a>
             <a href="/profile" class="top-nav-link {% if request.url.path == '/profile' %}active{% endif %}">Profil</a>
           </nav>
         </div>
@@ -105,6 +125,7 @@
           </button>
         </div>
       </header>
+      {% endblock %}
 
 
       <!-- Content Body -->
@@ -147,7 +168,7 @@
       <!-- User Info Form -->
       <form id="profileForm" onsubmit="Auth.saveProfile(event)"
         style="display: flex; flex-direction: column; gap: 0.85rem;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div class="grid-2col-mobile-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
           <div>
             <label style="font-size: 0.8rem; color: var(--text-muted);">Ad</label>
             <input type="text" id="profFirstName" class="form-input"
@@ -412,9 +433,48 @@
             <textarea id="editAgenda" rows="2" class="form-control" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem;"></textarea>
           </div>
 
-          <div>
-            <label style="font-size: 0.85rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.35rem;">Oda Şifresi (Passcode)</label>
-            <input type="text" id="editPasscode" placeholder="Şifresiz için boş bırakın" class="form-control" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem;">
+          <!-- BUG FIX: Toplantı Oluştur kartındaki katılımcı davet etme
+               DIŞINDAKİ tüm alanlar (Tür, Saat, Süre, Şifre) artık burada da
+               düzenlenebiliyor — eskiden sadece başlık/açıklama/gündem/şifre
+               vardı, Tür ve Süre hiç yoktu; saat de yakın zamana kadar yoktu.
+               Meetings.openEditModal()'da dolduruluyor, submit'te seçilen
+               süreye göre scheduled_end yeniden hesaplanıyor (bkz. meetings.js). -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; background: #f8fafc; padding: 0.85rem; border-radius: 10px; border: 1px solid #f1f5f9;">
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">Toplantı Türü</label>
+              <select id="editMeetingType" class="form-select" style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+                <option value="Planlı Toplantı">Planlı Toplantı</option>
+                <option value="Günlük Toplantı (Standup)">Günlük Toplantı (Standup)</option>
+                <option value="Haftalık Toplantı">Haftalık Toplantı</option>
+                <option value="Proje Toplantısı">Proje Toplantısı</option>
+                <option value="Departman Görüşmesi">Departman Görüşmesi</option>
+                <option value="Eğitim & Atölye">Eğitim & Atölye</option>
+                <option value="Müşteri Toplantısı">Müşteri Toplantısı</option>
+                <option value="Anlık Toplantı">Anlık Toplantı</option>
+              </select>
+            </div>
+
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">Başlangıç Zamanı</label>
+              <input type="datetime-local" id="editStart" class="form-control" style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+            </div>
+
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">Tahmini Süre</label>
+              <select id="editDuration" class="form-select" style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+                <option value="15">15 Dakika</option>
+                <option value="30">30 Dakika</option>
+                <option value="45">45 Dakika</option>
+                <option value="60">1 Saat</option>
+                <option value="90">1.5 Saat</option>
+                <option value="120">2 Saat</option>
+              </select>
+            </div>
+
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">Oda Şifresi (Passcode)</label>
+              <input type="text" id="editPasscode" placeholder="Şifresiz için boş bırakın" style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+            </div>
           </div>
 
           <!-- NOT: "Bekleme Odası (Lobi)" seçilebilir bir özellik olmaktan
@@ -446,10 +506,14 @@
 
       <div style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.9rem;">
         <!-- Meeting Code & Active Users Info -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; background: #f8fafc; padding: 0.85rem; border-radius: 10px; border: 1px solid #f1f5f9;">
+        <div class="grid-2col-mobile-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; background: #f8fafc; padding: 0.85rem; border-radius: 10px; border: 1px solid #f1f5f9;">
           <div>
-            <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Oda Kodu</span>
-            <p id="infoMeetingCode" style="font-size: 0.95rem; font-weight: 800; color: #5b5fc7; margin: 0; font-family: monospace;">yeb-xxxx-xxxx</p>
+            <!-- BUG FIX: Burada eskiden "Oda Kodu" (yeb-xxxx-xxxx) gösteriliyordu —
+                 sıradan katılımcı için anlamsız/gereksiz bir bilgiydi. Artık
+                 toplantıyı düzenleyen (host) kişinin adı gösteriliyor
+                 (bkz. meetings.js showMeetingInfo, host_name backend'den geliyor). -->
+            <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Düzenleyen</span>
+            <p id="infoMeetingHost" style="font-size: 0.95rem; font-weight: 800; color: #0f172a; margin: 0;">-</p>
           </div>
           <div>
             <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Anlık Aktif Katılımcı</span>
@@ -472,7 +536,7 @@
         </div>
 
         <!-- Room Security & Time -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
+        <div class="grid-2col-mobile-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
           <div>
             <span style="font-size: 0.72rem; font-weight: 700; color: #64748b;">TARİH & SAAT</span>
             <p id="infoMeetingTimeRange" style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin: 0.2rem 0 0 0;">-</p>
@@ -493,7 +557,11 @@
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
           <button type="button" onclick="Meetings.closeDetailsModal()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.6rem 1.2rem; font-weight: 700; font-size: 0.85rem; cursor: pointer;">Kapat</button>
-          <a id="infoMeetingJoinBtn" href="#" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 8px; padding: 0.6rem 1.4rem; font-weight: 800; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 10px rgba(91,95,199,0.2);">
+          <!-- BUG FIX: target="_blank" ile yeni sekmede açılıyor — toplantı akışı
+               (prejoin/room) artık ana panel sekmesinin tarayıcı geçmişine hiç
+               karışmıyor (bkz. app/static/js/meetings.js/dashboard.js/auth.js
+               aynı desendeki diğer "Odaya Katıl" tetikleyicileri). -->
+          <a id="infoMeetingJoinBtn" href="#" target="_blank" rel="noopener" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 8px; padding: 0.6rem 1.4rem; font-weight: 800; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 10px rgba(91,95,199,0.2);">
             <i class="fas fa-video"></i> Odaya Katıl
           </a>
         </div>

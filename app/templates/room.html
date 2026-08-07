@@ -14,7 +14,11 @@
   <div class="room-container">
 
     <!-- LIVE MEETING ROOM SCREEN -->
-    <div id="liveRoomScreen" style="display: flex; flex-direction: column; height: 100vh; background: #f8fafc;">
+    <!-- BUG FIX: 100dvh eklendi — mobil tarayıcı adres çubuğu/gesture bar
+         100vh'i gerçek görünür alandan büyük gösterip alt kısmı kırpıyordu
+         (prejoin.html'in zaten kullandığı desenle tutarlı, vh fallback olarak
+         kalıyor). -->
+    <div id="liveRoomScreen" style="display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: #f8fafc;">
 
       <!-- SINGLE TOP HEADER BAR (Logo, Room Title, Timer, Screen Share Badge & Action Pills) -->
       <!-- TOP HEADER NAVBAR (72px HEIGHT, MATCHING HOMEPAGE BRANDING & CLEAN FLAT DESIGN) -->
@@ -199,8 +203,15 @@
       </header>
 
       <!-- VIEW MODE 1: DYNAMIC WEBRTC STAGE CONTAINER (MICROSOFT TEAMS CANVAS) -->
+      <!-- BUG FIX: Sabit `calc(100vh - 56px)` gerçek header yüksekliğiyle
+           (72px, mobilde header 2 satıra sarınca daha da değişken) hiç
+           uyuşmuyordu — sahnenin altı kırpılabiliyordu. Header zaten
+           `flex-shrink:0` olduğundan, bu konteynerin `flex:1;min-height:0`
+           olması flexbox'ın kalan alanı OTOMATİK ve DOĞRU vermesini sağlıyor,
+           header kaç satır olursa olsun (mobil dahil) sabit bir piksel
+           tahminine gerek kalmıyor. -->
       <div id="meetingStageContainer" class="room-main room-stage-bg meeting-stage-container"
-        style="display: flex; width: 100%; height: calc(100vh - 56px); position: relative; overflow: hidden; background: #f3f2f8; padding: 0.85rem;">
+        style="display: flex; width: 100%; flex: 1; min-height: 0; position: relative; overflow: hidden; background: #f3f2f8; padding: 0.85rem;">
 
         <!-- TOP CAROUSEL BAR FOR PARTICIPANTS: BUG FIX — eskiden #stageMainArea'nın
              içindeydi, yani sadece sahnenin genişliğini kaplıyordu; kenar paneli
@@ -281,8 +292,14 @@
                          de karışıklığa yol açıyordu (bkz. WebRTC.enableScreenShareLayout
                          — bu buton artık SADECE izleyicilere gösteriliyor,
                          paylaşımı yapan kişide gizli). -->
-                    <button id="btnScreenShareMenu" class="tile-more-btn" onclick="WebRTC.openScreenShareMenu(event)" title="Ekran Paylaşımı Sesi" style="position: absolute; top: 0.75rem; right: 0.75rem; z-index: 40;">
-                      <i class="fas fa-ellipsis-v" style="font-size: 0.8rem;"></i>
+                    <!-- BUG FIX: İkon eskiden genel bir "⋮" (üç-nokta) idi — buton
+                         aslında ses seviyesi/sessize alma menüsünü açıyor olsa da
+                         görünüşte bu hiç belli olmuyordu. Artık gerçek/dinamik bir
+                         hoparlör ikonu (sessizdeyken "kesik hoparlör"e döner, bkz.
+                         _syncScreenShareAudioUI) — sağ üstte doğrudan tanınabilir
+                         bir "ses butonu". -->
+                    <button id="btnScreenShareMenu" class="tile-more-btn" onclick="WebRTC.openScreenShareMenu(event)" title="Ekran Paylaşımı Sesi (Seviye Ayarla / Sessize Al)" style="position: absolute; top: 0.75rem; right: 0.75rem; z-index: 40;">
+                      <i id="btnScreenShareMenuIcon" class="fas fa-volume-up" style="font-size: 0.8rem;"></i>
                     </button>
 
                     <!-- BOTTOM-RIGHT, TAM EKRANIN SOLUNDA HIZLI SES AÇ/KAPA BUTONU:
@@ -633,11 +650,11 @@
     <!-- KATILIMCI DAVET ET CENTER POP-UP MODAL -->
     <div id="roomInviteModal"
       style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(6px); z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem;">
-      <div
+      <div class="room-modal-shell"
         style="background: #ffffff; border-radius: 20px; width: 100%; max-width: 560px; box-shadow: 0 24px 60px rgba(0,0,0,0.16), 0 0 0 1px rgba(0,0,0,0.04); display: flex; flex-direction: column; max-height: 88vh;">
 
         <!-- Modal Header -->
-        <div
+        <div class="room-modal-header"
           style="padding: 1.75rem 2rem 1.25rem; display: flex; justify-content: space-between; align-items: flex-start;">
           <div>
             <div style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.35rem;">
@@ -647,7 +664,7 @@
               </div>
               <h3 style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0;">Katılımcı Davet Et</h3>
             </div>
-            <p style="font-size: 0.84rem; color: #64748b; margin: 0; padding-left: 3.1rem;">Bağlantı paylaşın veya
+            <p class="room-modal-subtext" style="font-size: 0.84rem; color: #64748b; margin: 0; padding-left: 3.1rem;">Bağlantı paylaşın veya
               sistemdeki kullanıcıyı doğrudan davet edin.</p>
           </div>
           <button type="button" onclick="closeRoomInviteModal()"
@@ -659,7 +676,7 @@
         <div style="height: 1px; background: #f1f5f9; margin: 0 2rem;"></div>
 
         <!-- Modal Body -->
-        <div
+        <div class="room-modal-body"
           style="padding: 1.5rem 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; flex: 1;">
 
           <!-- Hızlı Bağlantı Kutusu -->
@@ -680,13 +697,14 @@
             </div>
           </div>
 
-          <!-- Oda Kodu Kutusu: Şirket içi katılımcılar /prejoin ekranında bu
-               kodu doğrudan kullanabilir; misafirler için yukarıdaki bağlantı
-               zaten kodu içeriyor, bu sadece hızlı paylaşım/hatırlama içindir. -->
-          <div>
+          <!-- BUG FIX: Burada eskiden "Oda Kodu" (yeb-xxxx-xxxx) gösteriliyordu
+               — bu zaten yukarıdaki bağlantının içinde var, ayrıca göstermek
+               tekrar/gereksizdi. Artık şirket içi katılımcıların /prejoin
+               ekranında girmesi gereken Oda Anahtarı (passcode) gösteriliyor. -->
+          <div id="modalInviteKeyBox">
             <div
               style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.65rem;">
-              <i class="fas fa-key" style="color: #d97706; margin-right: 0.4rem;"></i> Oda Kodu
+              <i class="fas fa-key" style="color: #d97706; margin-right: 0.4rem;"></i> Oda Anahtarı
             </div>
             <div
               style="display: flex; gap: 0.6rem; align-items: center; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px; padding: 0.75rem 0.75rem;">
@@ -745,11 +763,11 @@
     <!-- ODA BİLGİLERİNİ DÜZENLE CENTER POP-UP MODAL -->
     <div id="roomSettingsModal"
       style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(6px); z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem;">
-      <div
+      <div class="room-modal-shell"
         style="background: #ffffff; border-radius: 20px; width: 100%; max-width: 560px; box-shadow: 0 24px 60px rgba(0,0,0,0.16), 0 0 0 1px rgba(0,0,0,0.04); display: flex; flex-direction: column; max-height: 90vh;">
 
         <!-- Modal Header -->
-        <div
+        <div class="room-modal-header"
           style="padding: 1.75rem 2rem 1.25rem; display: flex; justify-content: space-between; align-items: flex-start;">
           <div>
             <div style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.35rem;">
@@ -760,7 +778,7 @@
               <h3 style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0;">Toplantı Bilgilerini Düzenle
               </h3>
             </div>
-            <p style="font-size: 0.84rem; color: #64748b; margin: 0; padding-left: 3.1rem;">Toplantı başlığı, türü,
+            <p class="room-modal-subtext" style="font-size: 0.84rem; color: #64748b; margin: 0; padding-left: 3.1rem;">Toplantı başlığı, türü,
               gündem ve güvenlik ayarlarını güncelleyin.</p>
           </div>
           <button type="button" onclick="closeRoomSettingsModal()"
@@ -772,7 +790,7 @@
         <div style="height: 1px; background: #f1f5f9; margin: 0 2rem;"></div>
 
         <!-- Modal Form Body -->
-        <form id="formRoomSettings" onsubmit="saveRoomSettings(event)"
+        <form id="formRoomSettings" onsubmit="saveRoomSettings(event)" class="room-modal-body"
           style="padding: 1.5rem 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; flex: 1;">
           <input type="hidden" id="roomSettingsMeetingId">
 
@@ -825,6 +843,43 @@
               <option value="Eğitim">🎓 Eğitim</option>
               <option value="Müşteri Toplantısı">🤝 Müşteri Toplantısı</option>
             </select>
+          </div>
+
+          <!-- BUG FIX: Toplantı Oluştur kartındaki (katılımcı davet etme
+               DIŞINDAKİ) tüm alanlar burada da düzenlenebiliyor artık — Saat
+               ve Süre hiç yoktu, base.html editMeetingModal ile aynı desende
+               eklendi (bkz. openRoomSettingsModal/saveRoomSettings). -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem;">
+            <div>
+              <label
+                style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 0.6rem;">
+                <i class="far fa-clock" style="color: #0ea5e9; margin-right: 0.35rem;"></i> Başlangıç Zamanı
+              </label>
+              <input type="datetime-local" id="roomSettingsStart" style="
+                width: 100%; padding: 0.75rem 1rem; border: 1.5px solid #e2e8f0; border-radius: 10px;
+                font-size: 0.85rem; outline: none; transition: border 0.2s; box-sizing: border-box; background: #f8fafc;
+              " onfocus="this.style.borderColor='#a5b4fc'; this.style.background='#fff'"
+                onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'">
+            </div>
+
+            <div>
+              <label
+                style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 0.6rem;">
+                <i class="fas fa-hourglass-half" style="color: #10b981; margin-right: 0.35rem;"></i> Tahmini Süre
+              </label>
+              <select id="roomSettingsDuration" style="
+                width: 100%; padding: 0.75rem 1rem; border: 1.5px solid #e2e8f0; border-radius: 10px;
+                font-size: 0.85rem; outline: none; transition: border 0.2s; box-sizing: border-box; background: #f8fafc;
+              " onfocus="this.style.borderColor='#a5b4fc'; this.style.background='#fff'"
+                onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'">
+                <option value="15">15 Dakika</option>
+                <option value="30">30 Dakika</option>
+                <option value="45">45 Dakika</option>
+                <option value="60">1 Saat</option>
+                <option value="90">1.5 Saat</option>
+                <option value="120">2 Saat</option>
+              </select>
+            </div>
           </div>
 
           <!-- Gündem -->
@@ -1022,9 +1077,9 @@
 
       function copyModalRoomCode() {
         const input = document.getElementById('modalInviteRoomCode');
-        const code = input ? input.value : MEETING_CODE;
+        const code = input ? input.value : '';
         navigator.clipboard.writeText(code);
-        Notifications.show('Oda kodu panoya kopyalandı.', 'success', 'Kod Kopyalandı');
+        Notifications.show('Oda anahtarı panoya kopyalandı.', 'success', 'Kopyalandı');
       }
 
       let allInviteUsers = [];
@@ -1051,8 +1106,28 @@
         const linkInput = document.getElementById('modalInviteLinkInput');
         if (linkInput) linkInput.value = `${window.location.origin}/guest/${MEETING_CODE}`;
 
+        // BUG FIX: Oda kodu yerine oda anahtarı (passcode) gösteriliyor —
+        // bkz. yukarıdaki modalInviteKeyBox. meetingInfo zaten sayfa
+        // yüklenirken çekilmiş oluyor (window.currentMeetingInfo/WebRTC.meetingInfo);
+        // yoksa (nadir bir yarış durumu) buradan bir kez daha denenir.
         const roomCodeInput = document.getElementById('modalInviteRoomCode');
-        if (roomCodeInput) roomCodeInput.value = MEETING_CODE;
+        const keyBox = document.getElementById('modalInviteKeyBox');
+        let meetingInfoForKey = window.currentMeetingInfo || (typeof WebRTC !== 'undefined' ? WebRTC.meetingInfo : null);
+        if (!meetingInfoForKey) {
+          try {
+            const infoRes = await Auth.fetchWithAuth(`/api/v1/meetings/code/${MEETING_CODE}`);
+            if (infoRes.ok) meetingInfoForKey = await infoRes.json();
+          } catch (e) { /* sessizce yoksay, aşağıda "Şifresiz" olarak ele alınır */ }
+        }
+        if (roomCodeInput) {
+          if (meetingInfoForKey && meetingInfoForKey.passcode) {
+            roomCodeInput.value = meetingInfoForKey.passcode;
+            if (keyBox) keyBox.style.display = '';
+          } else {
+            roomCodeInput.value = 'Şifresiz';
+            if (keyBox) keyBox.style.display = '';
+          }
+        }
 
         const modal = document.getElementById('roomInviteModal');
         if (!modal) return;
@@ -1288,6 +1363,21 @@
             document.getElementById('roomSettingsIsPrivate').checked = !!meeting.is_private;
             const typeEl = document.getElementById('roomSettingsType');
             if (typeEl && meeting.meeting_type) typeEl.value = meeting.meeting_type;
+
+            // BUG FIX: Saat ve süre de artık burada düzenlenebiliyor (bkz.
+            // base.html editMeetingModal'daki aynı desen).
+            const startEl = document.getElementById('roomSettingsStart');
+            if (startEl && meeting.scheduled_start) startEl.value = String(meeting.scheduled_start).slice(0, 16);
+
+            const durationEl = document.getElementById('roomSettingsDuration');
+            if (durationEl) {
+              const startMs = meeting.scheduled_start ? new Date(meeting.scheduled_start).getTime() : null;
+              const endMs = meeting.scheduled_end ? new Date(meeting.scheduled_end).getTime() : null;
+              const actualDuration = (startMs && endMs && endMs > startMs) ? Math.round((endMs - startMs) / 60000) : 30;
+              const options = [15, 30, 45, 60, 90, 120];
+              const closest = options.reduce((best, opt) => Math.abs(opt - actualDuration) < Math.abs(best - actualDuration) ? opt : best, options[0]);
+              durationEl.value = String(closest);
+            }
           }
         } catch (e) {
           console.warn('Toplantı bilgileri yüklenemedi:', e);
@@ -1305,6 +1395,8 @@
         const title = document.getElementById('roomSettingsTitle')?.value?.trim();
         const description = document.getElementById('roomSettingsDescription')?.value?.trim();
         const meetingType = document.getElementById('roomSettingsType')?.value;
+        const startVal = document.getElementById('roomSettingsStart')?.value;
+        const durationMin = parseInt(document.getElementById('roomSettingsDuration')?.value || '30', 10);
         const agenda = document.getElementById('roomSettingsAgenda')?.value?.trim();
         const passcode = document.getElementById('roomSettingsPasscode')?.value?.trim() || null;
         const lobbyEnabled = document.getElementById('roomSettingsLobbyEnabled')?.value !== 'false';
@@ -1315,19 +1407,34 @@
           return;
         }
 
+        const payload = {
+          title,
+          description: description || null,
+          meeting_type: meetingType,
+          agenda: agenda || null,
+          passcode: passcode,
+          lobby_enabled: lobbyEnabled,
+          is_private: isPrivate
+        };
+
+        // BUG FIX: Saat/süre de artık güncellenebiliyor — base.html
+        // editMeetingModal ile birebir aynı hesaplama (seçilen süreye göre
+        // scheduled_end yeniden hesaplanıyor).
+        if (startVal) {
+          payload.scheduled_start = startVal.length === 16 ? startVal + ':00' : startVal;
+          const startDate = new Date(startVal);
+          if (!isNaN(startDate.getTime())) {
+            const endDate = new Date(startDate.getTime() + durationMin * 60000);
+            const pad = (n) => String(n).padStart(2, '0');
+            payload.scheduled_end = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}:00`;
+          }
+        }
+
         try {
           const res = await fetch(`/api/v1/meetings/${meetingId}`, {
             method: 'PUT',
             headers: Auth.getAuthHeaders(),
-            body: JSON.stringify({
-              title,
-              description: description || null,
-              meeting_type: meetingType,
-              agenda: agenda || null,
-              passcode: passcode,
-              lobby_enabled: lobbyEnabled,
-              is_private: isPrivate
-            })
+            body: JSON.stringify(payload)
           });
 
           if (!res.ok) {

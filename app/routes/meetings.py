@@ -13,7 +13,8 @@ from app.services.meetings import (
     get_meetings_list,
     get_meeting_by_id,
     get_meeting_by_code,
-    update_meeting_details
+    update_meeting_details,
+    is_meeting_finished
 )
 from app.services.event_bus import event_bus
 
@@ -46,14 +47,25 @@ async def create_meeting(
 from app.services.signaling import signaling_manager
 
 def enrich_meeting_active_users(m: Meeting) -> Meeting:
-    """Toplantı nesnesine anlık aktif WebRTC odası katılımcılarını ve saat metnini ekler."""
+    """Toplantı nesnesine anlık aktif WebRTC odası katılımcılarını, saat metnini
+    ve düzenleyen (host) adını ekler."""
     active_parts = signaling_manager.get_active_participants(m.meeting_code)
     m.active_participants = active_parts
     m.active_count = len(active_parts)
-    
+
     s_time = m.scheduled_start.strftime("%H:%M") if m.scheduled_start else ""
     e_time = m.scheduled_end.strftime("%H:%M") if m.scheduled_end else ""
     m.time_str = f"{s_time} - {e_time}".strip(" -")
+
+    # BUG FIX: Kart menülerinde ve detay modalında "oda kodu" yerine toplantıyı
+    # oluşturan kullanıcının adı gösterilebilsin diye (bkz. meetings.js/dashboard.js)
+    # — creator ilişkisi get_meetings_list/get_meeting_by_id/get_meeting_by_code'da
+    # zaten selectinload ile eager yüklendiğinden burada ekstra N+1 sorgu olmaz.
+    creator = getattr(m, "creator", None)
+    if creator:
+        m.host_name = f"{creator.first_name or ''} {creator.last_name or ''}".strip() or creator.email
+    else:
+        m.host_name = None
     return m
 
 @router.get("/", response_model=List[MeetingOut])
@@ -212,7 +224,16 @@ async def update_meeting(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Bu toplantıyı güncelleme yetkiniz bulunmuyor."
         )
-        
+
+    # BUG FIX: Sona ermiş/iptal edilmiş bir toplantı, geri/ileri tuşuyla eski
+    # bir sekmeden dönülüp hiçbir şekilde düzenlenemesin (bkz. meeting_notes.py/
+    # meeting_actions.py'deki aynı desen).
+    if is_meeting_finished(meeting):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bu toplantı sona ermiş, artık düzenlenemez."
+        )
+
     updated_meeting = update_meeting_details(db, meeting_id=meeting_id, update_data=payload)
     await event_bus.broadcast_event(
         event_type="MEETING_UPDATED",
@@ -255,6 +276,52 @@ async def cancel_meeting_endpoint(
         }
     )
     return {"message": "Toplantı başarıyla iptal edildi.", "meeting_id": str(meeting_id)}
+
+# Canlı/aktif sayılan ham status değerleri — dashboard.py'deki active_statuses
+# ile birebir tutarlı, kalıcı silmeye izin verilmeden önce kontrol için.
+_LIVE_STATUS_VALUES = {"canlı", "canli", "active", "live", "başladı", "basladi"}
+
+@router.delete("/{meeting_id}/permanent")
+async def delete_meeting_permanently(
+    meeting_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Toplantıyı ve tüm ilişkili kayıtlarını (katılımcılar, notlar, aksiyonlar,
+    oturumlar — cascade="all, delete-orphan" ile, bkz. models/meeting.py)
+    HİÇBİR İZ BIRAKMADAN kalıcı olarak siler. 'İptal Et'ten (DELETE /{id}) farkı
+    budur: o sadece status'ü 'iptal edildi' yapıp kaydı korur, bu ise satırı
+    tamamen kaldırır."""
+    meeting = get_meeting_by_id(db, meeting_id=meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Toplantı bulunamadı.")
+
+    user_id = getattr(current_user, "id", None)
+    user_role = getattr(current_user, "role", None)
+
+    if meeting.created_by != user_id and user_role not in ["admin", "manager", "host"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bu toplantıyı silme yetkiniz bulunmuyor."
+        )
+
+    # Güvenlik: devam eden bir toplantı, içindeki katılımcılar/veriler
+    # yanlışlıkla anında kaybolmasın diye önce sonlandırılmadan silinemez.
+    if str(meeting.status or "").strip().lower() in _LIVE_STATUS_VALUES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Devam eden (canlı) bir toplantı silinemez, önce sonlandırın."
+        )
+
+    meeting_code = meeting.meeting_code
+    db.delete(meeting)
+    db.commit()
+
+    await event_bus.broadcast_event(
+        event_type="MEETING_DELETED",
+        payload={"id": str(meeting_id), "meeting_code": meeting_code}
+    )
+    return {"message": "Toplantı kalıcı olarak silindi.", "meeting_id": str(meeting_id)}
 
 from app.routes.guest import GuestTokenRequest, GuestTokenResponse, create_guest_token as create_guest_token_route
 

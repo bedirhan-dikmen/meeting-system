@@ -16,11 +16,6 @@
       </p>
     </div>
 
-    <div style="display: flex; align-items: center; gap: 0.75rem;">
-      <button onclick="Auth.openProfileModal()" class="btn-action-soft" style="background: #ffffff; color: #4f46e5; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.5rem 1.05rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.45rem; height: 38px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
-        <i class="fas fa-pen" style="color: #6366f1;"></i> Profili Düzenle
-      </button>
-    </div>
   </div>
 
 <!-- USER PROFILE OVERVIEW HEADER CARD -->
@@ -87,12 +82,14 @@
     <h3 style="font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
       <i class="fas fa-list-alt" style="color: var(--accent-primary);"></i> Katıldığım Toplantılar & Resmi Raporlar
     </h3>
-    <div style="display: flex; gap: 0.75rem; width: 320px;">
-      <input type="text" id="profileMeetingSearch" class="form-control" placeholder="Toplantı başlığı veya kodu ile ara..." onkeyup="ProfilePage.filterMeetings()">
+    <!-- BUG FIX: Sabit width:320px dar telefonlarda kartın kendisinden geniş
+         olabiliyordu — artık esnek (width:100%, max-width ile üst sınırlı). -->
+    <div style="display: flex; gap: 0.75rem; width: 100%; max-width: 320px;">
+      <input type="text" id="profileMeetingSearch" class="form-control" style="width: 100%;" placeholder="Toplantı başlığı veya kodu ile ara..." onkeyup="ProfilePage.filterMeetings()">
     </div>
   </div>
 
-  <div style="max-height: 420px; overflow-y: auto; overflow-x: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+  <div class="data-table-scroll" style="max-height: 420px; overflow-y: auto; overflow-x: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
     <table class="data-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
       <thead style="position: sticky; top: 0; z-index: 10;">
         <tr style="background: #f8fafc; border-bottom: 2px solid var(--border-color); color: var(--text-secondary);">

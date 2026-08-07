@@ -63,6 +63,16 @@ def read_current_user_profile_overview(
 
     all_user_meetings = sorted(all_user_meetings_dict.values(), key=get_sort_key, reverse=True)
 
+    # BUG FIX: Bu liste ("Katıldığım Toplantılar & Resmi Raporlar") eskiden
+    # kullanıcının ilişkili olduğu HER durumdaki toplantıyı (canlı/planlı/
+    # iptal edilmiş dahil) gösteriyordu — hem sayfanın kendi boş-durum metni
+    # ("...tamamlanmış bir toplantı kaydı...") hem de "Resmi Rapor" teması
+    # bunun sadece GERÇEKTEN TAMAMLANMIŞ toplantıları listelemesi gerektiğini
+    # gösteriyor. Artık: iptal edilenler hiç görünmüyor, canlı/planlı bir
+    # toplantı da ancak tamamlandıktan SONRA burada beliriyor.
+    from app.services.meetings import is_meeting_completed
+    all_user_meetings = [m for m in all_user_meetings if is_meeting_completed(m)]
+
     sessions = db.query(ParticipantSession).filter(ParticipantSession.user_id == current_user.id).all()
     total_seconds = 0
     now_tr = get_tr_now()

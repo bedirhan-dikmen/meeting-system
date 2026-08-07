@@ -9,7 +9,7 @@ const Meetings = {
   selectedUserIds: new Set(),
   quickSelectedUserIds: new Set(),
   currentView: 'card',    // 'card' | 'list' | 'calendar'
-  currentTab: 'live',     // 'live' | 'scheduled' | 'completed' | 'all'
+  currentTab: 'live',     // 'live' | 'scheduled' | 'completed' | 'cancelled'
 
   _hasEventListener: false,
 
@@ -41,29 +41,64 @@ const Meetings = {
     // Dashboard'daki "Tümünü Gör" / "Görüntüle" bağlantıları (ör. /meetings?tab=scheduled)
     // doğrudan ilgili sekmeyi açık getirsin.
     const tab = params.get('tab');
-    if (tab && ['live', 'scheduled', 'completed', 'all'].includes(tab)) {
+    if (tab && ['live', 'scheduled', 'completed', 'cancelled'].includes(tab)) {
       this.switchTab(tab);
     }
   },
 
   /**
-   * Status Normalizer: Türk karakterli ve İngilizce tüm durum değerlerini 'live', 'scheduled', 'completed' türlerine eşler.
+   * Status Normalizer: Türk karakterli ve İngilizce tüm durum değerlerini
+   * 'live', 'scheduled', 'completed', 'cancelled' türlerine eşler.
+   * BUG FIX: "iptal edildi" eskiden burada hiç ayrı bir kovaya düşmüyordu,
+   * varsayılan olarak 'scheduled' (Planlı Toplantılar) sekmesine karışıyordu.
    */
   normalizeStatus(statusStr) {
     if (!statusStr) return 'scheduled';
     const s = String(statusStr).toLowerCase().trim();
-    
+
     // Canlı / Active
-    if (s === 'canli' || s === 'canlı' || s === 'active' || s === 'live' || s === 'ongoing') {
+    if (s === 'canli' || s === 'canlı' || s === 'active' || s === 'live' || s === 'ongoing' || s === 'başladı' || s === 'basladi') {
       return 'live';
     }
-    
+
     // Tamamlandı / Bitti / Ended / Completed
     if (s === 'tamamlandi' || s === 'tamamlandı' || s === 'completed' || s === 'ended' || s === 'finished' || s === 'bitti' || s === 'kapandi' || s === 'kaptildi') {
       return 'completed';
     }
-    
+
+    // İptal Edildi / Cancelled
+    if (s === 'iptal edildi' || s === 'iptal' || s === 'cancelled' || s === 'canceled') {
+      return 'cancelled';
+    }
+
     // Planlandı / Scheduled (Varsayılan)
+    return 'scheduled';
+  },
+
+  /** Bir tarihin (ISO string / Date) bugünle aynı takvim gününe denk gelip gelmediğini döner. */
+  isToday(dateStr) {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return false;
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  },
+
+  /**
+   * normalizeStatus()'ün ham durumuna ek olarak, "planlı" görünen ama
+   * başlaması gereken saati 1 saatten fazla geçmiş ve hiç başlamamış (actual_start
+   * yok) toplantıları da otomatik olarak 'cancelled' sayar — kullanıcı katılmayı
+   * unutmuş/vazgeçmiş bir toplantı sonsuza dek "Planlı Toplantılar"da asılı
+   * kalmasın diye (bkz. meetings.html "İptal Edilenler" sekmesi).
+   */
+  getEffectiveStatus(m) {
+    const norm = this.normalizeStatus(m.status);
+    if (norm !== 'scheduled') return norm;
+
+    if (m.scheduled_start && !m.actual_start) {
+      const deadline = new Date(m.scheduled_start).getTime() + 60 * 60 * 1000;
+      if (Date.now() > deadline) return 'cancelled';
+    }
     return 'scheduled';
   },
 
@@ -85,20 +120,23 @@ const Meetings = {
   },
 
   updateTabCounts() {
-    const liveCount = this.allMeetings.filter(m => this.normalizeStatus(m.status) === 'live').length;
-    const schedCount = this.allMeetings.filter(m => this.normalizeStatus(m.status) === 'scheduled').length;
-    const compCount = this.allMeetings.filter(m => this.normalizeStatus(m.status) === 'completed').length;
-    const totalCount = this.allMeetings.length;
+    const liveCount = this.allMeetings.filter(m => this.getEffectiveStatus(m) === 'live').length;
+    const schedCount = this.allMeetings.filter(m => this.getEffectiveStatus(m) === 'scheduled').length;
+    // BUG FIX: Tamamlanan/İptal Edilenler artık GÜNLÜK — rozet sayısı da
+    // sekmede gerçekten listelenenle (applyTabFilter) tutarlı olsun diye
+    // sadece bugüne ait olanları sayıyor.
+    const compCount = this.allMeetings.filter(m => this.getEffectiveStatus(m) === 'completed' && this.isToday(m.scheduled_start)).length;
+    const cancelCount = this.allMeetings.filter(m => this.getEffectiveStatus(m) === 'cancelled' && this.isToday(m.scheduled_start)).length;
 
     const elLive = document.getElementById('countTabLive');
     const elSched = document.getElementById('countTabScheduled');
     const elComp = document.getElementById('countTabCompleted');
-    const elAll = document.getElementById('countTabAll');
+    const elCancel = document.getElementById('countTabCancelled');
 
     if (elLive) elLive.textContent = liveCount;
     if (elSched) elSched.textContent = schedCount;
     if (elComp) elComp.textContent = compCount;
-    if (elAll) elAll.textContent = totalCount;
+    if (elCancel) elCancel.textContent = cancelCount;
   },
 
   switchTab(tabName) {
@@ -115,7 +153,7 @@ const Meetings = {
       live: 'tabBtnLive',
       scheduled: 'tabBtnScheduled',
       completed: 'tabBtnCompleted',
-      all: 'tabBtnAll'
+      cancelled: 'tabBtnCancelled'
     };
 
     const targetBtn = document.getElementById(activeBtnMap[tabName]);
@@ -131,11 +169,17 @@ const Meetings = {
 
   applyTabFilter() {
     if (this.currentTab === 'live') {
-      this.filteredMeetings = this.allMeetings.filter(m => this.normalizeStatus(m.status) === 'live');
+      this.filteredMeetings = this.allMeetings.filter(m => this.getEffectiveStatus(m) === 'live');
     } else if (this.currentTab === 'scheduled') {
-      this.filteredMeetings = this.allMeetings.filter(m => this.normalizeStatus(m.status) === 'scheduled');
+      this.filteredMeetings = this.allMeetings.filter(m => this.getEffectiveStatus(m) === 'scheduled');
     } else if (this.currentTab === 'completed') {
-      this.filteredMeetings = this.allMeetings.filter(m => this.normalizeStatus(m.status) === 'completed');
+      // BUG FIX: Artık GÜNLÜK — tüm geçmiş "Kayıtlar" arşivinde (yöneticiler
+      // için) zaten tutuluyor, burada sadece bugün tamamlananlar gösteriliyor.
+      this.filteredMeetings = this.allMeetings.filter(m => this.getEffectiveStatus(m) === 'completed' && this.isToday(m.scheduled_start));
+    } else if (this.currentTab === 'cancelled') {
+      // YENİ: Günlük iptal edilenler — hem elle "İptal Et" ile hem de 1 saat
+      // geçmiş/hiç başlamamış toplantıların otomatik düşmesiyle dolar.
+      this.filteredMeetings = this.allMeetings.filter(m => this.getEffectiveStatus(m) === 'cancelled' && this.isToday(m.scheduled_start));
     } else {
       this.filteredMeetings = [...this.allMeetings];
     }
@@ -194,6 +238,105 @@ const Meetings = {
     }
   },
 
+  /**
+   * Çağıran kullanıcının bu toplantının sahibi (editörü) veya
+   * admin/manager/host rolünde/superuser olup olmadığını döner. Kart ⋮
+   * menüsünde Düzenle/İptal aksiyonlarının gösterilip gösterilmeyeceğine
+   * (bkz. buildCardMenu) bu karar veriyor.
+   */
+  isMeetingOwner(m) {
+    const user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+    if (!user) return false;
+
+    const role = String(user.role || '').toLowerCase();
+    const isPrivileged = Boolean(['admin', 'manager', 'host'].includes(role) || user.is_superuser);
+    if (isPrivileged) return true;
+
+    const userId = String(user.id || user.user_id || '').toLowerCase();
+    const hostId = String(m.created_by || '').toLowerCase();
+    return Boolean(userId && hostId && userId === hostId);
+  },
+
+  /** ⋮ menüsünde sahip olunmayan/aksiyonsuz durumlarda gösterilen, toplantı
+   * sahibinin adını bildiren salt-bilgi satırı. */
+  _hostInfoMenuHtml(m) {
+    return `
+      <div style="padding: 0.6rem 1rem;">
+        <span style="font-size: 0.68rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 0.2rem;">Toplantı Sahibi</span>
+        <span style="font-size: 0.85rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.4rem;">
+          <i class="far fa-user-circle" style="color: #5b5fc7;"></i> ${m.host_name || 'Bilinmiyor'}
+        </span>
+      </div>
+    `;
+  },
+
+  /**
+   * ⋮ buton + dropdown menüsünün HTML'ini üretir. dashboard.js ve
+   * meetings.js'teki TÜM kart türleri (canlı/yaklaşan/liste) bu tek
+   * fonksiyonu kullanır — bkz. app/routes/meetings.py enrich_meeting_active_users
+   * ve app/routes/dashboard.py'nin ürettiği host_name alanı. Duruma göre içerik:
+   * - Tamamlanan: HERKES için (sahip dahil) sadece toplantı sahibinin adı —
+   *   tamamlanmış bir toplantı artık düzenlenemez/iptal edilemez/silinemez.
+   * - İptal Edilen: sahipse sadece "Toplantıyı Sil"; değilse sahip adı.
+   * - Canlı/Planlı: sahipse Düzenle + İptal Et + Sil; değilse sahip adı.
+   */
+  buildCardMenu(m, menuKey) {
+    const isOwner = this.isMeetingOwner(m);
+    const effStatus = this.getEffectiveStatus(m);
+
+    let menuBody;
+    if (effStatus === 'completed') {
+      menuBody = this._hostInfoMenuHtml(m);
+    } else if (effStatus === 'cancelled') {
+      menuBody = isOwner ? `
+        <button onclick="Meetings.deleteMeetingPermanently('${m.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 0.6rem;">
+          <i class="far fa-trash-alt" style="color: #94a3b8;"></i> Toplantıyı Sil
+        </button>
+      ` : this._hostInfoMenuHtml(m);
+    } else if (isOwner) {
+      // Canlı / Planlı + sahip: tam menü. "İptal Et" yazısı nötr/koyu (menü
+      // çok renkli görünmesin), sadece ikonu kırmızı; "Sil" ikonu gri.
+      menuBody = `
+        <button onclick="Meetings.openEditModal('${m.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 0.6rem;">
+          <i class="far fa-edit" style="color: #6366f1;"></i> Toplantı Bilgilerini Düzenle
+        </button>
+        <button onclick="Meetings.cancelMeeting('${m.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid #f1f5f9;">
+          <i class="far fa-times-circle" style="color: #ef4444;"></i> Toplantıyı İptal Et
+        </button>
+        <button onclick="Meetings.deleteMeetingPermanently('${m.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid #f1f5f9;">
+          <i class="far fa-trash-alt" style="color: #94a3b8;"></i> Toplantıyı Sil
+        </button>
+      `;
+    } else {
+      menuBody = this._hostInfoMenuHtml(m);
+    }
+
+    return `
+      <div style="position: relative;">
+        <button onclick="Meetings.toggleCardMenu(event, '${menuKey}')" style="background: none; border: none; font-size: 1rem; color: #94a3b8; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 6px;" title="Seçenekler">&#8942;</button>
+        <div id="cardMenu_${menuKey}" class="card-dropdown-menu" style="display: none; position: absolute; top: 100%; right: 0; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); width: min(210px, calc(100vw - 2.5rem)); max-width: 210px; z-index: 1000; padding: 0.4rem 0;">
+          ${menuBody}
+        </div>
+      </div>
+    `;
+  },
+
+  /**
+   * "Odaya Katıl" tıklamalarının tümü buradan geçer: toplantı akışı
+   * (prejoin → room) artık YENİ bir sekmede açılıyor. Böylece ana panel
+   * sekmesinin tarayıcı geçmişi hiç toplantı odasıyla karışmıyor — geri/ileri
+   * tuşuyla eski/sona ermiş bir toplantı odasına yanlışlıkla dönme riski
+   * (ve bunun getirdiği not/rapor düzenleme bug'ı) kökten kalkıyor.
+   */
+  openMeetingInNewTab(meetingCode) {
+    window.open(`/prejoin/${meetingCode}`, '_blank', 'noopener');
+  },
+
+  /** Resmi toplantı raporunu (salt okunur) ayrı/yeni bir sekmede açar. */
+  openReportInNewTab(meetingId) {
+    window.open(`/reports/${meetingId}`, '_blank', 'noopener');
+  },
+
   /* --------------------------------------------------------------------------
      1. KART GÖRÜNÜMÜ RENDERER
      -------------------------------------------------------------------------- */
@@ -205,9 +348,14 @@ const Meetings = {
       container.innerHTML = `
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem;">
           ${this.filteredMeetings.map(m => {
-            const normStatus = this.normalizeStatus(m.status);
-            const isLive = normStatus === 'live';
-            const isCompleted = normStatus === 'completed';
+            // BUG FIX: Ham status yerine getEffectiveStatus() kullanılıyor —
+            // 1 saat geçmiş/hiç başlamamış planlı toplantılar da artık burada
+            // "iptal edildi" gibi ele alınıyor (bkz. getEffectiveStatus).
+            const effStatus = this.getEffectiveStatus(m);
+            const isLive = effStatus === 'live';
+            const isCompleted = effStatus === 'completed';
+            const isCancelled = effStatus === 'cancelled';
+            const isFinished = isCompleted || isCancelled;
 
             let badgeBg = '#eff6ff';
             let badgeColor = '#1d4ed8';
@@ -221,33 +369,68 @@ const Meetings = {
               badgeBg = '#f1f5f9';
               badgeColor = '#64748b';
               badgeText = 'TAMAMLANDI ✓';
+            } else if (isCancelled) {
+              badgeBg = '#ffe4e6';
+              badgeColor = '#be123c';
+              badgeText = 'İPTAL EDİLDİ';
             }
 
-            const parts = m.participants || m.active_participants || [];
-            const maxAvatars = 5;
-            const visibleParts = parts.slice(0, maxAvatars);
-            const extraCount = parts.length > maxAvatars ? parts.length - maxAvatars : 0;
-
+            // BUG FIX: Tamamlanan/İptal Edilen kartlarında "odadaki anlık
+            // katılımcı" bilgisi artık hiç gösterilmiyor — toplantı zaten
+            // bitmiş/hiç başlamamış, bu bilgi anlamsız.
             let avatarsHtml = '';
-            if (parts.length > 0) {
-              avatarsHtml = `
-                <div style="display: flex; align-items: center; margin-top: 0.85rem; margin-bottom: 1.1rem;">
-                  <div style="display: flex;">
-                    ${visibleParts.map((p, idx) => `
-                      <div title="${p.name || ''}" style="width: 28px; height: 28px; border-radius: 50%; background: #e0e7ff; color: #4338ca; border: 2px solid #ffffff; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 800; margin-left: ${idx === 0 ? '0' : '-8px'}; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                        ${p.avatar ? `<img src="${p.avatar}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : (p.initials || 'U')}
-                      </div>
-                    `).join('')}
+            if (!isFinished) {
+              const parts = m.participants || m.active_participants || [];
+              const maxAvatars = 5;
+              const visibleParts = parts.slice(0, maxAvatars);
+              const extraCount = parts.length > maxAvatars ? parts.length - maxAvatars : 0;
+
+              if (parts.length > 0) {
+                avatarsHtml = `
+                  <div style="display: flex; align-items: center; margin-top: 0.85rem; margin-bottom: 1.1rem;">
+                    <div style="display: flex;">
+                      ${visibleParts.map((p, idx) => `
+                        <div title="${p.name || ''}" style="width: 28px; height: 28px; border-radius: 50%; background: #e0e7ff; color: #4338ca; border: 2px solid #ffffff; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 800; margin-left: ${idx === 0 ? '0' : '-8px'}; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                          ${p.avatar ? `<img src="${p.avatar}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : (p.initials || 'U')}
+                        </div>
+                      `).join('')}
+                    </div>
+                    ${extraCount > 0 ? `
+                      <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 0.15rem 0.45rem; border-radius: 10px; margin-left: 4px;">+${extraCount}</span>
+                    ` : ''}
                   </div>
-                  ${extraCount > 0 ? `
-                    <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 0.15rem 0.45rem; border-radius: 10px; margin-left: 4px;">+${extraCount}</span>
-                  ` : ''}
+                `;
+              } else {
+                avatarsHtml = `
+                  <div style="display: flex; align-items: center; margin-top: 0.85rem; margin-bottom: 1.1rem; font-size: 0.76rem; color: #94a3b8; font-weight: 500; gap: 0.35rem;">
+                    <i class="far fa-user-circle" style="color: #cbd5e1; font-size: 0.85rem;"></i> Odada henüz katılım yok
+                  </div>
+                `;
+              }
+            }
+
+            // BUG FIX: Tamamlanan/İptal Edilende "Odaya Katıl" ve "Detaylar"
+            // artık yok. Tamamlananda tek buton "Raporu Görüntüle" (yeni
+            // sekmede açılır); iptal edilende raporda olmadığından hiç buton
+            // gösterilmiyor.
+            let actionsHtml = '';
+            if (isCompleted) {
+              actionsHtml = `
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button onclick="Meetings.openReportInNewTab('${m.id}')" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 8px; padding: 0.55rem 1rem; font-weight: 700; font-size: 0.82rem; cursor: pointer; flex: 1; transition: all 0.2s;">
+                    <i class="fas fa-file-contract"></i> Raporu Görüntüle
+                  </button>
                 </div>
               `;
-            } else {
-              avatarsHtml = `
-                <div style="display: flex; align-items: center; margin-top: 0.85rem; margin-bottom: 1.1rem; font-size: 0.76rem; color: #94a3b8; font-weight: 500; gap: 0.35rem;">
-                  <i class="far fa-user-circle" style="color: #cbd5e1; font-size: 0.85rem;"></i> Odada henüz katılım yok
+            } else if (!isCancelled) {
+              actionsHtml = `
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button onclick="Meetings.openMeetingInNewTab('${m.meeting_code}')" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 8px; padding: 0.55rem 1rem; font-weight: 700; font-size: 0.82rem; cursor: pointer; flex: 1; transition: all 0.2s;">
+                    Odaya Katıl
+                  </button>
+                  <button onclick="Meetings.openDetailsModal('${m.id}')" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.55rem 1rem; font-weight: 700; font-size: 0.82rem; cursor: pointer; flex: 1; transition: all 0.2s;">
+                    Detaylar
+                  </button>
                 </div>
               `;
             }
@@ -259,22 +442,12 @@ const Meetings = {
                     <span style="background: ${badgeBg}; color: ${badgeColor}; font-size: 0.7rem; font-weight: 800; padding: 0.2rem 0.55rem; border-radius: 6px; display: flex; align-items: center; gap: 0.35rem;">
                       ${badgeText}
                     </span>
-                    <div style="position: relative;">
-                      <button onclick="Meetings.toggleCardMenu(event, 'popMenu_${m.id}')" style="background: none; border: none; font-size: 1rem; color: #94a3b8; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 6px;" title="Seçenekler">&#8942;</button>
-                      <div id="cardMenu_popMenu_${m.id}" class="card-dropdown-menu" style="display: none; position: absolute; top: 100%; right: 0; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); width: 210px; z-index: 1000; padding: 0.4rem 0;">
-                        <button onclick="Meetings.openEditModal('${m.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 0.6rem;">
-                          <i class="far fa-edit" style="color: #6366f1;"></i> Toplantı Bilgilerini Düzenle
-                        </button>
-                        <button onclick="Meetings.cancelMeeting('${m.id}')" style="width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; color: #ef4444; cursor: pointer; display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid #f1f5f9;">
-                          <i class="far fa-times-circle" style="color: #ef4444;"></i> Toplantıyı İptal Et
-                        </button>
-                      </div>
-                    </div>
+                    ${this.buildCardMenu(m, `popMenu_${m.id}`)}
                   </div>
 
                   <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
-                    <div style="width: 44px; height: 44px; border-radius: 12px; background: ${isLive ? '#eeefec' : '#f8fafc'}; color: #5b5fc7; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0;">
-                      <i class="${isLive ? 'fas fa-video' : (isCompleted ? 'fas fa-check-circle' : 'far fa-calendar-alt')}"></i>
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: ${isLive ? '#eeefec' : (isCancelled ? '#ffe4e6' : '#f8fafc')}; color: ${isCancelled ? '#be123c' : '#5b5fc7'}; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0;">
+                      <i class="${isLive ? 'fas fa-video' : (isCompleted ? 'fas fa-check-circle' : (isCancelled ? 'fas fa-ban' : 'far fa-calendar-alt'))}"></i>
                     </div>
                     <div>
                       <span style="font-size: 0.75rem; color: #64748b;">${m.time_str || 'Planlı Oturum'}</span>
@@ -286,14 +459,7 @@ const Meetings = {
                   ${avatarsHtml}
                 </div>
 
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                  <button onclick="window.location.href='/prejoin/${m.meeting_code}'" style="background: #5b5fc7; color: #ffffff; border: none; border-radius: 8px; padding: 0.55rem 1rem; font-weight: 700; font-size: 0.82rem; cursor: pointer; flex: 1; transition: all 0.2s;">
-                    Odaya Katıl
-                  </button>
-                  <button onclick="Meetings.openDetailsModal('${m.id}')" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.55rem 1rem; font-weight: 700; font-size: 0.82rem; cursor: pointer; flex: 1; transition: all 0.2s;">
-                    Detaylar
-                  </button>
-                </div>
+                ${actionsHtml}
               </div>
             `;
           }).join('')}
@@ -303,7 +469,8 @@ const Meetings = {
       const tabTitleMap = {
         live: 'Aktif canlı toplantınız yok',
         scheduled: 'Planlanmış toplantınız yok',
-        completed: 'Tamamlanmış toplantınız yok',
+        completed: 'Bugün tamamlanmış toplantınız yok',
+        cancelled: 'Bugün iptal edilmiş toplantınız yok',
         all: 'Kayıtlı toplantı bulunmuyor'
       };
 
@@ -400,7 +567,7 @@ const Meetings = {
                       ${statusBadge}
                     </td>
                     <td style="padding: 0.85rem 1rem; text-align: right;">
-                      <button onclick="window.location.href='/prejoin/${m.meeting_code}'" style="background: ${isLive ? '#5b5fc7' : '#f1f5f9'}; color: ${isLive ? '#ffffff' : '#4f46e5'}; border: none; border-radius: 6px; padding: 0.4rem 0.85rem; font-weight: 700; font-size: 0.78rem; cursor: pointer; margin-right: 0.35rem;">
+                      <button onclick="Meetings.openMeetingInNewTab('${m.meeting_code}')" style="background: ${isLive ? '#5b5fc7' : '#f1f5f9'}; color: ${isLive ? '#ffffff' : '#4f46e5'}; border: none; border-radius: 6px; padding: 0.4rem 0.85rem; font-weight: 700; font-size: 0.78rem; cursor: pointer; margin-right: 0.35rem;">
                         ${isLive ? 'Katıl' : 'Detaylar'}
                       </button>
                       <button onclick="Meetings.showMeetingInfo('${m.id}')" style="background: none; border: none; color: #94a3b8; font-size: 0.9rem; cursor: pointer;">⋮</button>
@@ -880,6 +1047,19 @@ const Meetings = {
     }
   },
 
+  /**
+   * Sunucudan gelen ISO tarih string'ini (TR yerel saatine göre, tzinfo'suz —
+   * bkz. app/core/tz.py to_tr_naive) <input type="datetime-local"> için
+   * beklenen "YYYY-MM-DDTHH:MM" biçimine çevirir. BİLEREK bir Date nesnesi
+   * üzerinden GEÇİRİLMİYOR — tarayıcının kendi saat dilimine göre kayma
+   * yapmasını önlemek için ilk 16 karakter doğrudan alınıyor (history.js'teki
+   * parseDate()'in aynı sorunu farklı bir yöntemle çözen deseniyle tutarlı).
+   */
+  toDatetimeLocalValue(isoStr) {
+    if (!isoStr) return '';
+    return String(isoStr).slice(0, 16);
+  },
+
   openEditModal(meetingId) {
     const m = (this.allMeetings || []).find(item => String(item.id) === String(meetingId));
     const modal = document.getElementById('editMeetingModal');
@@ -888,6 +1068,9 @@ const Meetings = {
     if (m) {
       const idEl = document.getElementById('editMeetingId');
       const titleEl = document.getElementById('editTitle');
+      const typeEl = document.getElementById('editMeetingType');
+      const startEl = document.getElementById('editStart');
+      const durationEl = document.getElementById('editDuration');
       const descEl = document.getElementById('editDescription');
       const agendaEl = document.getElementById('editAgenda');
       const passcodeEl = document.getElementById('editPasscode');
@@ -895,6 +1078,22 @@ const Meetings = {
 
       if (idEl) idEl.value = m.id;
       if (titleEl) titleEl.value = m.title || '';
+      // BUG FIX: Toplantı Oluştur'daki (katılımcı davet etme hariç) tüm
+      // alanlar burada da düzenlenebiliyor artık — Tür ve Süre de dahil.
+      if (typeEl) typeEl.value = m.meeting_type || 'Planlı Toplantı';
+      if (startEl) startEl.value = this.toDatetimeLocalValue(m.scheduled_start);
+
+      const startMs = m.scheduled_start ? new Date(m.scheduled_start).getTime() : null;
+      const endMs = m.scheduled_end ? new Date(m.scheduled_end).getTime() : null;
+      const actualDuration = (startMs && endMs && endMs > startMs) ? Math.round((endMs - startMs) / 60000) : 30;
+      if (durationEl) {
+        // En yakın seçeneğe yuvarla — kayıtlı süre listede birebir yoksa
+        // (ör. elle 37 dk girilmişse) select'in boş kalması yerine en yakını seçilir.
+        const options = [15, 30, 45, 60, 90, 120];
+        const closest = options.reduce((best, opt) => Math.abs(opt - actualDuration) < Math.abs(best - actualDuration) ? opt : best, options[0]);
+        durationEl.value = String(closest);
+      }
+
       if (descEl) descEl.value = m.description || '';
       if (agendaEl) agendaEl.value = m.agenda || '';
       if (passcodeEl) passcodeEl.value = m.passcode || '';
@@ -946,6 +1145,33 @@ const Meetings = {
     }
   },
 
+  /**
+   * "İptal Et"ten farklı olarak toplantıyı ve tüm ilişkili kayıtlarını
+   * (notlar, aksiyonlar, katılımcılar) HİÇBİR İZ BIRAKMADAN kalıcı olarak
+   * siler (bkz. DELETE /api/v1/meetings/{id}/permanent). Geri alınamaz.
+   */
+  async deleteMeetingPermanently(meetingId) {
+    if (!confirm("Bu toplantıyı KALICI OLARAK silmek istediğinize emin misiniz? Bu işlem geri alınamaz, toplantıyla ilgili tüm not ve kayıtlar da silinir.")) return;
+    try {
+      const res = await Auth.fetchWithAuth(`/api/v1/meetings/${meetingId}/permanent`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        alert("Toplantı kalıcı olarak silindi.");
+        await this.loadMeetings();
+        if (window.Dashboard && typeof window.Dashboard.loadStats === 'function') {
+          await window.Dashboard.loadStats();
+        }
+      } else {
+        const err = await res.json();
+        alert("Silme işlemi başarısız: " + (err.detail || 'Hata oluştu'));
+      }
+    } catch (err) {
+      console.error("Toplantı silme hatası:", err);
+      alert("Toplantı silinirken bir hata oluştu.");
+    }
+  },
+
   openDetailsModal(meetingId) {
     this.showMeetingInfo(meetingId);
   },
@@ -957,7 +1183,7 @@ const Meetings = {
     if (m) {
       const titleEl = document.getElementById('infoMeetingTitle');
       const badgeEl = document.getElementById('infoMeetingBadge');
-      const codeEl = document.getElementById('infoMeetingCode');
+      const hostEl = document.getElementById('infoMeetingHost');
       const activeCountEl = document.getElementById('infoMeetingActiveCount');
       const descEl = document.getElementById('infoMeetingDescription');
       const agendaEl = document.getElementById('infoMeetingAgenda');
@@ -967,13 +1193,17 @@ const Meetings = {
       const joinBtn = document.getElementById('infoMeetingJoinBtn');
 
       if (titleEl) titleEl.textContent = m.title || 'Toplantı Detayı';
-      if (codeEl) codeEl.textContent = m.meeting_code || '-';
+      // BUG FIX: Burada eskiden anlamsız/gereksiz "Oda Kodu" gösteriliyordu —
+      // artık toplantıyı düzenleyen (host) kişinin adı gösteriliyor.
+      if (hostEl) hostEl.textContent = m.host_name || 'Bilinmiyor';
       // BUG FIX: Açıklama ve Gündem eskiden TEK alanda (m.agenda || m.description
       // ile biri diğerini eziyordu) gösteriliyordu — ikisi ayrı ayrı ve eksiksiz.
       if (descEl) descEl.textContent = m.description || 'Açıklama belirtilmedi.';
       if (agendaEl) agendaEl.textContent = m.agenda || 'Gündem belirtilmedi.';
       if (timeRangeEl) timeRangeEl.textContent = m.time_str || (m.scheduled_start ? new Date(m.scheduled_start).toLocaleString('tr-TR') : '-');
       if (securityEl) securityEl.textContent = m.passcode ? `Şifreli (${m.passcode})` : 'Şifresiz';
+      // BUG FIX: Artık yeni sekmede açılıyor (bkz. base.html'deki target="_blank"),
+      // burada sadece hedef güncelleniyor.
       if (joinBtn) joinBtn.href = `/prejoin/${m.meeting_code}`;
 
       const activeCount = m.active_count || (m.participants ? m.participants.length : 0);
@@ -1058,6 +1288,9 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const meetingId = document.getElementById('editMeetingId').value;
       const title = document.getElementById('editTitle').value;
+      const meetingType = document.getElementById('editMeetingType').value;
+      const startVal = document.getElementById('editStart').value;
+      const durationMin = parseInt(document.getElementById('editDuration').value || '30', 10);
       const description = document.getElementById('editDescription').value;
       const agenda = document.getElementById('editAgenda').value;
       const passcode = document.getElementById('editPasscode').value;
@@ -1066,11 +1299,27 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const payload = {
           title: title,
+          meeting_type: meetingType,
           description: description,
           agenda: agenda,
           passcode: passcode,
           lobby_enabled: lobbyEnabled
         };
+
+        // BUG FIX: Süre artık (openEditModal'da otomatik korunan gizli bir
+        // değer yerine) kullanıcının açıkça seçtiği "Tahmini Süre"den
+        // hesaplanıyor — Toplantı Oluştur ile birebir aynı davranış.
+        if (startVal) {
+          const formattedStart = startVal.length === 16 ? startVal + ':00' : startVal;
+          payload.scheduled_start = formattedStart;
+
+          const startDate = new Date(startVal);
+          if (!isNaN(startDate.getTime())) {
+            const endDate = new Date(startDate.getTime() + durationMin * 60000);
+            const pad = (n) => String(n).padStart(2, '0');
+            payload.scheduled_end = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}:00`;
+          }
+        }
 
         const res = await Auth.fetchWithAuth(`/api/v1/meetings/${meetingId}`, {
           method: 'PUT',
@@ -1169,11 +1418,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // ile tutarlı şekilde, modal açılışında otomatik üretilen anahtar
         // kullanılıyor (kullanıcı isterse elle değiştirebilir).
         const quickPasscode = document.getElementById('quickPasscode')?.value || '';
+        // BUG FIX: "Hızlı Toplantı" değeri Düzenle modallarındaki (editMeetingType/
+        // roomSettingsType) hiçbir seçenekle eşleşmiyordu — bu toplantı daha
+        // sonra düzenlenmek istendiğinde tür alanı sessizce ilk seçeneğe
+        // düşüyordu. "Anlık Toplantı" hem anlamsal olarak doğru hem de o
+        // listelerde gerçekten var olan bir seçenek.
         const payload = {
           title: "Hızlı Toplantı",
           scheduled_start: localStart,
           duration_minutes: 60,
-          meeting_type: "Hızlı Toplantı",
+          meeting_type: "Anlık Toplantı",
           agenda: "Anlık hızlı başlatılan oturum",
           description: "Hızlı Oturum",
           passcode: quickPasscode,
@@ -1189,7 +1443,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (res.ok) {
           const data = await res.json();
-          window.location.href = `/prejoin/${data.meeting_code}`;
+          window.Meetings.closeQuickMeetingModal();
+          await window.Meetings.loadMeetings();
+          // BUG FIX: Ana panel sekmesi dashboard'da kalıyor, toplantı akışı
+          // yeni sekmede açılıyor (bkz. Meetings.openMeetingInNewTab).
+          window.Meetings.openMeetingInNewTab(data.meeting_code);
         } else {
           let msg = 'Hata oluştu';
           try {

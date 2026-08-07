@@ -8,6 +8,34 @@ from app.models.meeting_participant import MeetingParticipant
 from app.models.notification import Notification
 from app.schemas.meetings import MeetingCreate, MeetingUpdate
 
+# Toplantının artık düzenlemeye/katılıma kapalı (tamamlanmış ya da iptal
+# edilmiş) sayıldığı durum değerleri. app/static/js/meetings.js'teki
+# Meetings.normalizeStatus() ve app/routes/dashboard.py'deki status
+# kümeleriyle birebir tutarlı tutulmalı.
+_COMPLETED_STATUS_VALUES = {
+    "tamamlandı", "tamamlandi", "completed", "ended", "finished",
+    "bitti", "kapandı", "kapandi", "kaptildi",
+}
+_CANCELLED_STATUS_VALUES = {
+    "iptal edildi", "iptal", "cancelled", "canceled"
+}
+_FINISHED_STATUS_VALUES = _COMPLETED_STATUS_VALUES | _CANCELLED_STATUS_VALUES
+
+def is_meeting_finished(meeting: Meeting) -> bool:
+    """Toplantının artık düzenlemeye (not/aksiyon/bilgi güncelleme) ve yeniden
+    katılıma kapalı olup olmadığını döner (bitmiş/iptal edilmiş toplantılara
+    geri/ileri tuşuyla dönüp değişiklik yapılmasını engellemek için)."""
+    status_val = str(getattr(meeting, "status", "") or "").strip().lower()
+    return status_val in _FINISHED_STATUS_VALUES
+
+def is_meeting_completed(meeting: Meeting) -> bool:
+    """Toplantının (iptal DEĞİL, gerçekten) tamamlanmış olup olmadığını döner
+    — profil sayfasındaki 'Katıldığım Toplantılar & Resmi Raporlar' listesi
+    gibi sadece kesinleşmiş/raporu olan toplantıları göstermesi gereken
+    yerlerde kullanılır (bkz. routes/users.py profile-overview)."""
+    status_val = str(getattr(meeting, "status", "") or "").strip().lower()
+    return status_val in _COMPLETED_STATUS_VALUES
+
 def generate_unique_meeting_code() -> str:
     """WebRTC sinyalleşme odaları için benzersiz kod üretir."""
     part1 = "".join(secrets.choice("abcdefghijklmnopqrstuvwxyz") for _ in range(4))
@@ -129,7 +157,8 @@ def get_meetings_list(db: Session, skip: int = 0, limit: int = 100, user_id: Opt
     query = db.query(Meeting).options(
         selectinload(Meeting.participants),
         selectinload(Meeting.notes),
-        selectinload(Meeting.actions)
+        selectinload(Meeting.actions),
+        selectinload(Meeting.creator)
     ).filter(Meeting.is_active == True)
 
     if user_id and not is_admin:
@@ -149,7 +178,8 @@ def get_meeting_by_id(db: Session, meeting_id: UUID) -> Optional[Meeting]:
     return db.query(Meeting).options(
         selectinload(Meeting.participants),
         selectinload(Meeting.notes),
-        selectinload(Meeting.actions)
+        selectinload(Meeting.actions),
+        selectinload(Meeting.creator)
     ).filter(Meeting.id == meeting_id).first()
 
 def get_meeting_by_code(db: Session, code: str) -> Optional[Meeting]:
@@ -157,7 +187,8 @@ def get_meeting_by_code(db: Session, code: str) -> Optional[Meeting]:
     return db.query(Meeting).options(
         selectinload(Meeting.participants),
         selectinload(Meeting.notes),
-        selectinload(Meeting.actions)
+        selectinload(Meeting.actions),
+        selectinload(Meeting.creator)
     ).filter(Meeting.meeting_code == code).first()
 
 def update_meeting_details(db: Session, meeting_id: UUID, update_data: MeetingUpdate) -> Optional[Meeting]:
@@ -165,11 +196,20 @@ def update_meeting_details(db: Session, meeting_id: UUID, update_data: MeetingUp
     db_meeting = get_meeting_by_id(db, meeting_id)
     if not db_meeting:
         return None
-    
+
+    from app.core.tz import to_tr_naive
+
     update_dict = update_data.model_dump(exclude_unset=True)
     for key, value in update_dict.items():
+        # BUG FIX: Toplantı saati artık düzenleme modalından da
+        # güncellenebiliyor (bkz. base.html editMeetingModal / meetings.js
+        # openEditModal+formEdit submit) — create_new_meeting'deki gibi TR
+        # saat dilimine normalize edilmeden direkt setattr edilirse
+        # create/update arasında tutarsız bir saat kaydı oluşurdu.
+        if key in ("scheduled_start", "scheduled_end") and value is not None:
+            value = to_tr_naive(value)
         setattr(db_meeting, key, value)
-        
+
     db.commit()
     db.refresh(db_meeting)
     return db_meeting

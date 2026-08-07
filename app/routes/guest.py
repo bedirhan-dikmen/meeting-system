@@ -16,6 +16,7 @@ from typing import Optional
 from app.core.database import SessionLocal
 from app.models.meeting import Meeting
 from app.core.config import settings
+from app.services.meetings import is_meeting_finished
 
 router = APIRouter(prefix="/guest", tags=["Misafir Erişimi"])
 
@@ -100,7 +101,10 @@ def get_public_meeting_info(meeting_code: str):
         meeting = db.query(Meeting).filter(Meeting.meeting_code == meeting_code, Meeting.is_active == True).first()
         if not meeting:
             raise HTTPException(status_code=404, detail="Toplantı bulunamadı veya artık aktif değil.")
-        if meeting.status == "tamamlandı":
+        # BUG FIX: Sadece "tamamlandı" 410 sayılıyordu, "iptal edildi" durumu
+        # bu kontrolden kaçıyordu — is_meeting_finished ile tüm bitmiş/iptal
+        # durumları tutarlı şekilde kapsanıyor (bkz. services/meetings.py).
+        if is_meeting_finished(meeting):
             raise HTTPException(status_code=410, detail="Bu toplantı sona erdi.")
         return MeetingPublicInfo(
             title=meeting.title,
@@ -131,7 +135,7 @@ def create_guest_token(payload: GuestTokenRequest):
 
         if not meeting:
             raise HTTPException(status_code=404, detail="Toplantı bulunamadı.")
-        if meeting.status == "tamamlandı":
+        if is_meeting_finished(meeting):
             raise HTTPException(status_code=410, detail="Bu toplantı sona erdi.")
 
         # Şifre kontrolü

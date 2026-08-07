@@ -83,6 +83,17 @@ const EventSync = {
     if (eventType === 'MEETING_CREATED' && typeof Notifications !== 'undefined') {
       Notifications.show(`" ${data.title || 'Yeni Toplantı'} " takvime eklendi.`, 'info', 'Yeni Toplantı');
     }
+
+    // BUG FIX: Bir toplantı oluşturulup davet gönderildiğinde (bu, backend'de
+    // aynı anda davet edilen kullanıcılar için bir Notification satırı da
+    // oluşturuyor — bkz. services/meetings.py create_new_meeting) ekranın
+    // altında toast görünüyordu ama navbar'daki bildirim zili (rozet sayısı +
+    // açılır liste) hiç yenilenmiyordu, kullanıcı sayfayı yenileyene kadar
+    // eski/güncelsiz kalıyordu. Artık aynı olay grubunda bildirim zili de
+    // sessizce (toast göstermeden) API'den yeniden çekilip güncelleniyor.
+    if (['MEETING_CREATED', 'MEETING_UPDATED', 'MEETING_CANCELLED', 'MEETING_DELETED'].includes(eventType) && typeof Notifications !== 'undefined' && Notifications.fetchNotifications) {
+      Notifications.fetchNotifications();
+    }
   },
 
   scheduleReconnect() {

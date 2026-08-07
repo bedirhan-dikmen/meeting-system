@@ -63,21 +63,21 @@ const Report = {
     if (elNotesCount) elNotesCount.textContent = `${r.total_notes_count || 0} Not`;
 
     // --- YETKİ VE BUTON AYRIMI (Misafir vs Şirket Kullanıcısı) ---
+    // BUG FIX: "Toplantılara Dön" butonu kaldırıldı (bkz. report.html) — rapor
+    // artık kendi ayrı sekmesinde açılıyor, dashboard'a dönen bir link burada
+    // gerekmiyor. btnGuestLogout ayrımı aynen korunuyor.
     const guestToken = sessionStorage.getItem('guest_token');
     const isGuest = Boolean(guestToken) || !Auth.getToken();
 
-    const btnBack = document.getElementById('btnBackToMeetings');
     const btnGuestExit = document.getElementById('btnGuestLogout');
 
     if (isGuest) {
-      if (btnBack) btnBack.style.display = 'none';
       if (btnGuestExit) btnGuestExit.style.display = 'inline-flex';
 
       // Misafirin jetonunu bellekten sil — rapor yüklendikten sonra yetkisiz istek atamasın
       sessionStorage.removeItem('guest_token');
       localStorage.removeItem('guest_token');
     } else {
-      if (btnBack) btnBack.style.display = 'inline-flex';
       if (btnGuestExit) btnGuestExit.style.display = 'none';
     }
 
@@ -157,9 +157,11 @@ const Report = {
       if (generalNotes.length === 0) {
         genNotesContainer.innerHTML = `<div style="padding: 0.75rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; color: #64748b; font-size: 0.85rem;">Genel karar veya duyuru kaydedilmemiştir.</div>`;
       } else {
+        // BUG FIX: Mor renk (#4f46e5) ve renkli çerçeve kaldırıldı — resmi
+        // tutanak belgesinin genelindeki nötr/koyu lacivert paletiyle tutarlı.
         genNotesContainer.innerHTML = generalNotes.map(n => `
-          <div style="background: #ffffff; border: 1px solid #c7d2fe; padding: 0.85rem 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div style="font-size: 0.78rem; font-weight: 700; color: #4f46e5; margin-bottom: 0.25rem;">
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; padding: 0.85rem 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="font-size: 0.78rem; font-weight: 700; color: #334155; margin-bottom: 0.25rem;">
               <i class="fas fa-bullhorn"></i> Yayınlayan: ${n.author_name} • ${this.parseDate(n.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
             </div>
             <div style="font-size: 0.9rem; color: #1e293b; line-height: 1.5; white-space: pre-wrap;">${n.content}</div>
@@ -169,20 +171,34 @@ const Report = {
     }
 
     if (persNotesContainer) {
+      const wrapper = document.getElementById('repPersonalNotesWrapper');
       if (isGuest) {
-        const wrapper = document.getElementById('repPersonalNotesWrapper');
         if (wrapper) wrapper.style.display = 'none';
-      } else if (personalNotes.length === 0) {
-        persNotesContainer.innerHTML = `<div style="padding: 0.75rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; color: #64748b; font-size: 0.85rem;">Bu toplantıda kaydettiğiniz kişisel özel notunuz bulunmuyor.</div>`;
       } else {
-        persNotesContainer.innerHTML = personalNotes.map(n => `
-          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 0.85rem 1rem; border-radius: 8px;">
-            <div style="font-size: 0.78rem; font-weight: 700; color: #059669; margin-bottom: 0.25rem;">
-              <i class="fas fa-lock"></i> Özel Notum • ${this.parseDate(n.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+        if (personalNotes.length === 0) {
+          persNotesContainer.innerHTML = `<div style="padding: 0.75rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; color: #64748b; font-size: 0.85rem;">Bu toplantıda kaydettiğiniz kişisel özel notunuz bulunmuyor.</div>`;
+        } else {
+          // BUG FIX: Yeşil renk (#059669/#f0fdf4/#bbf7d0/#14532d) kaldırıldı —
+          // genel notlarla aynı nötr/resmi paletle tutarlı.
+          persNotesContainer.innerHTML = personalNotes.map(n => `
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; padding: 0.85rem 1rem; border-radius: 8px;">
+              <div style="font-size: 0.78rem; font-weight: 700; color: #334155; margin-bottom: 0.25rem;">
+                <i class="fas fa-lock"></i> Özel Notum • ${this.parseDate(n.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+              <div style="font-size: 0.9rem; color: #1e293b; line-height: 1.5; white-space: pre-wrap;">${n.content}</div>
             </div>
-            <div style="font-size: 0.9rem; color: #14532d; line-height: 1.5; white-space: pre-wrap;">${n.content}</div>
-          </div>
-        `).join('');
+          `).join('');
+        }
+
+        // BUG FIX: Kişisel notlar varsayılan olarak yazdırma/PDF'e dahil
+        // edilmiyor — kullanıcı "Notlarımı Dahil Et" kutusunu işaretlerse
+        // dahil edilir (bkz. togglePersonalNotesInPrint, report.html
+        // #repIncludeNotesLabel).
+        if (wrapper) wrapper.classList.add('no-print');
+        const toggleLabel = document.getElementById('repIncludeNotesLabel');
+        const toggleInput = document.getElementById('repIncludePersonalNotesToggle');
+        if (toggleLabel) toggleLabel.style.display = 'inline-flex';
+        if (toggleInput) toggleInput.checked = false;
       }
     }
 
@@ -195,6 +211,16 @@ const Report = {
     } else {
       if (agendaSection) agendaSection.style.display = 'none';
     }
+  },
+
+  /** "Notlarımı Dahil Et" kutusu — işaretliyken kişisel notlar bölümü
+   * yazdırma/PDF çıktısına dahil edilir (no-print class'ı kaldırılır),
+   * işaretli değilken hariç tutulur (varsayılan). Ekrandaki görünürlüğü
+   * hiç etkilemez. */
+  togglePersonalNotesInPrint(include) {
+    const wrapper = document.getElementById('repPersonalNotesWrapper');
+    if (!wrapper) return;
+    wrapper.classList.toggle('no-print', !include);
   },
 
   guestExit() {
