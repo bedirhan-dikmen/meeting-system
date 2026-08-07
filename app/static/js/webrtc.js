@@ -197,6 +197,7 @@ const WebRTC = {
     this.startTimer();
     this.bindRoomControls();
     this._setupScreenShareAspectRatioSync();
+    this._setupDeviceChangeWatcher();
 
     // Pencere yeniden boyutlandırıldığında üst şeridin ortalı/sola-dayalı
     // taşma durumu (bkz. reflowTopCarouselBar) da yeniden değerlendirilsin.
@@ -1434,6 +1435,9 @@ const WebRTC = {
         const audioEl = document.getElementById(`remoteAudio_${remoteUserId}`);
         if (audioEl) {
           audioEl.srcObject = incomingStream;
+          if (this.selectedSpeakerId && typeof audioEl.setSinkId === 'function') {
+            audioEl.setSinkId(this.selectedSpeakerId).catch(() => { });
+          }
           audioEl.play().catch(e => console.warn('[WebRTC] Uzaktan ses oynatılamadı:', e));
         }
       }
@@ -1595,6 +1599,13 @@ const WebRTC = {
         }
         audioEl.volume = currentVol;
         audioEl.muted = isLocalMuted;
+        // BUG FIX: tile.innerHTML her yeniden çizimde bu <audio> elemanını
+        // SIFIRDAN üretiyor (bkz. yukarıdaki tile.innerHTML ataması) — daha
+        // önce switchAudioOutput ile seçilmiş hoparlör tercihi kaybolup sessizce
+        // varsayılan çıkışa dönüyordu. Burada her (yeniden) çizimde tekrar uygulanır.
+        if (this.selectedSpeakerId && typeof audioEl.setSinkId === 'function') {
+          audioEl.setSinkId(this.selectedSpeakerId).catch(() => { });
+        }
         audioEl.play().catch(e => console.warn(`[WebRTC] Uzaktan ses (${remoteUserId}) oynatılamadı:`, e));
       }
 
@@ -3353,12 +3364,127 @@ const WebRTC = {
           await el.setSinkId(deviceId);
         }
       }
+      // BUG FIX: Seçilen hoparlör eskiden hiçbir yerde hatırlanmıyordu — bir
+      // katılımcının kartı yeniden çizildiğinde (ör. mikrofon/kamera durumu
+      // değiştiğinde tile.innerHTML sıfırdan üretiliyor, bkz. renderRemoteTile)
+      // ya da toplantıya YENİ biri katıldığında, o kişinin sesi sessizce
+      // varsayılan çıkışa geri dönüyordu. Artık tercih burada saklanıp
+      // renderRemoteTile'da her yeni <audio> elemanına yeniden uygulanıyor.
+      this.selectedSpeakerId = deviceId;
+      sessionStorage.setItem('meeting_speaker_id', deviceId);
       if (typeof Notifications !== 'undefined') {
         Notifications.show("Hoparlör çıkışı değiştirildi.", "success", "Hoparlör");
       }
     } catch (e) {
       console.warn("Hoparlör değiştirilemedi:", e);
     }
+  },
+
+  // BUG FIX (Kablolu/USB kulaklık toplantı ORTASINDA takıldığında): Tarayıcı
+  // yeni bir ses cihazı takıldığında kendiliğinden geçiş YAPMAZ — mevcut
+  // mikrofon akışı, kullanıcı elle "Cihaz Ayarları" menüsünden yeni cihazı
+  // seçene kadar eski cihazda kalır (bu menüdeki switchAudioInput/Output zaten
+  // doğru çalışıyordu, sadece kullanıcıyı bundan HABERDAR eden bir mekanizma
+  // yoktu). Burada `devicechange` olayı dinlenip yeni beliren mikrofon/hoparlör
+  // için tek tıkla geçiş sunan bir bildirim gösteriliyor; ayrıca o an kullanılan
+  // mikrofon çıkarılırsa (fişi çekilirse) sessiz kalmamak için varsayılana
+  // otomatik düşülüyor.
+  _setupDeviceChangeWatcher() {
+    if (this._deviceChangeWatcherBound) return;
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== 'function') return;
+    this._deviceChangeWatcherBound = true;
+
+    const savedSpeakerId = sessionStorage.getItem('meeting_speaker_id');
+    if (savedSpeakerId) this.selectedSpeakerId = savedSpeakerId;
+
+    this._knownAudioInputIds = new Set();
+    this._knownAudioOutputIds = new Set();
+
+    const snapshotKnownDevices = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        this._knownAudioInputIds = new Set(devices.filter(d => d.kind === 'audioinput').map(d => d.deviceId));
+        this._knownAudioOutputIds = new Set(devices.filter(d => d.kind === 'audiooutput').map(d => d.deviceId));
+      } catch (e) { /* enumerateDevices başarısız olursa sessizce yut, bir sonraki eventte tekrar denenir */ }
+    };
+
+    // Katılınırken mevcut cihaz listesini "bilinen" olarak işaretle — sadece
+    // BUNDAN SONRA beliren cihazlar için bildirim gösterilecek.
+    snapshotKnownDevices();
+
+    navigator.mediaDevices.addEventListener('devicechange', async () => {
+      let devices;
+      try {
+        devices = await navigator.mediaDevices.enumerateDevices();
+      } catch (e) {
+        return;
+      }
+
+      const currentInputs = devices.filter(d => d.kind === 'audioinput');
+      const currentOutputs = devices.filter(d => d.kind === 'audiooutput');
+      const currentInputIds = new Set(currentInputs.map(d => d.deviceId));
+
+      const newInput = currentInputs.find(d => d.deviceId && !this._knownAudioInputIds.has(d.deviceId));
+      const newOutput = currentOutputs.find(d => d.deviceId && !this._knownAudioOutputIds.has(d.deviceId));
+
+      // Yeni takılan mikrofon: tek tıkla geçiş öner.
+      if (newInput && typeof Notifications !== 'undefined') {
+        const label = newInput.label || 'Yeni mikrofon';
+        Notifications.showAction(
+          `<strong style="color:#0f172a;">${label}</strong> takıldı. Toplantıda bu mikrofonu kullanmak ister misiniz?`,
+          'Bu Mikrofonu Kullan',
+          () => this.switchAudioInput(newInput.deviceId),
+          'success',
+          'Yeni Ses Cihazı Algılandı'
+        );
+      }
+
+      // Yeni beliren hoparlör/kulaklık çıkışı: tek tıkla geçiş öner.
+      if (newOutput && typeof Notifications !== 'undefined') {
+        const label = newOutput.label || 'Yeni hoparlör';
+        Notifications.showAction(
+          `<strong style="color:#0f172a;">${label}</strong> takıldı. Toplantı sesini bu cihazdan dinlemek ister misiniz?`,
+          'Bu Hoparlörü Kullan',
+          () => this.switchAudioOutput(newOutput.deviceId),
+          'success',
+          'Yeni Ses Cihazı Algılandı'
+        );
+      }
+
+      // Şu an aktif kullanılan mikrofon fişten çekildiyse (listeden kalktıysa)
+      // sessiz kalmamak için varsayılan mikrofona otomatik düş.
+      const activeAudioTrack = this.localStream?.getAudioTracks?.()[0];
+      const activeDeviceId = activeAudioTrack?.getSettings?.().deviceId;
+      if (activeDeviceId && !currentInputIds.has(activeDeviceId) && !this.isMicMuted) {
+        console.warn('[WebRTC] Aktif mikrofon cihazı kayboldu, varsayılana geçiliyor.');
+        sessionStorage.removeItem('meeting_mic_id');
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const fallbackTrack = fallbackStream.getAudioTracks()[0];
+          if (fallbackTrack) {
+            this.localStream.getAudioTracks().forEach(t => { this.localStream.removeTrack(t); t.stop(); });
+            this.localStream.addTrack(fallbackTrack);
+            fallbackTrack.enabled = true;
+            Object.values(this.peers).forEach(pc => {
+              const sender = pc.getSenders().find(s => s.track?.kind === 'audio' || s.kind === 'audio');
+              if (sender) sender.replaceTrack(fallbackTrack);
+            });
+            if (typeof Notifications !== 'undefined') {
+              Notifications.show('Mikrofonunuzun bağlantısı kesildi, varsayılan mikrofona geçildi.', 'warning', 'Mikrofon Değişti');
+            }
+          }
+        } catch (e) {
+          console.warn('Varsayılan mikrofona düşülemedi:', e);
+        }
+      }
+
+      this._knownAudioInputIds = new Set(currentInputs.map(d => d.deviceId));
+      this._knownAudioOutputIds = new Set(currentOutputs.map(d => d.deviceId));
+
+      if (typeof populateDevicePopovers === 'function') {
+        try { populateDevicePopovers(); } catch (e) { /* popover kapalıysa DOM elemanları yoktur, yut */ }
+      }
+    });
   },
 
   async toggleScreenShare() {
@@ -3733,6 +3859,18 @@ const WebRTC = {
       guest_id: guestId,
       approved: approved
     });
+  },
+
+  // BUG FIX: Alt bildirim çubuğundaki "Paylaşımı Durdur" overlay butonu
+  // (btnStopMyShareOverlay, bkz. room.html) `WebRTC.stopMyScreenShare()`
+  // çağırıyordu ama bu fonksiyon hiç tanımlı değildi — tıklandığında sessizce
+  // "is not a function" hatası veriyor, paylaşım hiç durmuyordu. Gerçek
+  // durdurma mantığı zaten stopScreenShare()'de var; bu sadece ona köprü
+  // kuruyor ve düğmenin yalnızca gerçek sunucu (aktif ekran paylaşımını
+  // yapan kişi) için işlem yapmasını garanti ediyor.
+  async stopMyScreenShare() {
+    if (String(this.screenSharePresenterId) !== String(this.currentUser?.id)) return;
+    await this.stopScreenShare();
   },
 
   async stopScreenShare() {
